@@ -186,7 +186,7 @@
   const tt = (k, i, vars) => { const v = t(k); const s = Array.isArray(v) ? v[i] : v; return vars ? Object.entries(vars).reduce((a, [x, y]) => a.replace(`{${x}}`, y), s) : s; };
 
   // ---------------------------------------------------------------- state
-  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["countries", "globe"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"]];
+  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["countries", "globe"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
   const store = { get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } } };
   const D = { tab: store.get("df_tab", "overview"), st: null, err: "", samples: [], lastT: 0, timer: null, ticks: 0, fw: null, talkers: [], events: [], root: null, heroKey: "" };
   if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
@@ -196,6 +196,8 @@
 
   // ---------------------------------------------------------------- shell
   async function build() {
+    D.tab = store.get("df_tab", D.tab);
+    if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
     try { D.st = await api("/api/defender/status"); D.err = ""; } catch (e) { D.st = null; D.err = e.message; }
     if (!D.st) {
       return `<div class="hero card warn df-hero"><div class="hero-icon">${icon("alert")}</div><div class="hero-text"><h2>${esc(t("df_missing_title"))}</h2>
@@ -756,13 +758,18 @@
   async function renderF2b() {
     D.f2b = await api("/api/defender/f2b");
     schedJob();
+    setTimeout(fillFiles, 0);
     return f2bHTML();
+  }
+  async function fillFiles() {
+    const box = D.root && D.root.querySelector("#df-f2b-files");
+    if (box && D.f2b && D.f2b.installed) box.innerHTML = await filesSection();
   }
   function schedJob() {
     clearTimeout(D.f2bJobT);
     if (D.f2b && D.f2b.job && D.f2b.job.running) D.f2bJobT = setTimeout(async () => { if (D.tab === "f2b") { D.f2b = await api("/api/defender/f2b").catch(() => D.f2b); paintF2b(); schedJob(); } }, 1500);
   }
-  const paintF2b = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "f2b") b.innerHTML = f2bHTML(); };
+  const paintF2b = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "f2b") { b.innerHTML = f2bHTML(); fillFiles(); } };
 
   function f2bHTML() {
     const f = D.f2b, job = f.job || {};
@@ -814,8 +821,9 @@
     const logSec = f.log ? `<section class="sec"><details class="df-logbox"><summary data-a="f2b-log-open"><b>${icon("file")}${esc(t("df_f2b_log"))}</b> <span class="muted">${esc(t("df_f2b_log_sub"))}</span></summary>
       <div class="row-actions" style="margin:10px 0"><button type="button" class="btn small" data-a="f2b-log">${icon("refresh")}<span>${esc(t("refresh"))}</span></button></div><pre class="logs df-joblog" id="df-f2b-log" dir="ltr">…</pre></details></section>` : "";
     return `${hero}${f.error ? `<div class="notice bad">${icon("alert")}<span>${esc(f.error)}</span></div>` : ""}${jobBox}
-      <section class="sec"><div class="sec-head"><h3>${icon("shield")}${esc(t("df_f2b_jails"))}</h3><p class="muted">${esc(t("df_f2b_jails_sub"))}</p></div><div class="f2b-grid">${cards}</div></section>
-      ${defaults}${logSec}`;
+      <section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("shield")}${esc(t("df_f2b_jails"))}</h3><p class="muted">${esc(t("df_f2b_jails_sub"))}</p></div>
+        <button type="button" class="btn small primary" data-a="f2b-jail-new" ${busy}>${icon("plus")}<span>${esc(t("df_j_new"))}</span></button></div><div class="f2b-grid">${cards}</div></section>
+      ${defaults}<div id="df-f2b-files"></div>${logSec}`;
   }
 
   function jailCard(name, j) {
@@ -831,6 +839,8 @@
         <p class="f2b-rule">${icon("sliders")}<span>${esc(rule)}</span></p>${src ? `<p class="f2b-src muted">${esc(t("df_f2b_source"))}: <span dir="ltr">${esc(src)}</span></p>` : ""}
         <footer><button type="button" class="btn small" data-a="f2b-jail-set" data-jail="${esc(name)}">${icon("gear")}<span>${esc(t("df_f2b_settings"))}</span></button>
           <button type="button" class="btn small" data-a="f2b-jail-bans" data-jail="${esc(name)}">${icon("ban")}<span>${esc(t("df_f2b_bans"))} (${num(j.banned)})</span></button></footer>` : ""}
+      <footer class="f2b-manage"><button type="button" class="btn small ghost" data-a="f2b-jail-edit" data-jail="${esc(name)}">${icon("sliders")}<span>${esc(t("df_j_edit"))}</span></button>
+        <button type="button" class="btn small ghost danger" data-a="f2b-jail-del" data-jail="${esc(name)}">${icon("trash")}<span>${esc(t("df_j_delete"))}</span></button></footer>
     </article>`;
   }
 
@@ -915,7 +925,212 @@
     if (await apply(null, "import", { data })) { D.fw = null; D.geo = null; rerender(); }
   }
 
-  const RENDER = { overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, countries: renderCountries, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
+  // ---------------------------------------------------------------- full control: jail editor, files, advanced
+  P.addStrings({
+    df_t_advanced: "Advanced",
+    df_j_edit: "Edit", df_j_delete: "Delete", df_j_new: "New jail", df_j_name: "Jail name", df_j_name_hint: "Letters, digits, - _ . (for example my-app).",
+    df_j_enabled: "Enabled", df_j_port: "Ports", df_j_port_hint: "ssh, http,https, 8080 or 1000:2000. Empty = the jail's default.", df_j_protocol: "Protocol",
+    df_j_filter: "Filter", df_j_filter_hint: "Which patterns count as a failure (files in filter.d).", df_j_logpath: "Log files", df_j_logpath_hint: "One path per line. Not needed with the systemd backend.",
+    df_j_backend: "How to read logs", df_j_banaction: "Ban action", df_j_banaction_hint: "How addresses are blocked (nftables, iptables-multiport, …).", df_j_action: "Actions (advanced)",
+    df_j_ignoreip: "Never ban (this jail)", df_j_increment: "Longer bans for repeat offenders", df_j_inherit: "Like the general settings", df_j_on: "On", df_j_off: "Off",
+    df_j_extra: "More settings", df_j_extra_hint: "Any other fail2ban option, one `key = value` per line.", df_j_from: "from {file}", df_j_defined: "Defined in: {files}",
+    df_j_delete_confirm: "Delete the jail {name}? Its section is removed from the files under /etc/fail2ban (a backup is kept in /etc/fail2ban/.panel-backup).",
+    df_j_deleted: "Jail deleted", df_j_stock_off: "This jail ships with fail2ban (jail.conf), so it was switched off and its overrides were removed.", df_j_saved: "Saved, checked and applied",
+    df_files: "Configuration files", df_files_sub: "Every fail2ban file, for anything the forms do not cover. Each save is checked with fail2ban-client -t; on an error the file goes back to how it was.",
+    df_file_new: "New file", df_file_path: "File", df_file_path_hint: "jail.d/name.local, filter.d/name.conf, action.d/name.conf, jail.local …", df_file_size: "Size", df_file_mtime: "Changed",
+    df_file_panel: "Written by the panel: changes here are replaced the next time a form is saved.", df_file_deleted: "File deleted", df_file_delete_confirm: "Delete {path}? A backup is kept in /etc/fail2ban/.panel-backup.",
+    df_file_bad: "Use a path like jail.d/name.local or filter.d/name.conf",
+    df_adv_title: "Advanced settings", df_adv_sub: "Everything the other tabs keep fixed. Changes are tested like any other rule change.",
+    df_adv_panel: "Who can open the panel", df_adv_panel_sub: "Only these addresses reach the panel port; everyone else gets no answer. Logged-in SSH users and the allowlist always can. Empty = everyone.",
+    df_adv_my_ip: "Add my address ({ip})", df_adv_safety: "Safety", df_adv_rollback: "Test time before changes are kept", df_adv_rollback_off: "Off (apply at once)",
+    df_adv_lock: "Keep SSH and panel ports always open", df_adv_lock_sub: "Off: they follow strict mode like any other port. A mistake can lock you out.",
+    df_adv_docker: "Never filter Docker traffic", df_adv_docker_sub: "Off: traffic from containers is filtered like any other.", df_adv_logged: "Trust addresses that logged in over SSH", df_adv_logged_sub: "Off: they are limited like anyone else.",
+    df_adv_detect: "Attack detection", df_adv_detect_sub: "An attack starts when one of these is passed for 3 seconds, and ends after the calm time.",
+    df_adv_drops: "Blocked packets per second", df_adv_cookies: "SYN cookies per second", df_adv_pps: "Incoming packets per second", df_adv_ct: "Connection table full (%)", df_adv_calm: "Calm time (seconds)",
+    df_adv_deesc: "Back to normal limits after (minutes)", df_adv_bans: "Bans", df_adv_factor: "Ban a source going this many times over a limit (0 = never ban)",
+    df_adv_ssh_rate: "New SSH connections per minute before a ban (0 = no limit)", df_adv_ssh_ban: "SSH ban time (minutes)",
+    df_adv_custom: "Custom nftables rules", df_adv_custom_sub: "Statements for new connections, one per line, run before the strict-mode and flood rules. For example: tcp dport 9000 ip saddr 203.0.113.0/24 accept",
+    df_adv_sysctl: "Custom kernel settings", df_adv_sysctl_sub: "Any net.*, kernel.*, vm.* or fs.* setting. Applied now and after every reboot; removing one restores the original value.",
+    df_adv_key: "Setting", df_adv_value: "Value", df_adv_set: "Set",
+  }, {
+    df_t_advanced: "پیشرفته",
+    df_j_edit: "ویرایش", df_j_delete: "حذف", df_j_new: "جیل جدید", df_j_name: "نام جیل", df_j_name_hint: "حروف، عدد، - _ . (مثلاً my-app).",
+    df_j_enabled: "فعال", df_j_port: "پورت‌ها", df_j_port_hint: "ssh، http,https، 8080 یا 1000:2000. خالی = پیش‌فرض جیل.", df_j_protocol: "پروتکل",
+    df_j_filter: "فیلتر", df_j_filter_hint: "چه الگوهایی خطا حساب شوند (فایل‌های filter.d).", df_j_logpath: "فایل‌های لاگ", df_j_logpath_hint: "هر خط یک مسیر. با backend سیستم‌دی لازم نیست.",
+    df_j_backend: "روش خواندن لاگ", df_j_banaction: "روش مسدودی", df_j_banaction_hint: "آدرس‌ها چطور بسته شوند (nftables، iptables-multiport، …).", df_j_action: "اکشن‌ها (پیشرفته)",
+    df_j_ignoreip: "هرگز مسدود نشوند (این جیل)", df_j_increment: "مسدودی طولانی‌تر برای تکرار", df_j_inherit: "مثل تنظیمات کلی", df_j_on: "روشن", df_j_off: "خاموش",
+    df_j_extra: "تنظیمات بیشتر", df_j_extra_hint: "هر گزینه‌ی دیگر fail2ban، هر خط یک `key = value`.", df_j_from: "از {file}", df_j_defined: "تعریف‌شده در: {files}",
+    df_j_delete_confirm: "جیل {name} حذف شود؟ بخش آن از فایل‌های /etc/fail2ban پاک می‌شود (یک پشتیبان در /etc/fail2ban/.panel-backup می‌ماند).",
+    df_j_deleted: "جیل حذف شد", df_j_stock_off: "این جیل همراه خود fail2ban است (jail.conf)، پس خاموش شد و تنظیمات اضافه‌اش پاک شد.", df_j_saved: "ذخیره، بررسی و اعمال شد",
+    df_files: "فایل‌های تنظیمات", df_files_sub: "همه‌ی فایل‌های fail2ban، برای هر چیزی که فرم‌ها پوشش نمی‌دهند. هر ذخیره با fail2ban-client -t بررسی می‌شود و اگر خطا داشت فایل به حالت قبل برمی‌گردد.",
+    df_file_new: "فایل جدید", df_file_path: "فایل", df_file_path_hint: "jail.d/name.local، filter.d/name.conf، action.d/name.conf، jail.local …", df_file_size: "حجم", df_file_mtime: "تغییر",
+    df_file_panel: "این فایل را پنل می‌نویسد: تغییرات اینجا دفعه‌ی بعدی که فرمی ذخیره شود جایگزین می‌شود.", df_file_deleted: "فایل حذف شد", df_file_delete_confirm: "{path} حذف شود؟ یک پشتیبان در /etc/fail2ban/.panel-backup می‌ماند.",
+    df_file_bad: "مسیری مثل jail.d/name.local یا filter.d/name.conf بنویسید",
+    df_adv_title: "تنظیمات پیشرفته", df_adv_sub: "هر چیزی که تب‌های دیگر ثابت نگه می‌دارند. تغییرات مثل هر تغییر قانون دیگری آزمایش می‌شوند.",
+    df_adv_panel: "چه کسی پنل را باز کند", df_adv_panel_sub: "فقط این آدرس‌ها به پورت پنل می‌رسند؛ بقیه هیچ جوابی نمی‌گیرند. کاربرهای واردشده با SSH و لیست سفید همیشه می‌توانند. خالی = همه.",
+    df_adv_my_ip: "افزودن آدرس من ({ip})", df_adv_safety: "ایمنی", df_adv_rollback: "مدت آزمایش قبل از ماندن تغییرات", df_adv_rollback_off: "خاموش (فوری اعمال شود)",
+    df_adv_lock: "پورت SSH و پنل همیشه باز بماند", df_adv_lock_sub: "خاموش: مثل بقیه‌ی پورت‌ها از حالت سخت‌گیر پیروی می‌کنند. یک اشتباه می‌تواند دسترسی شما را قطع کند.",
+    df_adv_docker: "ترافیک داکر هرگز فیلتر نشود", df_adv_docker_sub: "خاموش: ترافیک کانتینرها مثل بقیه فیلتر می‌شود.", df_adv_logged: "اعتماد به آدرس‌هایی که با SSH وارد شده‌اند", df_adv_logged_sub: "خاموش: مثل بقیه محدود می‌شوند.",
+    df_adv_detect: "تشخیص حمله", df_adv_detect_sub: "وقتی یکی از این‌ها ۳ ثانیه رد شود حمله شروع می‌شود و بعد از زمان آرامش تمام می‌شود.",
+    df_adv_drops: "بسته‌ی مسدود در ثانیه", df_adv_cookies: "SYN cookie در ثانیه", df_adv_pps: "بسته‌ی ورودی در ثانیه", df_adv_ct: "پر شدن جدول اتصال (درصد)", df_adv_calm: "زمان آرامش (ثانیه)",
+    df_adv_deesc: "بازگشت به محدودیت عادی بعد از (دقیقه)", df_adv_bans: "مسدودی‌ها", df_adv_factor: "منبعی که چند برابر حد برود مسدود شود (۰ = هرگز مسدود نکن)",
+    df_adv_ssh_rate: "اتصال جدید SSH در دقیقه قبل از مسدودی (۰ = بدون محدودیت)", df_adv_ssh_ban: "مدت مسدودی SSH (دقیقه)",
+    df_adv_custom: "قوانین دلخواه nftables", df_adv_custom_sub: "دستورهایی برای اتصال‌های جدید، هر خط یکی، قبل از قوانین حالت سخت‌گیر و فلاد. مثال: tcp dport 9000 ip saddr 203.0.113.0/24 accept",
+    df_adv_sysctl: "تنظیمات دلخواه کرنل", df_adv_sysctl_sub: "هر تنظیم net.*، kernel.*، vm.* یا fs.*. همین الان و بعد از هر ری‌بوت اعمال می‌شود؛ حذفش مقدار اصلی را برمی‌گرداند.",
+    df_adv_key: "تنظیم", df_adv_value: "مقدار", df_adv_set: "اعمال",
+  });
+
+  // ---- jail editor
+  const BACKENDS = ["auto", "systemd", "polling", "pyinotify"];
+  const BANACTIONS = ["nftables", "nftables[type=allports]", "nftables-multiport", "iptables-multiport", "iptables-allports", "ufw", "route"];
+  async function jailEditor(name, create = false) {
+    const d = create ? { values: {}, base: {}, panel: {}, sources: {}, defined: [], filters: (await api("/api/defender/f2b/jail", { jail: "sshd" }).catch(() => ({ filters: [] }))).filters }
+      : await api("/api/defender/f2b/jail", { jail: name });
+    const live = ((D.f2b && D.f2b.jails) || []).find((j) => j.name === name) || {};   // what the running jail really uses
+    const cur = (k) => { const p = d.panel || {}; const v = p[k] !== undefined ? p[k] : d.values[k] !== undefined ? d.values[k] : ["maxretry", "findtime", "bantime"].includes(k) ? live[k] : undefined; return v === true ? "true" : v === false ? "false" : v ?? ""; };
+    const inp = (k, label, hint = "", attrs = "") => field(label, `<input name="${k}" dir="ltr" value="${esc(cur(k))}" autocomplete="off" ${attrs}>`, hint) ;
+    const area = (k, label, hint = "", rows = 3) => field(label, `<textarea name="${k}" dir="ltr" rows="${rows}" spellcheck="false">${esc(cur(k).replace(/\n\s+/g, "\n"))}</textarea>`, hint);
+    const sel = (k, label, opts) => { const v = cur(k); const has = !v || opts.includes(v); return field(label, `<select name="${k}"><option value="">${esc(t("df_j_inherit"))}</option>${has ? "" : `<option selected value="${esc(v)}">${esc(v)}</option>`}${opts.map((o) => `<option value="${esc(o)}" ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`); };
+    const enabled = create ? true : String(cur("enabled")).toLowerCase() === "true";
+    const extra = (d.panel || {}).extra || "";
+    openDialog({
+      title: create ? t("df_j_new") : `${jailTitle(name)} · ${t("df_j_edit")}`, submit: t("df_save"), wide: true,
+      body: `${create ? field(t("df_j_name"), '<input name="name" dir="ltr" required pattern="[A-Za-z0-9_.\\-]{1,40}" autocomplete="off">', t("df_j_name_hint"))
+        : `<p class="muted">${esc(t("df_j_defined", { files: (d.defined || []).join("، ") || "—" }))}</p>`}
+        <label class="df-switch"><span class="switch"><input type="checkbox" name="enabled" ${enabled ? "checked" : ""}><span></span></span><span><b>${esc(t("df_j_enabled"))}</b></span></label>
+        <div class="field-row">${field(t("df_j_filter"), `<input name="filter" dir="ltr" list="df-filters" value="${esc(cur("filter"))}" autocomplete="off" ${create ? "required" : ""}><datalist id="df-filters">${(d.filters || []).map((f) => `<option value="${esc(f)}">`).join("")}</datalist>`, t("df_j_filter_hint"))}
+          ${sel("backend", t("df_j_backend"), BACKENDS)}</div>
+        ${area("logpath", t("df_j_logpath"), t("df_j_logpath_hint"), 2)}
+        <div class="field-row">${inp("port", t("df_j_port"), t("df_j_port_hint"))}${sel("protocol", t("df_j_protocol"), ["tcp", "udp", "all"])}</div>
+        <div class="field-row">${inp("maxretry", t("df_f2b_tries"), "", 'inputmode="numeric"')}${inp("findtime", t("df_f2b_window"), "10m, 1h, 1d")}</div>
+        <div class="field-row">${inp("bantime", t("df_f2b_bantime"), "10m, 1h, 1d, 1w, -1")}${field(t("df_j_increment"), `<select name="bantime.increment"><option value="">${esc(t("df_j_inherit"))}</option><option value="true" ${cur("bantime.increment") === "true" ? "selected" : ""}>${esc(t("df_j_on"))}</option><option value="false" ${cur("bantime.increment") === "false" ? "selected" : ""}>${esc(t("df_j_off"))}</option></select>`)}</div>
+        ${field(t("df_j_banaction"), `<input name="banaction" dir="ltr" list="df-banactions" value="${esc(cur("banaction"))}" autocomplete="off"><datalist id="df-banactions">${BANACTIONS.map((b) => `<option value="${esc(b)}">`).join("")}</datalist>`, t("df_j_banaction_hint"))}
+        ${area("ignoreip", t("df_j_ignoreip"), t("df_f2b_ignore_sub"), 2)}
+        <details class="df-adv"><summary>${esc(t("df_j_extra"))}</summary>${area("action", t("df_j_action"), "", 3)}
+          ${field(t("df_j_extra"), `<textarea name="extra" dir="ltr" rows="4" spellcheck="false" placeholder="usedns = no&#10;bantime.factor = 2">${esc(extra)}</textarea>`, t("df_j_extra_hint"))}</details>`,
+      onSubmit: async (form) => {
+        const el = form.elements, base = d.base || {};
+        const body = { name: create ? el.name.value.trim() : name, replace: true };
+        if (create) body.create = true;
+        const baseEnabled = String(base.enabled ?? "false").toLowerCase() === "true";
+        if (create || el.enabled.checked !== baseEnabled) body.enabled = el.enabled.checked;
+        for (const k of ["filter", "backend", "logpath", "port", "protocol", "maxretry", "findtime", "bantime", "bantime.increment", "banaction", "ignoreip", "action"]) {
+          const v = (el[k].value || "").trim();
+          const b = String(base[k] ?? "").replace(/\n\s+/g, "\n").trim();
+          if (v && v !== b) body[k] = v;
+        }
+        if (el.extra.value.trim()) body.extra = el.extra.value;
+        D.f2b = await post("/api/defender/f2b/jail", body);
+        toast(t("df_j_saved"));
+        paintF2b();
+      },
+    });
+  }
+
+  async function deleteJail(name, btn) {
+    if (!(await confirmBox({ message: t("df_j_delete_confirm", { name }), label: t("df_j_delete") }))) return;
+    const r = await act(btn, () => post("/api/defender/f2b/jail/delete", { name }));
+    if (!r) return;
+    D.f2b = r;
+    toast(r.disabled_only ? t("df_j_stock_off") : t("df_j_deleted"), r.disabled_only ? "warn" : "");
+    paintF2b();
+  }
+
+  // ---- file editor
+  const FILE_RE = /^(jail\.local|jail\.conf|fail2ban\.local|fail2ban\.conf|paths-[a-z]+\.conf|(jail\.d|filter\.d|action\.d|fail2ban\.d)\/[A-Za-z0-9_.\-]{1,80}\.(conf|local))$/;
+  async function filesSection() {
+    const r = await api("/api/defender/f2b/files").catch(() => ({ rows: [] }));
+    const rows = table([
+      { h: "df_file_path", cls: "strong", cell: (f) => `<code dir="ltr">${esc(f.path)}</code>${f.panel ? '<span class="tag">panel</span>' : ""}` },
+      { h: "df_file_size", cell: (f) => num(esc(fmtBytes(f.size))) },
+      { h: "df_file_mtime", cell: (f) => esc(ago(f.mtime)) },
+      { h: "actions", cell: (f) => `<button type="button" class="btn small" data-a="f2b-file" data-path="${esc(f.path)}">${icon("file")}<span>${esc(t("df_j_edit"))}</span></button>` },
+    ], r.rows);
+    return `<section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("file")}${esc(t("df_files"))}</h3><p class="muted">${esc(t("df_files_sub"))}</p></div>
+      <button type="button" class="btn small" data-a="f2b-file-new">${icon("plus")}<span>${esc(t("df_file_new"))}</span></button></div>
+      <details class="df-adv"><summary>${esc(t("df_files"))} (${num(r.rows.length)})</summary>${rows}</details></section>`;
+  }
+  async function fileEditor(path, isNew = false) {
+    const f = isNew ? { path, text: "", exists: false } : await api("/api/defender/f2b/file", { path });
+    const dlg = openDialog({
+      title: path, submit: t("df_save"), wide: true,
+      body: `${f.path.endsWith("zzz-panel.local") ? `<div class="notice warn">${icon("alert")}<span>${esc(t("df_file_panel"))}</span></div>` : ""}
+        <textarea name="text" class="df-code" dir="ltr" spellcheck="false" rows="22">${esc(f.text)}</textarea>
+        ${f.exists && !/^(jail|fail2ban)\.conf$/.test(f.path) ? `<p><button type="button" class="btn small danger" data-del>${icon("trash")}<span>${esc(t("df_j_delete"))}</span></button></p>` : ""}`,
+      onSubmit: async (form) => {
+        await post("/api/defender/f2b/file", { path, text: form.elements.text.value });
+        toast(t("df_j_saved"));
+        if (D.tab === "f2b") showTab("f2b");
+      },
+    });
+    const del = dlg.querySelector("[data-del]");
+    if (del) del.addEventListener("click", async () => {
+      if (!(await confirmBox({ message: t("df_file_delete_confirm", { path }), label: t("df_j_delete") }))) return;
+      if (await act(del, () => post("/api/defender/f2b/file/delete", { path }), t("df_file_deleted"))) { dlg.close(); if (D.tab === "f2b") showTab("f2b"); }
+    });
+  }
+  function newFileDialog() {
+    openDialog({
+      title: t("df_file_new"), submit: t("df_j_edit"),
+      body: field(t("df_file_path"), '<input name="path" dir="ltr" required placeholder="jail.d/my-app.local" autocomplete="off">', t("df_file_path_hint")),
+      onSubmit: async (form) => {
+        const p = form.elements.path.value.trim().replace(/^\/?etc\/fail2ban\//, "");
+        if (!FILE_RE.test(p)) throw new Error(t("df_file_bad"));
+        setTimeout(() => fileEditor(p, true), 50);
+      },
+    });
+  }
+
+  // ---- advanced tab
+  async function renderAdvanced() {
+    const [sec, au] = await Promise.all([api("/api/security").catch(() => ({ ip: "" })), api("/api/defender/audit").catch(() => ({ sysctl_custom: {} }))]);
+    D.myIp = sec.ip;
+    if (!D.adv) D.adv = JSON.parse(JSON.stringify(D.st.config.advanced));
+    D.sysCustom = au.sysctl_custom || {};
+    return advancedHTML();
+  }
+  function advancedHTML() {
+    const a = D.adv, c = D.st.config;
+    const num_ = (k, label, min = 0) => field(label, `<input type="number" name="${k}" min="${min}" value="${esc(a[k])}" dir="ltr" required>`);
+    const sw = (name, on, label, sub) => `<label class="df-switch"><span class="switch"><input type="checkbox" name="${name}" ${on ? "checked" : ""}><span></span></span><span><b>${esc(label)}</b><small>${esc(sub)}</small></span></label>`;
+    const chips = a.panel_allow.map((ip, i) => `<span class="chip">${num(esc(ip))}<button type="button" class="chip-x" data-a="adv-pa-del" data-i="${i}" aria-label="${esc(t("df_remove"))} ${esc(ip)}">${icon("x")}</button></span>`).join("");
+    const sysRows = Object.entries(D.sysCustom).map(([k, v]) => `<span class="chip"><code dir="ltr">${esc(k)} = ${esc(v)}</code><button type="button" class="chip-x" data-a="adv-sys-del" data-key="${esc(k)}" aria-label="${esc(t("df_remove"))} ${esc(k)}">${icon("x")}</button></span>`).join("");
+    const rb = [0, 30, 60, 120, 300, 600];
+    return `<section class="sec"><div class="sec-head"><h3>${icon("sliders")}${esc(t("df_adv_title"))}</h3><p class="muted">${esc(t("df_adv_sub"))}</p></div></section>
+      <form data-f="adv" class="df-body">
+      <section class="sec"><div class="sec-head"><h3>${icon("lock")}${esc(t("df_adv_panel"))}</h3><p class="muted">${esc(t("df_adv_panel_sub"))}</p></div>
+        <div class="chips">${chips}</div>
+        <div class="inline-field df-inline"><input name="pa_new" dir="ltr" placeholder="203.0.113.7 / 203.0.113.0/24" autocomplete="off" aria-label="${esc(t("df_adv_panel"))}"><button type="button" class="btn small" data-a="adv-pa-add">${icon("plus")}<span>${esc(t("add"))}</span></button>
+        ${D.myIp ? `<button type="button" class="btn small" data-a="adv-pa-me">${icon("check")}<span>${esc(t("df_adv_my_ip", { ip: D.myIp }))}</span></button>` : ""}</div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("shield")}${esc(t("df_adv_safety"))}</h3></div><div class="subcard">
+        ${field(t("df_adv_rollback"), `<select name="rollback_seconds">${rb.map((s) => `<option value="${s}" ${+a.rollback_seconds === s ? "selected" : ""}>${s ? `${s} s` : esc(t("df_adv_rollback_off"))}</option>`).join("")}</select>`)}
+        ${sw("lock_ports", a.lock_ports, t("df_adv_lock"), t("df_adv_lock_sub"))}${sw("trust_docker", a.trust_docker, t("df_adv_docker"), t("df_adv_docker_sub"))}
+        ${sw("trust_logged_in", a._logged ?? c.trust_logged_in !== false, t("df_adv_logged"), t("df_adv_logged_sub"))}${sw("trust_cdn", a._cdn ?? c.trust_cdn !== false, t("df_cdn"), t("df_cdn_sub"))}</div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("flame")}${esc(t("df_adv_detect"))}</h3><p class="muted">${esc(t("df_adv_detect_sub"))}</p></div>
+        <div class="subcard"><div class="df-form-grid">${num_("detect_drops", t("df_adv_drops"), 1)}${num_("detect_cookies", t("df_adv_cookies"), 1)}${num_("detect_pps", t("df_adv_pps"), 1)}${num_("detect_conntrack", t("df_adv_ct"), 1)}${num_("calm_seconds", t("df_adv_calm"), 5)}${num_("deescalate_minutes", t("df_adv_deesc"))}</div></div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("ban")}${esc(t("df_adv_bans"))}</h3></div>
+        <div class="subcard"><div class="df-form-grid">${num_("autoban_factor", t("df_adv_factor"))}${num_("ssh_rate", t("df_adv_ssh_rate"))}${num_("ssh_ban_minutes", t("df_adv_ssh_ban"), 1)}</div></div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("terminal")}${esc(t("df_adv_custom"))}</h3><p class="muted">${esc(t("df_adv_custom_sub"))}</p></div>
+        <textarea name="custom_rules" class="df-code" dir="ltr" rows="7" spellcheck="false" placeholder="tcp dport 9000 ip saddr 203.0.113.0/24 accept&#10;udp dport 27015 limit rate over 200/second drop">${esc(a.custom_rules)}</textarea></section>
+      <div class="df-actions dirty"><span class="muted"></span><button type="button" class="btn" data-a="rules">${icon("eye")}<span>${esc(t("df_review"))}</span></button>
+        <button type="submit" class="btn primary">${icon("check")}<span>${esc(t("df_apply"))}</span></button></div></form>
+      <section class="sec"><div class="sec-head"><h3>${icon("gear")}${esc(t("df_adv_sysctl"))}</h3><p class="muted">${esc(t("df_adv_sysctl_sub"))}</p></div>
+        <div class="chips">${sysRows}</div>
+        <form class="inline-field df-inline" data-f="adv-sys"><input name="key" dir="ltr" placeholder="net.core.somaxconn" required autocomplete="off" aria-label="${esc(t("df_adv_key"))}"><input name="value" dir="ltr" placeholder="65535" required autocomplete="off" aria-label="${esc(t("df_adv_value"))}"><button type="submit" class="btn small">${esc(t("df_adv_set"))}</button></form></section>`;
+  }
+  const repaintAdv = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "advanced") b.innerHTML = advancedHTML(); };
+  function advFormToDraft(form) {
+    if (!form) return;
+    const el = form.elements;
+    for (const k of ["rollback_seconds", "detect_drops", "detect_cookies", "detect_pps", "detect_conntrack", "calm_seconds", "deescalate_minutes", "autoban_factor", "ssh_rate", "ssh_ban_minutes"]) D.adv[k] = +el[k].value;
+    D.adv.lock_ports = el.lock_ports.checked;
+    D.adv.trust_docker = el.trust_docker.checked;
+    D.adv.custom_rules = el.custom_rules.value;
+    D.adv._logged = el.trust_logged_in.checked;
+    D.adv._cdn = el.trust_cdn.checked;
+  }
+
+  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, countries: renderCountries, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
   const rerender = () => showTab(D.tab);
 
   // ---------------------------------------------------------------- events
@@ -982,6 +1197,26 @@
       return;
     }
     if (a === "f2b-jail-set") return jailSettingsDialog(b.dataset.jail);
+    if (a === "f2b-jail-edit") return jailEditor(b.dataset.jail).catch((x) => toast(x.message, "bad"));
+    if (a === "f2b-jail-new") return jailEditor("", true).catch((x) => toast(x.message, "bad"));
+    if (a === "f2b-jail-del") return deleteJail(b.dataset.jail, b);
+    if (a === "f2b-file") return fileEditor(b.dataset.path).catch((x) => toast(x.message, "bad"));
+    if (a === "f2b-file-new") return newFileDialog();
+    if (a === "adv-pa-del" || a === "adv-pa-add" || a === "adv-pa-me") {
+      const form = D.root.querySelector('form[data-f="adv"]');
+      advFormToDraft(form);
+      if (a === "adv-pa-del") D.adv.panel_allow.splice(+b.dataset.i, 1);
+      else {
+        const v = a === "adv-pa-me" ? D.myIp : form.elements.pa_new.value.trim();
+        if (v && !D.adv.panel_allow.includes(v)) D.adv.panel_allow.push(v);
+      }
+      return repaintAdv();
+    }
+    if (a === "adv-sys-del") {
+      const r = await act(b, () => post("/api/defender/sysctl", { action: "custom_del", key: b.dataset.key }), t("saved"));
+      if (r) { D.sysCustom = r.custom || {}; advFormToDraft(D.root.querySelector('form[data-f="adv"]')); repaintAdv(); }
+      return;
+    }
     if (a === "f2b-jail-bans") return jailBansDialog(b.dataset.jail);
     if (a === "f2b-unban") { if (await act(b, () => post("/api/defender/f2b/unban", { ip: b.dataset.ip, jail: b.dataset.jail }), `${b.dataset.ip} ✓`)) rerender(); return; }
     if (a === "f2b-ign-del") { D.f2bIgnore.splice(+b.dataset.i, 1); return paintF2b(); }
@@ -1021,7 +1256,7 @@
     }
     if (el.matches("[data-import]")) { const f = el.files[0]; el.value = ""; if (f) importBackup(f); return; }
     const form = e.target.closest("form[data-f]");
-    if (!form || e.target.type !== "checkbox") return;
+    if (!form || e.target.type !== "checkbox" || form.dataset.f === "adv") return;
     const f = form.dataset.f, on = e.target.checked, name = e.target.name;
     if (f === "esc") { if (!(await apply(e.target, "config", { auto_escalate: on, _rollback: false }, t("saved")))) e.target.checked = !on; }
     if (f === "cdn") { if (!(await apply(e.target, "config", { trust_cdn: on, _what: "cdn" }, t("df_kept")))) e.target.checked = !on; }
@@ -1047,6 +1282,17 @@
     if (f === "ssh") {
       const g = { enabled: el.enabled.checked, l4: el.l4.checked, exempt_private: el.exempt_private.checked, failures: +el.failures.value, window: +el.window.value, ban: +el.ban.value };
       if (await apply(btn, "config", { ssh_guard: g, _what: "ssh guard" }, t("saved"))) rerender();
+      return;
+    }
+    if (f === "adv") {
+      advFormToDraft(form);
+      const { _logged, _cdn, ...advanced } = D.adv;
+      if (await apply(btn, "config", { advanced, trust_logged_in: _logged, trust_cdn: _cdn, _what: "advanced" })) { D.adv = null; rerender(); }
+      return;
+    }
+    if (f === "adv-sys") {
+      const r = await act(btn, () => post("/api/defender/sysctl", { action: "custom_set", key: el.key.value.trim(), value: el.value.value.trim() }), t("saved"));
+      if (r) { D.sysCustom = r.custom || {}; advFormToDraft(D.root.querySelector('form[data-f="adv"]')); repaintAdv(); }
       return;
     }
     if (f === "f2b-defaults") {

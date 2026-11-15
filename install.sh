@@ -570,8 +570,9 @@ ssh root@SERVER 'bash install.sh'
 | 🌍 | **کشورها** | مسدود کردن کشورها با جستجو (نام فارسی و انگلیسی)؛ لیست آی‌پی هر کشور از ipdeny.com، با بروزرسانی هفتگی. ادمین‌ها، لیست سفید و Cloudflare مسدود نمی‌شوند |
 | 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول همه‌ی مسدودها (فلاد، محافظ SSH، دستی و fail2ban با نام جیل) و رفع مسدودی از همان‌جا |
 | 🔑 | **محافظ SSH** | خواندن لاگ ورود و مسدود کردن آی‌پی‌هایی که مدام رمز اشتباه می‌زنند، به‌علاوه‌ی محدودیت اتصال جدید به SSH |
-| 🚔 | **fail2ban** | نصب و حذف با یک کلیک، شروع/توقف/ری‌استارت و اجرا هنگام بوت؛ هر جیل یک کارت با کلید روشن/خاموش، آمار مسدودها و تنظیمات ساده («۳ خطا در ۳۰ دقیقه ← ۱ ساعت مسدودی»)؛ محافظت‌های آماده (Nginx، Apache، ایمیل، FTP، MySQL، متخلفان تکراری) فقط وقتی آن سرویس هست؛ مسدودی تکراری طولانی‌تر، لیست «هرگز مسدود نشود»، مسدود/رفع مسدودی دستی و لاگ |
+| 🚔 | **fail2ban** | نصب و حذف با یک کلیک، شروع/توقف/ری‌استارت و اجرا هنگام بوت؛ **ساخت، ویرایش کامل (همه‌ی گزینه‌ها: فیلتر، لاگ، پورت، backend، روش مسدودی، …) و حذف جیل‌ها**، و **ویرایشگر همه‌ی فایل‌های /etc/fail2ban** با بررسی و برگشت خودکار؛ هر جیل یک کارت با کلید روشن/خاموش، آمار مسدودها و تنظیمات ساده («۳ خطا در ۳۰ دقیقه ← ۱ ساعت مسدودی»)؛ محافظت‌های آماده (Nginx، Apache، ایمیل، FTP، MySQL، متخلفان تکراری) فقط وقتی آن سرویس هست؛ مسدودی تکراری طولانی‌تر، لیست «هرگز مسدود نشود»، مسدود/رفع مسدودی دستی و لاگ |
 | 🧱 | **سخت‌سازی** | امتیاز امنیت و بررسی‌ها (ورود root با رمز، دیتابیس باز به اینترنت، آپدیت خودکار، ری‌بوت لازم، fail2ban متوقف، …) با راه رفع؛ تنظیمات شبکه‌ی کرنل با یک کلیک (و بازگشت به مقدار اصلی)؛ **پشتیبان‌گیری و بازگردانی** همه‌ی تنظیمات فایروال و fail2ban در یک فایل |
+| 🧪 | **پیشرفته** | دسترسی کامل بدون محدودیت: قوانین دلخواه nftables، محدود کردن پنل به آی‌پی‌های خودتان، آستانه‌های تشخیص حمله، ضریب مسدودی خودکار، محدودیت SSH، مدت آزمایش تغییرات (یا خاموش)، اعتماد به داکر و کاربران SSH، باز ماندن اجباری پورت SSH و پنل (قابل خاموش کردن برای حرفه‌ای‌ها) و تنظیمات دلخواه کرنل |
 
 ### ایمنی (تا هرگز خودتان را بیرون نیندازید)
 
@@ -581,7 +582,7 @@ ssh root@SERVER 'bash install.sh'
 - هر تغییر فایروال **۶۰ ثانیه آزمایش** می‌شود؛ مرورگر بلافاصله تأیید می‌کند و اگر پنل دیگر در دسترس نباشد، تغییر خودش برمی‌گردد.
 - همه‌ی قوانین در یک جدول جدا (`inet defender`) هستند و فقط می‌توانند **محدود کنند**؛ قوانین داکر، fail2ban و ufw دست نمی‌خورند.
 - رفتن به حالت سخت‌گیر، همه‌ی پورت‌هایی که الان استفاده می‌شوند را از قبل در لیست مجاز می‌گذارد.
-- تنظیمات fail2ban که از پنل عوض می‌شوند فقط در فایل جدای `/etc/fail2ban/jail.d/zzz-panel.local` نوشته می‌شوند (فایل‌های خودتان دست نمی‌خورند)؛ هر تغییر اول با `fail2ban-client -t` بررسی می‌شود و اگر رد شود فایل قبلی برمی‌گردد.
+- تنظیمات fail2ban که از پنل عوض می‌شوند فقط در فایل جدای `/etc/fail2ban/jail.d/zzz-panel.local` نوشته می‌شوند (فایل‌های خودتان دست نمی‌خورند)؛ هر تغییر اول با `fail2ban-client -t` بررسی می‌شود، بعد از اعمال هم چک می‌شود که همه‌ی جیل‌های روشن واقعاً اجرا شده باشند، و اگر نه فایل‌های قبلی برمی‌گردند. قبل از ویرایش یا حذف هر فایل یک پشتیبان در `/etc/fail2ban/.panel-backup` ذخیره می‌شود.
 
 **کلید اضطراری** (اگر هر اتفاقی افتاد، از کنسول سرور):
 
@@ -596,7 +597,13 @@ nft delete table inet defender
 > ⚠️ **مهم:** پنل به `/var/run/docker.sock` دسترسی دارد (فقط برای دیدن وضعیت کانتینرهای خود استک و ری‌استارت سرویس متوقف از صفحه‌ی «پیدا کردن دلیل»)، و **هر کسی که به این سوکت برسد روی کل سرور root است.** رمز قوی بگذارید و جلوی پنل HTTPS (مثلاً Caddy یا Nginx) قرار دهید؛ پنل روی HTTP ساده رمز را رمزنگاری نمی‌کند.
 
 - 🔒 برای قطع کامل دسترسی پنل به داکر در `.env` بنویسید `PANEL_DOCKER_CONTROL=0` و `docker compose up -d` را بزنید (صفحه‌ی «پیدا کردن دلیل» آن‌وقت وضعیت کانتینرها را نشان نمی‌دهد).
-- ⏱️ ورود اشتباه با **تأخیر یک‌ثانیه‌ای** رد می‌شود؛ کوکی نشست `HttpOnly` و `SameSite=Strict` است.
+- 🔑 **ورود دومرحله‌ای (2FA)** با Google Authenticator، Microsoft Authenticator، Authy و … از صفحه‌ی **امنیت پنل**؛ هر کد فقط یک بار کار می‌کند. گوشی گم شد؟ روی سرور فایل `data/panel/totp.json` را پاک کنید.
+- 🚫 **قفل آدرس‌ها:** ۵ ورود اشتباه در ۱۵ دقیقه آن آدرس را قفل می‌کند (۱۵ دقیقه، هر بار دو برابر تا یک روز) و بعد از ۱۵ تلاش اشتباه، **فایروال** آن را یک ساعت مسدود می‌کند. قفل فقط همان آدرس را می‌بندد، نه شما را.
+- 📱 **نشست‌های واقعی سمت سرور:** لیست دستگاه‌های واردشده با دکمه‌ی خروج، خروج واقعی با Logout، پایان نشست بعد از یک روز بی‌استفاده یا دو هفته، و خروج بقیه‌ی دستگاه‌ها با تغییر رمز یا روشن کردن 2FA. کوکی `HttpOnly` و `SameSite=Strict` است.
+- 🧾 **گزارش امنیتی** (ورود، رمز اشتباه، قفل، تغییر رمز، 2FA) و پیام تلگرام برای ورود از آدرس جدید و قفل شدن یک آدرس.
+- 🐢 **محدودیت درخواست:** درخواست‌های بدون ورود (اسکنرها و ربات‌ها) محدود به ۱۲۰ در دقیقه برای هر آدرس‌اند.
+- 🧱 **فقط آدرس‌های خودتان:** در فایروال ← پیشرفته ← «چه کسی پنل را باز کند» می‌توانید پورت پنل را فقط برای آی‌پی‌های خودتان باز بگذارید؛ بقیه هیچ جوابی نمی‌گیرند.
+- 🧢 هدرهای امنیتی: CSP سخت‌گیر، `X-Frame-Options`، `Permissions-Policy`، `Cross-Origin-Opener-Policy`، و `HSTS` و کوکی `Secure` وقتی پشت HTTPS هستید (`PANEL_TRUST_PROXY=1` در `.env` اگر پشت پروکسی خودتان هستید).
 - 🛡️ همه‌ی عملیات تغییر (POST) هدر `X-Panel` و Origin درست می‌خواهند (محافظت CSRF).
 - 👁️ داده‌ها را فقط‌خواندنی از Prometheus می‌گیرد؛ کوئری دلخواه از بیرون پذیرفته نمی‌شود.
 - ✅ پنل فقط می‌تواند سرویس‌های همین استک را شروع یا ری‌استارت کند؛ ساختن، متوقف کردن یا حذف کانتینر از پنل ممکن نیست.
@@ -957,6 +964,7 @@ X-Panel header (a cross-site page cannot send that header), and is checked again
 """
 import json
 import os
+import secrets
 import sys
 import threading
 import time
@@ -971,15 +979,22 @@ import health
 import icons
 import live
 import monitor
+import security
 import store
-from auth import SESSION_TTL, Auth
+from auth import Auth
+from security import guard, limiter, sessions, totp
+from security import log as seclog
+from security import settings as secsettings
 
 USER = os.environ.get("PANEL_USER", "admin")
 PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PORT = int(os.environ.get("PANEL_LISTEN_PORT", "8080"))
 STATIC = Path(__file__).parent / "static"
 COOKIE = "panel_session"
-VERSION = "2.1"
+VERSION = "2.2"
+SESSION_TTL = security.SESSION_MAX
+TRUST_PROXY = os.environ.get("PANEL_TRUST_PROXY", "0") == "1"   # behind your own reverse proxy: use X-Forwarded-For
+BIG_BODY = {"/api/defender/import", "/api/defender/f2b/file", "/api/defender/config"}
 LIVE_MAX_SECONDS = 15 * 60   # a live stream is closed after this long; the browser reconnects at once
 
 if not PASSWORD:
@@ -998,6 +1013,7 @@ PRIVATE_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/defender.js": ("defender.js", "text/javascript; charset=utf-8"),
+    "/security.js": ("security.js", "text/javascript; charset=utf-8"),
 }
 # Generated icons, served without a login so a browser tab can always show them.
 ICONS = {
@@ -1012,9 +1028,9 @@ WRITE_HINT = ("The panel cannot write its configuration files (permission denied
               "chown -R 65534:65534 /opt/server-monitoring/data /opt/server-monitoring/prometheus/targets "
               "/opt/server-monitoring/prometheus/rules /opt/server-monitoring/alertmanager")
 
-# Failed logins are serialised and delayed, which caps brute-forcing at ~1 guess/second overall
-# without letting an attacker lock the real user out (Docker hides client IPs behind its proxy).
-_fail_lock = threading.Lock()
+# Failed logins are handled per address in security.py: a short random delay, a lock after 5 failures
+# in 15 minutes (doubling up to a day), and a firewall ban for persistent guessers. Docker passes the real
+# client address to published ports, so one attacker cannot lock the real user out.
 
 
 class BadRequest(ValueError):
@@ -1123,9 +1139,70 @@ def post_docker_action(b, _h):
 
 def post_password(b, h):
     auth.change(str(b.get("current", "")), str(b.get("new", "")), b.get("user"))
-    # The session key changed with the credentials: hand the current browser a fresh cookie.
-    h.new_cookie = f"{COOKIE}={auth.make_token()}; Path=/; Max-Age={SESSION_TTL}; HttpOnly; SameSite=Strict"
+    sessions.revoke_all(keep_token=h.token)     # signed out everywhere else
+    seclog.add("password", h.ip)
     return {"ok": True, "user": auth.user}
+
+
+# ------------------------------------------------------------------ security page
+
+def api_security(_q, h=None):
+    return {"sessions": sessions.list(h.token if h else None), "locks": guard.list(), "log": seclog.list(),
+            "totp": totp.enabled(), "settings": secsettings.get(), "ip": h.ip if h else "",
+            "limits": {"lock_after": security.LOCK_AFTER, "window": security.LOCK_WINDOW, "firewall_after": security.FIREWALL_AFTER}}
+
+
+def post_session_revoke(b, h):
+    sessions.revoke(str(b.get("id", "")))
+    seclog.add("session_revoked", h.ip)
+    return api_security({}, h)
+
+
+def post_sessions_others(_b, h):
+    sessions.revoke_all(keep_token=h.token)
+    seclog.add("sessions_revoked", h.ip)
+    return api_security({}, h)
+
+
+def post_unlock(b, h):
+    guard.unlock(str(b.get("ip", "")))
+    seclog.add("unlocked", h.ip, target=str(b.get("ip", ""))[:64])
+    return api_security({}, h)
+
+
+def _need_password(b):
+    if not auth.verify(auth.user, str(b.get("password", ""))):
+        raise ValueError("The password is wrong")
+
+
+def post_2fa_setup(b, h):
+    _need_password(b)
+    if totp.enabled():
+        raise ValueError("Two-factor sign-in is already on; turn it off first")
+    secret = totp.setup()
+    return {"secret": secret, "uri": totp.uri(auth.user, "Server Monitor")}
+
+
+def post_2fa_enable(b, h):
+    if not totp.enable(b.get("code", "")):
+        raise ValueError("The code is not right. Check the time on your phone and try the newest code.")
+    sessions.revoke_all(keep_token=h.token)
+    seclog.add("2fa_on", h.ip)
+    return api_security({}, h)
+
+
+def post_2fa_disable(b, h):
+    _need_password(b)
+    if totp.enabled() and not totp.verify(b.get("code", "")):
+        raise ValueError("The code is not right")
+    totp.disable()
+    seclog.add("2fa_off", h.ip)
+    return api_security({}, h)
+
+
+def post_security_settings(b, h):
+    secsettings.set(**{k: b[k] for k in ("notify_login", "notify_lock") if k in b})
+    return api_security({}, h)
 
 
 POST_API = {
@@ -1134,7 +1211,31 @@ POST_API = {
     "/api/telegram/chats": post_telegram_chats, "/api/telegram/remove": post_telegram_remove,
     "/api/alerts/test": post_alert_test, "/api/rules/set": post_rules_set, "/api/rules/reset": post_rules_reset,
     "/api/docker/action": post_docker_action, "/api/password": post_password,
+    "/api/security/revoke": post_session_revoke, "/api/security/revoke-others": post_sessions_others,
+    "/api/security/unlock": post_unlock, "/api/security/2fa/setup": post_2fa_setup,
+    "/api/security/2fa/enable": post_2fa_enable, "/api/security/2fa/disable": post_2fa_disable,
+    "/api/security/settings": post_security_settings,
 }
+
+
+def _notify(text):
+    """Telegram message about the panel's own security, sent in the background."""
+    def send():
+        try:
+            defender._send(f"\U0001F510 Panel \u00b7 {defender._host_label()}\n{text}")
+        except Exception as e:
+            print("security notify:", e, flush=True)
+    threading.Thread(target=send, daemon=True).start()
+
+
+def _firewall_ban(ip):
+    def ban():
+        try:
+            defender.post("block", {"ip": ip, "minutes": 60, "note": "panel login brute force"})
+            seclog.add("firewall_ban", ip)
+        except Exception as e:   # firewall off, agent missing, admin address: the login lock still applies
+            print("panel brute force ban:", e, flush=True)
+    threading.Thread(target=ban, daemon=True).start()
 
 # ------------------------------------------------------------------ http
 
@@ -1156,6 +1257,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", CSP)
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()")
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("X-Permitted-Cross-Domain-Policies", "none")
+        if self._https():
+            self.send_header("Strict-Transport-Security", "max-age=31536000")
         for k, v in extra:
             self.send_header(k, v)
         self.end_headers()
@@ -1175,9 +1282,36 @@ class Handler(BaseHTTPRequestHandler):
     def _redirect(self, location):
         self._headers(302, "text/plain", 0, [("Location", location)])
 
+    @property
+    def ip(self):
+        if TRUST_PROXY:
+            fwd = self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            if fwd:
+                return fwd[:64]
+        return self.client_address[0]
+
+    @property
+    def token(self):
+        try:
+            c = SimpleCookie(self.headers.get("Cookie", ""))
+        except Exception:
+            return ""
+        return c[COOKIE].value if COOKIE in c else ""
+
+    def _https(self):
+        return TRUST_PROXY and self.headers.get("X-Forwarded-Proto", "") == "https"
+
+    def _cookie(self, value, max_age):
+        return f"{COOKIE}={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Strict" + ("; Secure" if self._https() else "")
+
     def _authed(self):
-        cookie = SimpleCookie(self.headers.get("Cookie", ""))
-        return COOKIE in cookie and auth.valid_token(cookie[COOKIE].value)
+        return sessions.get(self.token) is not None
+
+    def _rate_ok(self):
+        """Signed-in browsers get a generous budget; everything else (scanners, bots) a small one."""
+        if self._authed():
+            return limiter.allow(f"s:{self.token[:16]}", 3000, 600)
+        return limiter.allow(f"ip:{self.ip}", 120, 60)
 
     def _run(self, fn, *args):
         """Call an API function and turn its exceptions into JSON error responses."""
@@ -1202,6 +1336,8 @@ class Handler(BaseHTTPRequestHandler):
         path = url.path
         if path == "/healthz":
             return self._json(200, {"ok": True})
+        if not self._rate_ok():
+            return self._json(429, {"error": "too many requests"}, [("Retry-After", "30")])
         if path in ICONS:
             make, ctype = ICONS[path]
             return self._bytes(make(), ctype)
@@ -1219,6 +1355,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._live({k: v[0] for k, v in parse_qs(url.query).items()})
         if path.startswith("/api/defender/"):
             return self._run(defender.get, path[len("/api/defender/"):], {k: v[0] for k, v in parse_qs(url.query).items()})
+        if path == "/api/security":
+            return self._run(api_security, {}, self)
         if path in GET_API:
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             return self._run(GET_API[path], params)
@@ -1236,7 +1374,7 @@ class Handler(BaseHTTPRequestHandler):
             last = float(self.headers.get("Last-Event-ID") or params.get("since") or 0)
         except ValueError:
             last = 0.0
-        token = SimpleCookie(self.headers.get("Cookie", ""))[COOKIE].value
+        token = self.token
         self.send_response(200)
         for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
                      ("X-Accel-Buffering", "no"), ("X-Content-Type-Options", "nosniff"), ("Content-Security-Policy", CSP)):
@@ -1255,7 +1393,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(b"retry: 3000\n\n")
             sampler = live.sampler(instance)
             send("hello", {"instance": instance, "interval": live.INTERVAL, "keep": live.KEEP})
-            while time.time() < deadline and auth.valid_token(token):
+            while time.time() < deadline and sessions.get(token) is not None:
                 new = sampler.since(last)
                 if new:
                     last = new[-1]["t"]
@@ -1274,7 +1412,8 @@ class Handler(BaseHTTPRequestHandler):
     def _body(self):
         try:
             length = int(self.headers.get("Content-Length", 0))
-            if length > 65536:
+            limit = 4_000_000 if urlparse(self.path).path in BIG_BODY else 65536
+            if length > limit or length < 0:
                 raise BadRequest("request too large")
             data = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(data, dict):
@@ -1289,9 +1428,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if not self._rate_ok():
+            return self._json(429, {"error": "too many requests"}, [("Retry-After", "30")])
         if path == "/logout":
-            return self._json(200, {"ok": True}, [("Set-Cookie", f"{COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict")])
+            if self.token and sessions.get(self.token):
+                seclog.add("logout", self.ip)
+            sessions.revoke_token(self.token)
+            return self._json(200, {"ok": True}, [("Set-Cookie", self._cookie("", 0))])
         if path == "/login":
+            if not self._same_origin():
+                return self._json(403, {"error": "forbidden"})
             return self._login()
         fn = POST_API.get(path)
         if fn is None and path.startswith("/api/defender/") and path[len("/api/defender/"):] in defender.POST_PATHS:
@@ -1310,17 +1456,39 @@ class Handler(BaseHTTPRequestHandler):
         self._run(fn, body, self)
 
     def _login(self):
+        ip = self.ip
+        left = guard.locked(ip)
+        if left:
+            return self._json(429, {"error": "locked", "locked": left})
         try:
             data = self._body()
-            user, password = str(data.get("user", "")), str(data.get("password", ""))
+            user, password, code = str(data.get("user", ""))[:200], str(data.get("password", ""))[:500], str(data.get("otp", ""))[:20]
         except BadRequest:
             return self._json(400, {"error": "bad request"})
-        if not auth.verify(user, password):
-            with _fail_lock:
-                time.sleep(1)
-            return self._json(401, {"error": "invalid credentials"})
-        cookie = f"{COOKIE}={auth.make_token()}; Path=/; Max-Age={SESSION_TTL}; HttpOnly; SameSite=Strict"
-        self._json(200, {"ok": True}, [("Set-Cookie", cookie)])
+        ok = auth.verify(user, password)
+        if ok and totp.enabled():
+            if not code:
+                return self._json(401, {"error": "code required", "otp": True})   # right password: not a failure yet
+            ok = totp.verify(code)
+        if not ok:
+            locked, total = guard.failed(ip)
+            seclog.add("login_failed", ip, user=user[:64])
+            time.sleep(0.6 + secrets.randbelow(600) / 1000)   # slows guessing without blocking other users
+            if locked:
+                seclog.add("locked", ip, minutes=locked // 60)
+                if secsettings.get()["notify_lock"]:
+                    _notify(f"{ip} was locked out of the panel for {locked // 60} min after repeated wrong logins.")
+            if total >= security.FIREWALL_AFTER:
+                _firewall_ban(ip)
+            return self._json(429 if locked else 401, {"error": "locked" if locked else "invalid credentials", "locked": locked,
+                                                       "otp": totp.enabled() and bool(code)})
+        guard.success(ip)
+        known = seclog.known_ip(ip)
+        seclog.add("login", ip, ua=self.headers.get("User-Agent", "")[:120])
+        if not known and secsettings.get()["notify_login"]:
+            _notify(f"New sign-in from {ip}. If this was not you, change the password and revoke the session in Settings.")
+        token = sessions.create(ip, self.headers.get("User-Agent", ""))
+        self._json(200, {"ok": True}, [("Set-Cookie", self._cookie(token, SESSION_TTL))])
 
 
 def main():
@@ -3156,18 +3324,21 @@ import re
 import socket
 import threading
 import time
+from urllib.parse import quote
 
 import monitor
 import store
 
 SOCK = os.environ.get("DEFENDER_SOCKET", "/defender/agent.sock")
 GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "rules", "ssh",
-             "f2b", "f2b/bans", "f2b/log", "geo", "export"}
+             "f2b", "f2b/bans", "f2b/log", "f2b/jail", "f2b/files", "f2b/file", "geo", "export"}
 POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unallow", "unban", "sysctl",
-              "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/defaults", "f2b/ban", "f2b/unban", "import"}
+              "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
+              "f2b/file", "f2b/file/delete", "import"}
 NOT_RUNNING = ("The firewall service (defender) is not running. On the server run: "
                "cd /opt/server-monitoring && docker compose up -d --build defender")
 JAIL_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
+PATH_RE = re.compile(r"^[A-Za-z0-9_.\-/]{1,120}$")
 
 
 class AgentError(Exception):
@@ -3192,6 +3363,8 @@ def _query(params):
         out.append(f"since={params['since']}")
     if JAIL_RE.match(str(params.get("jail", ""))):
         out.append(f"jail={params['jail']}")
+    if PATH_RE.match(str(params.get("path", ""))):
+        out.append(f"path={quote(params['path'], safe='')}")
     return "&".join(out)
 
 
@@ -3495,7 +3668,7 @@ __MONITORING_EOF__
   const tt = (k, i, vars) => { const v = t(k); const s = Array.isArray(v) ? v[i] : v; return vars ? Object.entries(vars).reduce((a, [x, y]) => a.replace(`{${x}}`, y), s) : s; };
 
   // ---------------------------------------------------------------- state
-  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["countries", "globe"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"]];
+  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["countries", "globe"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
   const store = { get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } } };
   const D = { tab: store.get("df_tab", "overview"), st: null, err: "", samples: [], lastT: 0, timer: null, ticks: 0, fw: null, talkers: [], events: [], root: null, heroKey: "" };
   if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
@@ -3505,6 +3678,8 @@ __MONITORING_EOF__
 
   // ---------------------------------------------------------------- shell
   async function build() {
+    D.tab = store.get("df_tab", D.tab);
+    if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
     try { D.st = await api("/api/defender/status"); D.err = ""; } catch (e) { D.st = null; D.err = e.message; }
     if (!D.st) {
       return `<div class="hero card warn df-hero"><div class="hero-icon">${icon("alert")}</div><div class="hero-text"><h2>${esc(t("df_missing_title"))}</h2>
@@ -4065,13 +4240,18 @@ __MONITORING_EOF__
   async function renderF2b() {
     D.f2b = await api("/api/defender/f2b");
     schedJob();
+    setTimeout(fillFiles, 0);
     return f2bHTML();
+  }
+  async function fillFiles() {
+    const box = D.root && D.root.querySelector("#df-f2b-files");
+    if (box && D.f2b && D.f2b.installed) box.innerHTML = await filesSection();
   }
   function schedJob() {
     clearTimeout(D.f2bJobT);
     if (D.f2b && D.f2b.job && D.f2b.job.running) D.f2bJobT = setTimeout(async () => { if (D.tab === "f2b") { D.f2b = await api("/api/defender/f2b").catch(() => D.f2b); paintF2b(); schedJob(); } }, 1500);
   }
-  const paintF2b = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "f2b") b.innerHTML = f2bHTML(); };
+  const paintF2b = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "f2b") { b.innerHTML = f2bHTML(); fillFiles(); } };
 
   function f2bHTML() {
     const f = D.f2b, job = f.job || {};
@@ -4123,8 +4303,9 @@ __MONITORING_EOF__
     const logSec = f.log ? `<section class="sec"><details class="df-logbox"><summary data-a="f2b-log-open"><b>${icon("file")}${esc(t("df_f2b_log"))}</b> <span class="muted">${esc(t("df_f2b_log_sub"))}</span></summary>
       <div class="row-actions" style="margin:10px 0"><button type="button" class="btn small" data-a="f2b-log">${icon("refresh")}<span>${esc(t("refresh"))}</span></button></div><pre class="logs df-joblog" id="df-f2b-log" dir="ltr">…</pre></details></section>` : "";
     return `${hero}${f.error ? `<div class="notice bad">${icon("alert")}<span>${esc(f.error)}</span></div>` : ""}${jobBox}
-      <section class="sec"><div class="sec-head"><h3>${icon("shield")}${esc(t("df_f2b_jails"))}</h3><p class="muted">${esc(t("df_f2b_jails_sub"))}</p></div><div class="f2b-grid">${cards}</div></section>
-      ${defaults}${logSec}`;
+      <section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("shield")}${esc(t("df_f2b_jails"))}</h3><p class="muted">${esc(t("df_f2b_jails_sub"))}</p></div>
+        <button type="button" class="btn small primary" data-a="f2b-jail-new" ${busy}>${icon("plus")}<span>${esc(t("df_j_new"))}</span></button></div><div class="f2b-grid">${cards}</div></section>
+      ${defaults}<div id="df-f2b-files"></div>${logSec}`;
   }
 
   function jailCard(name, j) {
@@ -4140,6 +4321,8 @@ __MONITORING_EOF__
         <p class="f2b-rule">${icon("sliders")}<span>${esc(rule)}</span></p>${src ? `<p class="f2b-src muted">${esc(t("df_f2b_source"))}: <span dir="ltr">${esc(src)}</span></p>` : ""}
         <footer><button type="button" class="btn small" data-a="f2b-jail-set" data-jail="${esc(name)}">${icon("gear")}<span>${esc(t("df_f2b_settings"))}</span></button>
           <button type="button" class="btn small" data-a="f2b-jail-bans" data-jail="${esc(name)}">${icon("ban")}<span>${esc(t("df_f2b_bans"))} (${num(j.banned)})</span></button></footer>` : ""}
+      <footer class="f2b-manage"><button type="button" class="btn small ghost" data-a="f2b-jail-edit" data-jail="${esc(name)}">${icon("sliders")}<span>${esc(t("df_j_edit"))}</span></button>
+        <button type="button" class="btn small ghost danger" data-a="f2b-jail-del" data-jail="${esc(name)}">${icon("trash")}<span>${esc(t("df_j_delete"))}</span></button></footer>
     </article>`;
   }
 
@@ -4224,7 +4407,212 @@ __MONITORING_EOF__
     if (await apply(null, "import", { data })) { D.fw = null; D.geo = null; rerender(); }
   }
 
-  const RENDER = { overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, countries: renderCountries, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
+  // ---------------------------------------------------------------- full control: jail editor, files, advanced
+  P.addStrings({
+    df_t_advanced: "Advanced",
+    df_j_edit: "Edit", df_j_delete: "Delete", df_j_new: "New jail", df_j_name: "Jail name", df_j_name_hint: "Letters, digits, - _ . (for example my-app).",
+    df_j_enabled: "Enabled", df_j_port: "Ports", df_j_port_hint: "ssh, http,https, 8080 or 1000:2000. Empty = the jail's default.", df_j_protocol: "Protocol",
+    df_j_filter: "Filter", df_j_filter_hint: "Which patterns count as a failure (files in filter.d).", df_j_logpath: "Log files", df_j_logpath_hint: "One path per line. Not needed with the systemd backend.",
+    df_j_backend: "How to read logs", df_j_banaction: "Ban action", df_j_banaction_hint: "How addresses are blocked (nftables, iptables-multiport, …).", df_j_action: "Actions (advanced)",
+    df_j_ignoreip: "Never ban (this jail)", df_j_increment: "Longer bans for repeat offenders", df_j_inherit: "Like the general settings", df_j_on: "On", df_j_off: "Off",
+    df_j_extra: "More settings", df_j_extra_hint: "Any other fail2ban option, one `key = value` per line.", df_j_from: "from {file}", df_j_defined: "Defined in: {files}",
+    df_j_delete_confirm: "Delete the jail {name}? Its section is removed from the files under /etc/fail2ban (a backup is kept in /etc/fail2ban/.panel-backup).",
+    df_j_deleted: "Jail deleted", df_j_stock_off: "This jail ships with fail2ban (jail.conf), so it was switched off and its overrides were removed.", df_j_saved: "Saved, checked and applied",
+    df_files: "Configuration files", df_files_sub: "Every fail2ban file, for anything the forms do not cover. Each save is checked with fail2ban-client -t; on an error the file goes back to how it was.",
+    df_file_new: "New file", df_file_path: "File", df_file_path_hint: "jail.d/name.local, filter.d/name.conf, action.d/name.conf, jail.local …", df_file_size: "Size", df_file_mtime: "Changed",
+    df_file_panel: "Written by the panel: changes here are replaced the next time a form is saved.", df_file_deleted: "File deleted", df_file_delete_confirm: "Delete {path}? A backup is kept in /etc/fail2ban/.panel-backup.",
+    df_file_bad: "Use a path like jail.d/name.local or filter.d/name.conf",
+    df_adv_title: "Advanced settings", df_adv_sub: "Everything the other tabs keep fixed. Changes are tested like any other rule change.",
+    df_adv_panel: "Who can open the panel", df_adv_panel_sub: "Only these addresses reach the panel port; everyone else gets no answer. Logged-in SSH users and the allowlist always can. Empty = everyone.",
+    df_adv_my_ip: "Add my address ({ip})", df_adv_safety: "Safety", df_adv_rollback: "Test time before changes are kept", df_adv_rollback_off: "Off (apply at once)",
+    df_adv_lock: "Keep SSH and panel ports always open", df_adv_lock_sub: "Off: they follow strict mode like any other port. A mistake can lock you out.",
+    df_adv_docker: "Never filter Docker traffic", df_adv_docker_sub: "Off: traffic from containers is filtered like any other.", df_adv_logged: "Trust addresses that logged in over SSH", df_adv_logged_sub: "Off: they are limited like anyone else.",
+    df_adv_detect: "Attack detection", df_adv_detect_sub: "An attack starts when one of these is passed for 3 seconds, and ends after the calm time.",
+    df_adv_drops: "Blocked packets per second", df_adv_cookies: "SYN cookies per second", df_adv_pps: "Incoming packets per second", df_adv_ct: "Connection table full (%)", df_adv_calm: "Calm time (seconds)",
+    df_adv_deesc: "Back to normal limits after (minutes)", df_adv_bans: "Bans", df_adv_factor: "Ban a source going this many times over a limit (0 = never ban)",
+    df_adv_ssh_rate: "New SSH connections per minute before a ban (0 = no limit)", df_adv_ssh_ban: "SSH ban time (minutes)",
+    df_adv_custom: "Custom nftables rules", df_adv_custom_sub: "Statements for new connections, one per line, run before the strict-mode and flood rules. For example: tcp dport 9000 ip saddr 203.0.113.0/24 accept",
+    df_adv_sysctl: "Custom kernel settings", df_adv_sysctl_sub: "Any net.*, kernel.*, vm.* or fs.* setting. Applied now and after every reboot; removing one restores the original value.",
+    df_adv_key: "Setting", df_adv_value: "Value", df_adv_set: "Set",
+  }, {
+    df_t_advanced: "پیشرفته",
+    df_j_edit: "ویرایش", df_j_delete: "حذف", df_j_new: "جیل جدید", df_j_name: "نام جیل", df_j_name_hint: "حروف، عدد، - _ . (مثلاً my-app).",
+    df_j_enabled: "فعال", df_j_port: "پورت‌ها", df_j_port_hint: "ssh، http,https، 8080 یا 1000:2000. خالی = پیش‌فرض جیل.", df_j_protocol: "پروتکل",
+    df_j_filter: "فیلتر", df_j_filter_hint: "چه الگوهایی خطا حساب شوند (فایل‌های filter.d).", df_j_logpath: "فایل‌های لاگ", df_j_logpath_hint: "هر خط یک مسیر. با backend سیستم‌دی لازم نیست.",
+    df_j_backend: "روش خواندن لاگ", df_j_banaction: "روش مسدودی", df_j_banaction_hint: "آدرس‌ها چطور بسته شوند (nftables، iptables-multiport، …).", df_j_action: "اکشن‌ها (پیشرفته)",
+    df_j_ignoreip: "هرگز مسدود نشوند (این جیل)", df_j_increment: "مسدودی طولانی‌تر برای تکرار", df_j_inherit: "مثل تنظیمات کلی", df_j_on: "روشن", df_j_off: "خاموش",
+    df_j_extra: "تنظیمات بیشتر", df_j_extra_hint: "هر گزینه‌ی دیگر fail2ban، هر خط یک `key = value`.", df_j_from: "از {file}", df_j_defined: "تعریف‌شده در: {files}",
+    df_j_delete_confirm: "جیل {name} حذف شود؟ بخش آن از فایل‌های /etc/fail2ban پاک می‌شود (یک پشتیبان در /etc/fail2ban/.panel-backup می‌ماند).",
+    df_j_deleted: "جیل حذف شد", df_j_stock_off: "این جیل همراه خود fail2ban است (jail.conf)، پس خاموش شد و تنظیمات اضافه‌اش پاک شد.", df_j_saved: "ذخیره، بررسی و اعمال شد",
+    df_files: "فایل‌های تنظیمات", df_files_sub: "همه‌ی فایل‌های fail2ban، برای هر چیزی که فرم‌ها پوشش نمی‌دهند. هر ذخیره با fail2ban-client -t بررسی می‌شود و اگر خطا داشت فایل به حالت قبل برمی‌گردد.",
+    df_file_new: "فایل جدید", df_file_path: "فایل", df_file_path_hint: "jail.d/name.local، filter.d/name.conf، action.d/name.conf، jail.local …", df_file_size: "حجم", df_file_mtime: "تغییر",
+    df_file_panel: "این فایل را پنل می‌نویسد: تغییرات اینجا دفعه‌ی بعدی که فرمی ذخیره شود جایگزین می‌شود.", df_file_deleted: "فایل حذف شد", df_file_delete_confirm: "{path} حذف شود؟ یک پشتیبان در /etc/fail2ban/.panel-backup می‌ماند.",
+    df_file_bad: "مسیری مثل jail.d/name.local یا filter.d/name.conf بنویسید",
+    df_adv_title: "تنظیمات پیشرفته", df_adv_sub: "هر چیزی که تب‌های دیگر ثابت نگه می‌دارند. تغییرات مثل هر تغییر قانون دیگری آزمایش می‌شوند.",
+    df_adv_panel: "چه کسی پنل را باز کند", df_adv_panel_sub: "فقط این آدرس‌ها به پورت پنل می‌رسند؛ بقیه هیچ جوابی نمی‌گیرند. کاربرهای واردشده با SSH و لیست سفید همیشه می‌توانند. خالی = همه.",
+    df_adv_my_ip: "افزودن آدرس من ({ip})", df_adv_safety: "ایمنی", df_adv_rollback: "مدت آزمایش قبل از ماندن تغییرات", df_adv_rollback_off: "خاموش (فوری اعمال شود)",
+    df_adv_lock: "پورت SSH و پنل همیشه باز بماند", df_adv_lock_sub: "خاموش: مثل بقیه‌ی پورت‌ها از حالت سخت‌گیر پیروی می‌کنند. یک اشتباه می‌تواند دسترسی شما را قطع کند.",
+    df_adv_docker: "ترافیک داکر هرگز فیلتر نشود", df_adv_docker_sub: "خاموش: ترافیک کانتینرها مثل بقیه فیلتر می‌شود.", df_adv_logged: "اعتماد به آدرس‌هایی که با SSH وارد شده‌اند", df_adv_logged_sub: "خاموش: مثل بقیه محدود می‌شوند.",
+    df_adv_detect: "تشخیص حمله", df_adv_detect_sub: "وقتی یکی از این‌ها ۳ ثانیه رد شود حمله شروع می‌شود و بعد از زمان آرامش تمام می‌شود.",
+    df_adv_drops: "بسته‌ی مسدود در ثانیه", df_adv_cookies: "SYN cookie در ثانیه", df_adv_pps: "بسته‌ی ورودی در ثانیه", df_adv_ct: "پر شدن جدول اتصال (درصد)", df_adv_calm: "زمان آرامش (ثانیه)",
+    df_adv_deesc: "بازگشت به محدودیت عادی بعد از (دقیقه)", df_adv_bans: "مسدودی‌ها", df_adv_factor: "منبعی که چند برابر حد برود مسدود شود (۰ = هرگز مسدود نکن)",
+    df_adv_ssh_rate: "اتصال جدید SSH در دقیقه قبل از مسدودی (۰ = بدون محدودیت)", df_adv_ssh_ban: "مدت مسدودی SSH (دقیقه)",
+    df_adv_custom: "قوانین دلخواه nftables", df_adv_custom_sub: "دستورهایی برای اتصال‌های جدید، هر خط یکی، قبل از قوانین حالت سخت‌گیر و فلاد. مثال: tcp dport 9000 ip saddr 203.0.113.0/24 accept",
+    df_adv_sysctl: "تنظیمات دلخواه کرنل", df_adv_sysctl_sub: "هر تنظیم net.*، kernel.*، vm.* یا fs.*. همین الان و بعد از هر ری‌بوت اعمال می‌شود؛ حذفش مقدار اصلی را برمی‌گرداند.",
+    df_adv_key: "تنظیم", df_adv_value: "مقدار", df_adv_set: "اعمال",
+  });
+
+  // ---- jail editor
+  const BACKENDS = ["auto", "systemd", "polling", "pyinotify"];
+  const BANACTIONS = ["nftables", "nftables[type=allports]", "nftables-multiport", "iptables-multiport", "iptables-allports", "ufw", "route"];
+  async function jailEditor(name, create = false) {
+    const d = create ? { values: {}, base: {}, panel: {}, sources: {}, defined: [], filters: (await api("/api/defender/f2b/jail", { jail: "sshd" }).catch(() => ({ filters: [] }))).filters }
+      : await api("/api/defender/f2b/jail", { jail: name });
+    const live = ((D.f2b && D.f2b.jails) || []).find((j) => j.name === name) || {};   // what the running jail really uses
+    const cur = (k) => { const p = d.panel || {}; const v = p[k] !== undefined ? p[k] : d.values[k] !== undefined ? d.values[k] : ["maxretry", "findtime", "bantime"].includes(k) ? live[k] : undefined; return v === true ? "true" : v === false ? "false" : v ?? ""; };
+    const inp = (k, label, hint = "", attrs = "") => field(label, `<input name="${k}" dir="ltr" value="${esc(cur(k))}" autocomplete="off" ${attrs}>`, hint) ;
+    const area = (k, label, hint = "", rows = 3) => field(label, `<textarea name="${k}" dir="ltr" rows="${rows}" spellcheck="false">${esc(cur(k).replace(/\n\s+/g, "\n"))}</textarea>`, hint);
+    const sel = (k, label, opts) => { const v = cur(k); const has = !v || opts.includes(v); return field(label, `<select name="${k}"><option value="">${esc(t("df_j_inherit"))}</option>${has ? "" : `<option selected value="${esc(v)}">${esc(v)}</option>`}${opts.map((o) => `<option value="${esc(o)}" ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`); };
+    const enabled = create ? true : String(cur("enabled")).toLowerCase() === "true";
+    const extra = (d.panel || {}).extra || "";
+    openDialog({
+      title: create ? t("df_j_new") : `${jailTitle(name)} · ${t("df_j_edit")}`, submit: t("df_save"), wide: true,
+      body: `${create ? field(t("df_j_name"), '<input name="name" dir="ltr" required pattern="[A-Za-z0-9_.\\-]{1,40}" autocomplete="off">', t("df_j_name_hint"))
+        : `<p class="muted">${esc(t("df_j_defined", { files: (d.defined || []).join("، ") || "—" }))}</p>`}
+        <label class="df-switch"><span class="switch"><input type="checkbox" name="enabled" ${enabled ? "checked" : ""}><span></span></span><span><b>${esc(t("df_j_enabled"))}</b></span></label>
+        <div class="field-row">${field(t("df_j_filter"), `<input name="filter" dir="ltr" list="df-filters" value="${esc(cur("filter"))}" autocomplete="off" ${create ? "required" : ""}><datalist id="df-filters">${(d.filters || []).map((f) => `<option value="${esc(f)}">`).join("")}</datalist>`, t("df_j_filter_hint"))}
+          ${sel("backend", t("df_j_backend"), BACKENDS)}</div>
+        ${area("logpath", t("df_j_logpath"), t("df_j_logpath_hint"), 2)}
+        <div class="field-row">${inp("port", t("df_j_port"), t("df_j_port_hint"))}${sel("protocol", t("df_j_protocol"), ["tcp", "udp", "all"])}</div>
+        <div class="field-row">${inp("maxretry", t("df_f2b_tries"), "", 'inputmode="numeric"')}${inp("findtime", t("df_f2b_window"), "10m, 1h, 1d")}</div>
+        <div class="field-row">${inp("bantime", t("df_f2b_bantime"), "10m, 1h, 1d, 1w, -1")}${field(t("df_j_increment"), `<select name="bantime.increment"><option value="">${esc(t("df_j_inherit"))}</option><option value="true" ${cur("bantime.increment") === "true" ? "selected" : ""}>${esc(t("df_j_on"))}</option><option value="false" ${cur("bantime.increment") === "false" ? "selected" : ""}>${esc(t("df_j_off"))}</option></select>`)}</div>
+        ${field(t("df_j_banaction"), `<input name="banaction" dir="ltr" list="df-banactions" value="${esc(cur("banaction"))}" autocomplete="off"><datalist id="df-banactions">${BANACTIONS.map((b) => `<option value="${esc(b)}">`).join("")}</datalist>`, t("df_j_banaction_hint"))}
+        ${area("ignoreip", t("df_j_ignoreip"), t("df_f2b_ignore_sub"), 2)}
+        <details class="df-adv"><summary>${esc(t("df_j_extra"))}</summary>${area("action", t("df_j_action"), "", 3)}
+          ${field(t("df_j_extra"), `<textarea name="extra" dir="ltr" rows="4" spellcheck="false" placeholder="usedns = no&#10;bantime.factor = 2">${esc(extra)}</textarea>`, t("df_j_extra_hint"))}</details>`,
+      onSubmit: async (form) => {
+        const el = form.elements, base = d.base || {};
+        const body = { name: create ? el.name.value.trim() : name, replace: true };
+        if (create) body.create = true;
+        const baseEnabled = String(base.enabled ?? "false").toLowerCase() === "true";
+        if (create || el.enabled.checked !== baseEnabled) body.enabled = el.enabled.checked;
+        for (const k of ["filter", "backend", "logpath", "port", "protocol", "maxretry", "findtime", "bantime", "bantime.increment", "banaction", "ignoreip", "action"]) {
+          const v = (el[k].value || "").trim();
+          const b = String(base[k] ?? "").replace(/\n\s+/g, "\n").trim();
+          if (v && v !== b) body[k] = v;
+        }
+        if (el.extra.value.trim()) body.extra = el.extra.value;
+        D.f2b = await post("/api/defender/f2b/jail", body);
+        toast(t("df_j_saved"));
+        paintF2b();
+      },
+    });
+  }
+
+  async function deleteJail(name, btn) {
+    if (!(await confirmBox({ message: t("df_j_delete_confirm", { name }), label: t("df_j_delete") }))) return;
+    const r = await act(btn, () => post("/api/defender/f2b/jail/delete", { name }));
+    if (!r) return;
+    D.f2b = r;
+    toast(r.disabled_only ? t("df_j_stock_off") : t("df_j_deleted"), r.disabled_only ? "warn" : "");
+    paintF2b();
+  }
+
+  // ---- file editor
+  const FILE_RE = /^(jail\.local|jail\.conf|fail2ban\.local|fail2ban\.conf|paths-[a-z]+\.conf|(jail\.d|filter\.d|action\.d|fail2ban\.d)\/[A-Za-z0-9_.\-]{1,80}\.(conf|local))$/;
+  async function filesSection() {
+    const r = await api("/api/defender/f2b/files").catch(() => ({ rows: [] }));
+    const rows = table([
+      { h: "df_file_path", cls: "strong", cell: (f) => `<code dir="ltr">${esc(f.path)}</code>${f.panel ? '<span class="tag">panel</span>' : ""}` },
+      { h: "df_file_size", cell: (f) => num(esc(fmtBytes(f.size))) },
+      { h: "df_file_mtime", cell: (f) => esc(ago(f.mtime)) },
+      { h: "actions", cell: (f) => `<button type="button" class="btn small" data-a="f2b-file" data-path="${esc(f.path)}">${icon("file")}<span>${esc(t("df_j_edit"))}</span></button>` },
+    ], r.rows);
+    return `<section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("file")}${esc(t("df_files"))}</h3><p class="muted">${esc(t("df_files_sub"))}</p></div>
+      <button type="button" class="btn small" data-a="f2b-file-new">${icon("plus")}<span>${esc(t("df_file_new"))}</span></button></div>
+      <details class="df-adv"><summary>${esc(t("df_files"))} (${num(r.rows.length)})</summary>${rows}</details></section>`;
+  }
+  async function fileEditor(path, isNew = false) {
+    const f = isNew ? { path, text: "", exists: false } : await api("/api/defender/f2b/file", { path });
+    const dlg = openDialog({
+      title: path, submit: t("df_save"), wide: true,
+      body: `${f.path.endsWith("zzz-panel.local") ? `<div class="notice warn">${icon("alert")}<span>${esc(t("df_file_panel"))}</span></div>` : ""}
+        <textarea name="text" class="df-code" dir="ltr" spellcheck="false" rows="22">${esc(f.text)}</textarea>
+        ${f.exists && !/^(jail|fail2ban)\.conf$/.test(f.path) ? `<p><button type="button" class="btn small danger" data-del>${icon("trash")}<span>${esc(t("df_j_delete"))}</span></button></p>` : ""}`,
+      onSubmit: async (form) => {
+        await post("/api/defender/f2b/file", { path, text: form.elements.text.value });
+        toast(t("df_j_saved"));
+        if (D.tab === "f2b") showTab("f2b");
+      },
+    });
+    const del = dlg.querySelector("[data-del]");
+    if (del) del.addEventListener("click", async () => {
+      if (!(await confirmBox({ message: t("df_file_delete_confirm", { path }), label: t("df_j_delete") }))) return;
+      if (await act(del, () => post("/api/defender/f2b/file/delete", { path }), t("df_file_deleted"))) { dlg.close(); if (D.tab === "f2b") showTab("f2b"); }
+    });
+  }
+  function newFileDialog() {
+    openDialog({
+      title: t("df_file_new"), submit: t("df_j_edit"),
+      body: field(t("df_file_path"), '<input name="path" dir="ltr" required placeholder="jail.d/my-app.local" autocomplete="off">', t("df_file_path_hint")),
+      onSubmit: async (form) => {
+        const p = form.elements.path.value.trim().replace(/^\/?etc\/fail2ban\//, "");
+        if (!FILE_RE.test(p)) throw new Error(t("df_file_bad"));
+        setTimeout(() => fileEditor(p, true), 50);
+      },
+    });
+  }
+
+  // ---- advanced tab
+  async function renderAdvanced() {
+    const [sec, au] = await Promise.all([api("/api/security").catch(() => ({ ip: "" })), api("/api/defender/audit").catch(() => ({ sysctl_custom: {} }))]);
+    D.myIp = sec.ip;
+    if (!D.adv) D.adv = JSON.parse(JSON.stringify(D.st.config.advanced));
+    D.sysCustom = au.sysctl_custom || {};
+    return advancedHTML();
+  }
+  function advancedHTML() {
+    const a = D.adv, c = D.st.config;
+    const num_ = (k, label, min = 0) => field(label, `<input type="number" name="${k}" min="${min}" value="${esc(a[k])}" dir="ltr" required>`);
+    const sw = (name, on, label, sub) => `<label class="df-switch"><span class="switch"><input type="checkbox" name="${name}" ${on ? "checked" : ""}><span></span></span><span><b>${esc(label)}</b><small>${esc(sub)}</small></span></label>`;
+    const chips = a.panel_allow.map((ip, i) => `<span class="chip">${num(esc(ip))}<button type="button" class="chip-x" data-a="adv-pa-del" data-i="${i}" aria-label="${esc(t("df_remove"))} ${esc(ip)}">${icon("x")}</button></span>`).join("");
+    const sysRows = Object.entries(D.sysCustom).map(([k, v]) => `<span class="chip"><code dir="ltr">${esc(k)} = ${esc(v)}</code><button type="button" class="chip-x" data-a="adv-sys-del" data-key="${esc(k)}" aria-label="${esc(t("df_remove"))} ${esc(k)}">${icon("x")}</button></span>`).join("");
+    const rb = [0, 30, 60, 120, 300, 600];
+    return `<section class="sec"><div class="sec-head"><h3>${icon("sliders")}${esc(t("df_adv_title"))}</h3><p class="muted">${esc(t("df_adv_sub"))}</p></div></section>
+      <form data-f="adv" class="df-body">
+      <section class="sec"><div class="sec-head"><h3>${icon("lock")}${esc(t("df_adv_panel"))}</h3><p class="muted">${esc(t("df_adv_panel_sub"))}</p></div>
+        <div class="chips">${chips}</div>
+        <div class="inline-field df-inline"><input name="pa_new" dir="ltr" placeholder="203.0.113.7 / 203.0.113.0/24" autocomplete="off" aria-label="${esc(t("df_adv_panel"))}"><button type="button" class="btn small" data-a="adv-pa-add">${icon("plus")}<span>${esc(t("add"))}</span></button>
+        ${D.myIp ? `<button type="button" class="btn small" data-a="adv-pa-me">${icon("check")}<span>${esc(t("df_adv_my_ip", { ip: D.myIp }))}</span></button>` : ""}</div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("shield")}${esc(t("df_adv_safety"))}</h3></div><div class="subcard">
+        ${field(t("df_adv_rollback"), `<select name="rollback_seconds">${rb.map((s) => `<option value="${s}" ${+a.rollback_seconds === s ? "selected" : ""}>${s ? `${s} s` : esc(t("df_adv_rollback_off"))}</option>`).join("")}</select>`)}
+        ${sw("lock_ports", a.lock_ports, t("df_adv_lock"), t("df_adv_lock_sub"))}${sw("trust_docker", a.trust_docker, t("df_adv_docker"), t("df_adv_docker_sub"))}
+        ${sw("trust_logged_in", a._logged ?? c.trust_logged_in !== false, t("df_adv_logged"), t("df_adv_logged_sub"))}${sw("trust_cdn", a._cdn ?? c.trust_cdn !== false, t("df_cdn"), t("df_cdn_sub"))}</div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("flame")}${esc(t("df_adv_detect"))}</h3><p class="muted">${esc(t("df_adv_detect_sub"))}</p></div>
+        <div class="subcard"><div class="df-form-grid">${num_("detect_drops", t("df_adv_drops"), 1)}${num_("detect_cookies", t("df_adv_cookies"), 1)}${num_("detect_pps", t("df_adv_pps"), 1)}${num_("detect_conntrack", t("df_adv_ct"), 1)}${num_("calm_seconds", t("df_adv_calm"), 5)}${num_("deescalate_minutes", t("df_adv_deesc"))}</div></div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("ban")}${esc(t("df_adv_bans"))}</h3></div>
+        <div class="subcard"><div class="df-form-grid">${num_("autoban_factor", t("df_adv_factor"))}${num_("ssh_rate", t("df_adv_ssh_rate"))}${num_("ssh_ban_minutes", t("df_adv_ssh_ban"), 1)}</div></div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("terminal")}${esc(t("df_adv_custom"))}</h3><p class="muted">${esc(t("df_adv_custom_sub"))}</p></div>
+        <textarea name="custom_rules" class="df-code" dir="ltr" rows="7" spellcheck="false" placeholder="tcp dport 9000 ip saddr 203.0.113.0/24 accept&#10;udp dport 27015 limit rate over 200/second drop">${esc(a.custom_rules)}</textarea></section>
+      <div class="df-actions dirty"><span class="muted"></span><button type="button" class="btn" data-a="rules">${icon("eye")}<span>${esc(t("df_review"))}</span></button>
+        <button type="submit" class="btn primary">${icon("check")}<span>${esc(t("df_apply"))}</span></button></div></form>
+      <section class="sec"><div class="sec-head"><h3>${icon("gear")}${esc(t("df_adv_sysctl"))}</h3><p class="muted">${esc(t("df_adv_sysctl_sub"))}</p></div>
+        <div class="chips">${sysRows}</div>
+        <form class="inline-field df-inline" data-f="adv-sys"><input name="key" dir="ltr" placeholder="net.core.somaxconn" required autocomplete="off" aria-label="${esc(t("df_adv_key"))}"><input name="value" dir="ltr" placeholder="65535" required autocomplete="off" aria-label="${esc(t("df_adv_value"))}"><button type="submit" class="btn small">${esc(t("df_adv_set"))}</button></form></section>`;
+  }
+  const repaintAdv = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "advanced") b.innerHTML = advancedHTML(); };
+  function advFormToDraft(form) {
+    if (!form) return;
+    const el = form.elements;
+    for (const k of ["rollback_seconds", "detect_drops", "detect_cookies", "detect_pps", "detect_conntrack", "calm_seconds", "deescalate_minutes", "autoban_factor", "ssh_rate", "ssh_ban_minutes"]) D.adv[k] = +el[k].value;
+    D.adv.lock_ports = el.lock_ports.checked;
+    D.adv.trust_docker = el.trust_docker.checked;
+    D.adv.custom_rules = el.custom_rules.value;
+    D.adv._logged = el.trust_logged_in.checked;
+    D.adv._cdn = el.trust_cdn.checked;
+  }
+
+  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, countries: renderCountries, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
   const rerender = () => showTab(D.tab);
 
   // ---------------------------------------------------------------- events
@@ -4291,6 +4679,26 @@ __MONITORING_EOF__
       return;
     }
     if (a === "f2b-jail-set") return jailSettingsDialog(b.dataset.jail);
+    if (a === "f2b-jail-edit") return jailEditor(b.dataset.jail).catch((x) => toast(x.message, "bad"));
+    if (a === "f2b-jail-new") return jailEditor("", true).catch((x) => toast(x.message, "bad"));
+    if (a === "f2b-jail-del") return deleteJail(b.dataset.jail, b);
+    if (a === "f2b-file") return fileEditor(b.dataset.path).catch((x) => toast(x.message, "bad"));
+    if (a === "f2b-file-new") return newFileDialog();
+    if (a === "adv-pa-del" || a === "adv-pa-add" || a === "adv-pa-me") {
+      const form = D.root.querySelector('form[data-f="adv"]');
+      advFormToDraft(form);
+      if (a === "adv-pa-del") D.adv.panel_allow.splice(+b.dataset.i, 1);
+      else {
+        const v = a === "adv-pa-me" ? D.myIp : form.elements.pa_new.value.trim();
+        if (v && !D.adv.panel_allow.includes(v)) D.adv.panel_allow.push(v);
+      }
+      return repaintAdv();
+    }
+    if (a === "adv-sys-del") {
+      const r = await act(b, () => post("/api/defender/sysctl", { action: "custom_del", key: b.dataset.key }), t("saved"));
+      if (r) { D.sysCustom = r.custom || {}; advFormToDraft(D.root.querySelector('form[data-f="adv"]')); repaintAdv(); }
+      return;
+    }
     if (a === "f2b-jail-bans") return jailBansDialog(b.dataset.jail);
     if (a === "f2b-unban") { if (await act(b, () => post("/api/defender/f2b/unban", { ip: b.dataset.ip, jail: b.dataset.jail }), `${b.dataset.ip} ✓`)) rerender(); return; }
     if (a === "f2b-ign-del") { D.f2bIgnore.splice(+b.dataset.i, 1); return paintF2b(); }
@@ -4330,7 +4738,7 @@ __MONITORING_EOF__
     }
     if (el.matches("[data-import]")) { const f = el.files[0]; el.value = ""; if (f) importBackup(f); return; }
     const form = e.target.closest("form[data-f]");
-    if (!form || e.target.type !== "checkbox") return;
+    if (!form || e.target.type !== "checkbox" || form.dataset.f === "adv") return;
     const f = form.dataset.f, on = e.target.checked, name = e.target.name;
     if (f === "esc") { if (!(await apply(e.target, "config", { auto_escalate: on, _rollback: false }, t("saved")))) e.target.checked = !on; }
     if (f === "cdn") { if (!(await apply(e.target, "config", { trust_cdn: on, _what: "cdn" }, t("df_kept")))) e.target.checked = !on; }
@@ -4358,6 +4766,17 @@ __MONITORING_EOF__
       if (await apply(btn, "config", { ssh_guard: g, _what: "ssh guard" }, t("saved"))) rerender();
       return;
     }
+    if (f === "adv") {
+      advFormToDraft(form);
+      const { _logged, _cdn, ...advanced } = D.adv;
+      if (await apply(btn, "config", { advanced, trust_logged_in: _logged, trust_cdn: _cdn, _what: "advanced" })) { D.adv = null; rerender(); }
+      return;
+    }
+    if (f === "adv-sys") {
+      const r = await act(btn, () => post("/api/defender/sysctl", { action: "custom_set", key: el.key.value.trim(), value: el.value.value.trim() }), t("saved"));
+      if (r) { D.sysCustom = r.custom || {}; advFormToDraft(D.root.querySelector('form[data-f="adv"]')); repaintAdv(); }
+      return;
+    }
     if (f === "f2b-defaults") {
       const body = { maxretry: +el.maxretry.value, findtime: el.findtime.value, bantime: el.bantime.value,
         "bantime.maxtime": el.maxtime.value, "bantime.increment": el.increment.checked, ignoreip: D.f2bIgnore };
@@ -4377,6 +4796,473 @@ __MONITORING_EOF__
   P.registerView({ id: "defender", icon: "shield", label: "df_nav", desc: "df_desc", group: "monitor", static: true }, { build: async () => ({ html: await build(), tools: "" }), bind }, "overview");
   P.setTabs(["overview", "defender", "websites", "alerts"]);
 })();
+__MONITORING_EOF__
+  write_file panel/static/security.js 644 <<'__MONITORING_EOF__'
+// Panel security: two-factor sign-in, active sessions, login protection and the security log.
+(() => {
+  "use strict";
+  const P = window.Panel;
+  if (!P) return;
+  const { t, esc, num, ago, icon, api, post, act, toast, openDialog, confirmBox, table, pill, field } = P;
+
+  P.addIcons({ key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8M16 6l3 3M14 8l2 2"/>', device: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>' });
+  P.addStrings({
+    sec_nav: "Panel security", sec_desc: "Who can sign in to this panel, from where, and what happened. Turn on two-factor sign-in for the strongest protection.",
+    sec_score_good: "The panel is well protected", sec_score_warn: "The panel can be protected better",
+    sec_2fa: "Two-factor sign-in", sec_2fa_on: "On: a code from your phone is needed at every sign-in.", sec_2fa_off: "Off: anyone who learns the password can sign in.",
+    sec_2fa_enable: "Turn on", sec_2fa_disable: "Turn off", sec_2fa_step1: "Confirm with your password to start.", sec_2fa_step2: "Add this key to an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 2FAS …): choose \"Enter a setup key\", or open the link on your phone.",
+    sec_2fa_key: "Setup key", sec_2fa_link: "Open in authenticator app", sec_2fa_code: "6-digit code from the app", sec_2fa_done: "Two-factor sign-in is on. Other devices were signed out.", sec_2fa_off_done: "Two-factor sign-in is off",
+    sec_2fa_lost: "Lost the phone? On the server delete data/panel/totp.json to turn it off.", sec_password: "Password", sec_next: "Next", sec_confirm_disable: "Turn off two-factor sign-in",
+    sec_sessions: "Signed-in devices", sec_sessions_sub: "Every browser that is signed in. A session ends after a day without use or after two weeks.", sec_device: "Device", sec_address: "Address",
+    sec_started: "Signed in", sec_last: "Last active", sec_this: "this device", sec_revoke: "Sign out", sec_revoke_others: "Sign out all other devices", sec_revoked: "Signed out",
+    sec_login: "Login protection", sec_login_sub: "{n} wrong attempts within 15 minutes lock the address (15 minutes, doubling up to a day). After {f} wrong attempts the firewall bans it for an hour.",
+    sec_locked: "Locked addresses", sec_none_locked: "No address is locked.", sec_left: "Unlocks in", sec_attempts: "Wrong attempts", sec_unlock: "Unlock",
+    sec_notify: "Telegram messages", sec_notify_login: "Sign-in from a new address", sec_notify_lock: "An address got locked out",
+    sec_log: "Security log", sec_log_none: "Nothing yet.",
+    sec_e_login: "Signed in", sec_e_login_failed: "Wrong password ({user})", sec_e_locked: "Locked out for {minutes} min", sec_e_logout: "Signed out", sec_e_password: "Password changed",
+    sec_e_2fa_on: "Two-factor sign-in turned on", sec_e_2fa_off: "Two-factor sign-in turned off", sec_e_session_revoked: "A device was signed out", sec_e_sessions_revoked: "Other devices signed out",
+    sec_e_unlocked: "{target} unlocked", sec_e_firewall_ban: "Banned by the firewall (login brute force)",
+    sec_tips: "More protection", sec_tip_https: "Put HTTPS in front of the panel (Caddy or Nginx) so the password never travels in plain text.",
+    sec_tip_ip: "Allow only your own addresses to open the panel: Firewall → Advanced → Who can open the panel.", sec_tip_pw: "Use a long password (12+ characters) that you use nowhere else: Settings → Change login.",
+    sec_open_fw: "Open", sec_your_ip: "Your address now: {ip}",
+  }, {
+    sec_nav: "امنیت پنل", sec_desc: "چه کسی، از کجا وارد این پنل می‌شود و چه اتفاقی افتاده. برای قوی‌ترین محافظت ورود دومرحله‌ای را روشن کنید.",
+    sec_score_good: "پنل خوب محافظت می‌شود", sec_score_warn: "پنل را می‌شود بهتر محافظت کرد",
+    sec_2fa: "ورود دومرحله‌ای", sec_2fa_on: "روشن: در هر ورود کد گوشی لازم است.", sec_2fa_off: "خاموش: هر کس رمز را بداند می‌تواند وارد شود.",
+    sec_2fa_enable: "روشن کردن", sec_2fa_disable: "خاموش کردن", sec_2fa_step1: "برای شروع رمز عبور را وارد کنید.", sec_2fa_step2: "این کلید را در یک برنامه‌ی احراز هویت (Google Authenticator، Microsoft Authenticator، Authy، 2FAS …) اضافه کنید: گزینه‌ی «وارد کردن کلید» را بزنید، یا لینک را روی گوشی باز کنید.",
+    sec_2fa_key: "کلید راه‌اندازی", sec_2fa_link: "باز کردن در برنامه‌ی احراز هویت", sec_2fa_code: "کد ۶ رقمی برنامه", sec_2fa_done: "ورود دومرحله‌ای روشن شد. دستگاه‌های دیگر خارج شدند.", sec_2fa_off_done: "ورود دومرحله‌ای خاموش شد",
+    sec_2fa_lost: "گوشی را گم کردید؟ روی سرور فایل data/panel/totp.json را پاک کنید تا خاموش شود.", sec_password: "رمز عبور", sec_next: "بعدی", sec_confirm_disable: "خاموش کردن ورود دومرحله‌ای",
+    sec_sessions: "دستگاه‌های واردشده", sec_sessions_sub: "هر مرورگری که وارد شده. نشست بعد از یک روز بی‌استفاده یا بعد از دو هفته تمام می‌شود.", sec_device: "دستگاه", sec_address: "آدرس",
+    sec_started: "ورود", sec_last: "آخرین فعالیت", sec_this: "همین دستگاه", sec_revoke: "خروج", sec_revoke_others: "خروج همه‌ی دستگاه‌های دیگر", sec_revoked: "خارج شد",
+    sec_login: "محافظت ورود", sec_login_sub: "{n} تلاش اشتباه در ۱۵ دقیقه آدرس را قفل می‌کند (۱۵ دقیقه، هر بار دو برابر تا یک روز). بعد از {f} تلاش اشتباه، فایروال آن را یک ساعت مسدود می‌کند.",
+    sec_locked: "آدرس‌های قفل‌شده", sec_none_locked: "هیچ آدرسی قفل نیست.", sec_left: "باز شدن تا", sec_attempts: "تلاش اشتباه", sec_unlock: "باز کردن",
+    sec_notify: "پیام تلگرام", sec_notify_login: "ورود از آدرس جدید", sec_notify_lock: "قفل شدن یک آدرس",
+    sec_log: "گزارش امنیتی", sec_log_none: "هنوز چیزی نیست.",
+    sec_e_login: "ورود", sec_e_login_failed: "رمز اشتباه ({user})", sec_e_locked: "{minutes} دقیقه قفل شد", sec_e_logout: "خروج", sec_e_password: "رمز عوض شد",
+    sec_e_2fa_on: "ورود دومرحله‌ای روشن شد", sec_e_2fa_off: "ورود دومرحله‌ای خاموش شد", sec_e_session_revoked: "یک دستگاه خارج شد", sec_e_sessions_revoked: "دستگاه‌های دیگر خارج شدند",
+    sec_e_unlocked: "قفل {target} باز شد", sec_e_firewall_ban: "توسط فایروال مسدود شد (حمله به ورود)",
+    sec_tips: "محافظت بیشتر", sec_tip_https: "جلوی پنل HTTPS بگذارید (Caddy یا Nginx) تا رمز هیچ‌وقت بدون رمزنگاری منتقل نشود.",
+    sec_tip_ip: "فقط آدرس‌های خودتان اجازه‌ی باز کردن پنل را داشته باشند: فایروال ← پیشرفته ← چه کسی پنل را باز کند.", sec_tip_pw: "رمز طولانی (۱۲+ کاراکتر) که جای دیگری استفاده نمی‌کنید: تنظیمات ← تغییر اطلاعات ورود.",
+    sec_open_fw: "باز کردن", sec_your_ip: "آدرس فعلی شما: {ip}",
+  });
+
+  let S = null, root = null;
+  const device = (ua) => {
+    ua = ua || "";
+    const b = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : /curl|python|Go-http/i.test(ua) ? "Script" : "Browser";
+    const o = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "";
+    return o ? `${b} · ${o}` : b;
+  };
+  const left = (s) => (s > 3600 ? `${(s / 3600).toFixed(1)}h` : `${Math.ceil(s / 60)}m`);
+  const sw = (name, on, label) => `<label class="df-switch"><span class="switch"><input type="checkbox" name="${name}" ${on ? "checked" : ""}><span></span></span><span><b>${esc(label)}</b></span></label>`;
+
+  function html() {
+    const good = S.totp;
+    const sessions = table([
+      { h: "sec_device", cls: "strong", cell: (r) => `${icon("device")} ${esc(device(r.ua))}${r.current ? `<span class="tag">${esc(t("sec_this"))}</span>` : ""}` },
+      { h: "sec_address", cell: (r) => num(esc(r.ip)) },
+      { h: "sec_started", cell: (r) => esc(ago(r.created)) },
+      { h: "sec_last", cell: (r) => esc(ago(r.last)) },
+      { h: "actions", cell: (r) => (r.current ? "–" : `<button type="button" class="btn small" data-a="revoke" data-id="${esc(r.id)}">${esc(t("sec_revoke"))}</button>`) },
+    ], S.sessions);
+    const locks = S.locks.length ? table([
+      { h: "sec_address", cls: "strong", cell: (r) => num(esc(r.ip)) },
+      { h: "sec_attempts", cell: (r) => num(r.failures) },
+      { h: "sec_left", cell: (r) => num(esc(left(r.left))) },
+      { h: "actions", cell: (r) => `<button type="button" class="btn small" data-a="unlock" data-ip="${esc(r.ip)}">${esc(t("sec_unlock"))}</button>` },
+    ], S.locks) : `<div class="empty">${esc(t("sec_none_locked"))}</div>`;
+    const logRows = S.log.length ? `<ol class="df-events">${S.log.slice(0, 40).map((e) => {
+      const ic = { login: "okmark", login_failed: "alert", locked: "lock", logout: "logout", password: "key", "2fa_on": "shield", "2fa_off": "alert", firewall_ban: "ban" }[e.kind] || "bell";
+      const bad = ["login_failed", "locked", "firewall_ban", "2fa_off"].includes(e.kind);
+      return `<li class="${bad ? "ev-attack_start" : e.kind === "login" ? "ev-allow" : ""}"><span class="ev-ic">${icon(ic)}</span><span class="ev-t">${esc(t(`sec_e_${e.kind}`, e))} <span class="muted" dir="ltr">${esc(e.ip || "")}</span></span><time>${esc(ago(e.t))}</time></li>`;
+    }).join("")}</ol>` : `<div class="empty">${esc(t("sec_log_none"))}</div>`;
+    return `<section class="card hero df-hero ${good ? "" : "warn"}"><div class="hero-icon">${icon(good ? "shield" : "alert")}</div>
+        <div class="hero-text"><h2>${esc(t(good ? "sec_score_good" : "sec_score_warn"))}</h2><p>${esc(t(good ? "sec_2fa_on" : "sec_2fa_off"))}</p>
+        <div class="hero-meta"><span class="chip">${icon("key")}${esc(t("sec_2fa"))} <b>${esc(good ? "✓" : "–")}</b></span><span class="chip">${icon("device")}${esc(t("sec_sessions"))} <b>${num(S.sessions.length)}</b></span>
+          <span class="chip">${esc(t("sec_your_ip", { ip: S.ip }))}</span></div></div>
+        <div class="df-hero-act"><button type="button" class="btn ${good ? "ghost danger small" : "primary df-cta"}" data-a="${good ? "2fa-off" : "2fa-on"}">${icon("key")}<span>${esc(t(good ? "sec_2fa_disable" : "sec_2fa_enable"))}</span></button></div></section>
+      <section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("device")}${esc(t("sec_sessions"))}</h3><p class="muted">${esc(t("sec_sessions_sub"))}</p></div>
+        ${S.sessions.length > 1 ? `<button type="button" class="btn small" data-a="revoke-others">${esc(t("sec_revoke_others"))}</button>` : ""}</div>${sessions}</section>
+      <section class="sec"><div class="sec-head"><h3>${icon("lock")}${esc(t("sec_login"))}</h3><p class="muted">${esc(t("sec_login_sub", { n: S.limits.lock_after, f: S.limits.firewall_after }))}</p></div>
+        <h4 class="df-h4">${esc(t("sec_locked"))}</h4>${locks}</section>
+      <section class="sec"><div class="sec-head"><h3>${icon("send")}${esc(t("sec_notify"))}</h3></div><form class="subcard" data-f="sec-notify">${sw("notify_login", S.settings.notify_login, t("sec_notify_login"))}${sw("notify_lock", S.settings.notify_lock, t("sec_notify_lock"))}</form></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("shield")}${esc(t("sec_tips"))}</h3></div><ul class="df-covers">
+        <li>${icon("okmark")}<span>${esc(t("sec_tip_ip"))} <a href="#defender" data-a="open-fw">${esc(t("sec_open_fw"))}</a></span></li><li>${icon("okmark")}<span>${esc(t("sec_tip_pw"))}</span></li><li>${icon("okmark")}<span>${esc(t("sec_tip_https"))}</span></li></ul></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("clock")}${esc(t("sec_log"))}</h3></div>${logRows}</section>`;
+  }
+
+  async function build() {
+    S = await api("/api/security");
+    return { html: html(), tools: "" };
+  }
+  const repaint = () => { if (root) root.innerHTML = html(); };
+
+  function enable2fa() {
+    openDialog({
+      title: t("sec_2fa"), submit: t("sec_next"),
+      body: `<p>${esc(t("sec_2fa_step1"))}</p>${field(t("sec_password"), '<input type="password" name="password" required autocomplete="current-password">')}`,
+      onSubmit: async (form) => {
+        const r = await post("/api/security/2fa/setup", { password: form.elements.password.value });
+        setTimeout(() => step2(r), 50);
+      },
+    });
+  }
+  function step2(r) {
+    const key = r.secret.match(/.{1,4}/g).join(" ");
+    openDialog({
+      title: t("sec_2fa"), submit: t("sec_2fa_enable"),
+      body: `<p>${esc(t("sec_2fa_step2"))}</p>
+        <div class="field"><label>${esc(t("sec_2fa_key"))}</label><div class="sec-key" dir="ltr">${esc(key)}</div>
+        <p class="row-actions"><button type="button" class="btn small" data-copy="${esc(r.secret)}">${icon("copy")}<span>${esc(t("copy"))}</span></button>
+          <a class="btn small" href="${esc(r.uri)}">${icon("key")}<span>${esc(t("sec_2fa_link"))}</span></a></p></div>
+        ${field(t("sec_2fa_code"), '<input name="code" inputmode="numeric" autocomplete="one-time-code" required pattern="[0-9 ]{6,7}" maxlength="7" dir="ltr">')}
+        <p class="muted">${esc(t("sec_2fa_lost"))}</p>`,
+      onSubmit: async (form) => {
+        S = await post("/api/security/2fa/enable", { code: form.elements.code.value });
+        toast(t("sec_2fa_done"));
+        repaint();
+      },
+    });
+  }
+  function disable2fa() {
+    openDialog({
+      title: t("sec_confirm_disable"), submit: t("sec_2fa_disable"), danger: true,
+      body: `${field(t("sec_password"), '<input type="password" name="password" required autocomplete="current-password">')}${field(t("sec_2fa_code"), '<input name="code" inputmode="numeric" required maxlength="7" dir="ltr">')}`,
+      onSubmit: async (form) => {
+        S = await post("/api/security/2fa/disable", { password: form.elements.password.value, code: form.elements.code.value });
+        toast(t("sec_2fa_off_done"));
+        repaint();
+      },
+    });
+  }
+
+  function bind(r) {
+    root = r;
+    r.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-a]");
+      if (!b) return;
+      const a = b.dataset.a;
+      if (a === "open-fw") { try { localStorage.setItem("df_tab", "advanced"); } catch (x) { /* ignore */ } return; }
+      e.preventDefault();
+      if (a === "2fa-on") return enable2fa();
+      if (a === "2fa-off") return disable2fa();
+      if (a === "revoke") { const x = await act(b, () => post("/api/security/revoke", { id: b.dataset.id }), t("sec_revoked")); if (x) { S = x; repaint(); } }
+      if (a === "revoke-others") {
+        if (!(await confirmBox({ message: t("sec_revoke_others"), label: t("sec_revoke") }))) return;
+        const x = await act(b, () => post("/api/security/revoke-others", {}), t("sec_revoked")); if (x) { S = x; repaint(); }
+      }
+      if (a === "unlock") { const x = await act(b, () => post("/api/security/unlock", { ip: b.dataset.ip }), t("sec_unlock")); if (x) { S = x; repaint(); } }
+    });
+    r.addEventListener("change", async (e) => {
+      if (!e.target.closest('form[data-f="sec-notify"]')) return;
+      const x = await act(e.target, () => post("/api/security/settings", { [e.target.name]: e.target.checked }), t("saved"));
+      if (x) S = x; else e.target.checked = !e.target.checked;
+    });
+  }
+
+  P.registerView({ id: "security", icon: "key", label: "sec_nav", desc: "sec_desc", group: "manage", static: true }, { build, bind }, "settings");
+})();
+__MONITORING_EOF__
+  write_file panel/security.py 644 <<'__MONITORING_EOF__'
+"""Panel security: server-side sessions, per-address login protection, two-factor codes (TOTP),
+request rate limits and a security log. Standard library only.
+
+Lost the authenticator? On the server delete data/panel/totp.json (2FA is then off).
+Locked yourself out by mistake? Restart the panel container (locks live in memory only).
+"""
+import base64
+import collections
+import hashlib
+import hmac
+import json
+import os
+import secrets
+import struct
+import threading
+import time
+from pathlib import Path
+
+DATA = Path(os.environ.get("DATA_DIR", "/data"))
+SESSION_IDLE = 24 * 3600          # a session nobody used for a day ends
+SESSION_MAX = 14 * 24 * 3600      # and every session ends after two weeks
+LOCK_AFTER = 5                    # failed logins from one address ...
+LOCK_WINDOW = 15 * 60             # ... within this window lock the address
+LOCK_BASE, LOCK_MAX = 15 * 60, 24 * 3600   # first lock 15 min, doubling up to a day
+FIREWALL_AFTER = 15               # failures after which the firewall bans the address outright
+_lock = threading.RLock()
+
+
+def _write_private(path, obj):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(obj, f)
+    os.replace(tmp, path)
+
+
+def _read(path, default):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return default
+
+
+# ------------------------------------------------------------------ sessions
+
+class Sessions:
+    """Random session tokens; only their SHA-256 is stored, so the file is useless to a reader."""
+
+    def __init__(self):
+        self.file = DATA / "sessions.json"
+        self.items = _read(self.file, {})
+        self._saved = 0
+
+    @staticmethod
+    def _key(token):
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    def _save(self, force=False):
+        if force or time.time() - self._saved > 60:
+            self._saved = time.time()
+            try:
+                _write_private(self.file, self.items)
+            except OSError:
+                pass
+
+    def create(self, ip, ua):
+        token = secrets.token_urlsafe(32)
+        now = time.time()
+        with _lock:
+            self._expire(now)
+            self.items[self._key(token)] = {"id": secrets.token_hex(6), "created": now, "last": now, "ip": ip, "ua": (ua or "")[:160]}
+            self._save(force=True)
+        return token
+
+    def get(self, token):
+        if not token:
+            return None
+        now = time.time()
+        with _lock:
+            s = self.items.get(self._key(token))
+            if not s:
+                return None
+            if now - s["last"] > SESSION_IDLE or now - s["created"] > SESSION_MAX:
+                self.items.pop(self._key(token), None)
+                self._save(force=True)
+                return None
+            if now - s["last"] > 30:
+                s["last"] = now
+                self._save()
+            return s
+
+    def touch_ip(self, token, ip):
+        s = self.get(token)
+        if s and s.get("ip") != ip:
+            s["ip"] = ip
+
+    def revoke_token(self, token):
+        with _lock:
+            self.items.pop(self._key(token or ""), None)
+            self._save(force=True)
+
+    def revoke(self, sid):
+        with _lock:
+            for k, v in list(self.items.items()):
+                if v["id"] == sid:
+                    del self.items[k]
+            self._save(force=True)
+
+    def revoke_all(self, keep_token=None):
+        with _lock:
+            keep = self._key(keep_token) if keep_token else None
+            self.items = {k: v for k, v in self.items.items() if k == keep}
+            self._save(force=True)
+
+    def _expire(self, now):
+        self.items = {k: v for k, v in self.items.items() if now - v["last"] <= SESSION_IDLE and now - v["created"] <= SESSION_MAX}
+
+    def list(self, current_token=None):
+        with _lock:
+            self._expire(time.time())
+            cur = self._key(current_token) if current_token else None
+            return sorted(({**v, "current": k == cur} for k, v in self.items.items()), key=lambda r: -r["last"])
+
+
+# ------------------------------------------------------------------ login protection
+
+class Guard:
+    def __init__(self):
+        self.fails = collections.defaultdict(collections.deque)   # ip -> failure times
+        self.locks = {}                                            # ip -> {"until", "count"}
+        self.totals = collections.Counter()                        # ip -> failures since the panel started
+
+    def locked(self, ip):
+        with _lock:
+            lk = self.locks.get(ip)
+            if lk and lk["until"] > time.time():
+                return int(lk["until"] - time.time())
+            return 0
+
+    def failed(self, ip):
+        now = time.time()
+        with _lock:
+            q = self.fails[ip]
+            q.append(now)
+            while q and now - q[0] > LOCK_WINDOW:
+                q.popleft()
+            self.totals[ip] += 1
+            if len(q) >= LOCK_AFTER:
+                count = self.locks.get(ip, {}).get("count", 0) + 1
+                self.locks[ip] = {"until": now + min(LOCK_MAX, LOCK_BASE * 2 ** (count - 1)), "count": count, "since": now}
+                q.clear()
+                return int(self.locks[ip]["until"] - now), self.totals[ip]
+            return 0, self.totals[ip]
+
+    def success(self, ip):
+        with _lock:
+            self.fails.pop(ip, None)
+            self.locks.pop(ip, None)
+
+    def unlock(self, ip):
+        with _lock:
+            self.locks.pop(ip, None)
+            self.fails.pop(ip, None)
+
+    def list(self):
+        now = time.time()
+        with _lock:
+            return [{"ip": ip, "left": int(v["until"] - now), "count": v["count"], "failures": self.totals[ip]}
+                    for ip, v in self.locks.items() if v["until"] > now]
+
+
+# ------------------------------------------------------------------ two-factor codes (RFC 6238)
+
+class TOTP:
+    STEP, DIGITS = 30, 6
+
+    def __init__(self):
+        self.file = DATA / "totp.json"
+
+    def _data(self):
+        return _read(self.file, {})
+
+    def enabled(self):
+        return bool(self._data().get("enabled"))
+
+    def setup(self):
+        secret = base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
+        _write_private(self.file, {"secret": secret, "enabled": False, "last": 0})
+        return secret
+
+    @classmethod
+    def code(cls, secret, counter):
+        key = base64.b32decode(secret + "=" * (-len(secret) % 8))
+        h = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+        o = h[-1] & 15
+        return str((struct.unpack(">I", h[o:o + 4])[0] & 0x7FFFFFFF) % 10 ** cls.DIGITS).zfill(cls.DIGITS)
+
+    def verify(self, code, pending=False):
+        d = self._data()
+        if not d.get("secret") or (not d.get("enabled") and not pending):
+            return False
+        code = "".join(ch for ch in str(code or "") if ch.isdigit())
+        if len(code) != self.DIGITS:
+            return False
+        now = int(time.time() // self.STEP)
+        for c in (now - 1, now, now + 1):
+            if c > d.get("last", 0) and hmac.compare_digest(self.code(d["secret"], c), code):
+                d["last"] = c          # a code works once
+                _write_private(self.file, d)
+                return True
+        return False
+
+    def enable(self, code):
+        if not self.verify(code, pending=True):
+            return False
+        d = self._data()
+        d["enabled"] = True
+        _write_private(self.file, d)
+        return True
+
+    def disable(self):
+        try:
+            self.file.unlink()
+        except FileNotFoundError:
+            pass
+
+    def uri(self, user, issuer):
+        from urllib.parse import quote
+        d = self._data()
+        return f"otpauth://totp/{quote(issuer)}:{quote(user)}?secret={d.get('secret', '')}&issuer={quote(issuer)}&digits=6&period=30"
+
+
+# ------------------------------------------------------------------ rate limits
+
+class Limiter:
+    """Token buckets per key: rate per minute with a burst."""
+
+    def __init__(self):
+        self.b = {}
+
+    def allow(self, key, per_min, burst):
+        now = time.time()
+        with _lock:
+            tokens, last = self.b.get(key, (burst, now))
+            tokens = min(burst, tokens + (now - last) * per_min / 60)
+            if tokens < 1:
+                self.b[key] = (tokens, now)
+                return False
+            self.b[key] = (tokens - 1, now)
+            if len(self.b) > 50000:
+                self.b.clear()
+            return True
+
+
+# ------------------------------------------------------------------ security log and settings
+
+class Log:
+    def __init__(self):
+        self.file = DATA / "security-log.json"
+        self.rows = collections.deque(_read(self.file, []), maxlen=400)
+
+    def add(self, kind, ip="", **data):
+        with _lock:
+            self.rows.append({"t": round(time.time(), 1), "kind": kind, "ip": ip, **data})
+            try:
+                _write_private(self.file, list(self.rows))
+            except OSError:
+                pass
+
+    def list(self):
+        with _lock:
+            return list(self.rows)[-200:][::-1]
+
+    def known_ip(self, ip, days=30):
+        cutoff = time.time() - days * 86400
+        return any(r["kind"] == "login" and r.get("ip") == ip and r["t"] > cutoff for r in list(self.rows)[:-1])
+
+
+class Settings:
+    def __init__(self):
+        self.file = DATA / "security.json"
+
+    def get(self):
+        return {"notify_login": True, "notify_lock": True, **_read(self.file, {})}
+
+    def set(self, **kw):
+        cur = self.get()
+        cur.update({k: bool(v) for k, v in kw.items() if k in ("notify_login", "notify_lock")})
+        _write_private(self.file, cur)
+        return cur
+
+
+sessions = Sessions()
+guard = Guard()
+totp = TOTP()
+limiter = Limiter()
+log = Log()
+settings = Settings()
 __MONITORING_EOF__
   write_file defender/Dockerfile 644 <<'__MONITORING_EOF__'
 # Defender agent: only the tools it drives. Its Python code is mounted from ./defender, so updating
@@ -4417,6 +5303,7 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler
+from urllib.parse import unquote
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import f2b  # noqa: E402
@@ -4429,9 +5316,11 @@ DATA = os.environ.get("DATA_DIR", "/data")
 SOCK = os.path.join(DATA, "agent.sock")
 PANEL_GID = int(os.environ.get("PANEL_GID", "65534"))
 PANEL_PORTS = sorted({int(p) for p in re.findall(r"\d+", os.environ.get("PANEL_PORTS", "3000"))})
-ROLLBACK_SECONDS = 60
+def ROLLBACK_SECONDS():  # noqa: N802 - kept as a "constant" name; the value lives in the configuration
+    return int(CFG.get("advanced", {}).get("rollback_seconds", 60))
 KEEP = 300                     # live samples (5 minutes)
-DEESCALATE_AFTER = 600         # back to the chosen profile 10 minutes after an attack ended
+def ADV(key):  # noqa: N802
+    return CFG.get("advanced", {}).get(key, DEFAULT["advanced"][key])
 LOCK = threading.RLock()
 
 DEFAULT = {
@@ -4447,6 +5336,19 @@ DEFAULT = {
     "trust_logged_in": True,
     "trust_cdn": True,
     "geo": {"block": []},
+    # Expert settings (Advanced tab). Everything that used to be fixed can be changed here.
+    "advanced": {
+        "rollback_seconds": 60,       # 0 = apply changes without the safety test
+        "ssh_rate": 12,               # new SSH connections per minute and source before a ban (0 = off)
+        "ssh_ban_minutes": 60,
+        "autoban_factor": 3,          # ban a source going this many times over a limit (0 = never ban, only drop)
+        "detect_drops": 300, "detect_cookies": 50, "detect_pps": 20000, "detect_conntrack": 90, "calm_seconds": 30,
+        "deescalate_minutes": 10,
+        "trust_docker": True,         # never filter traffic from Docker bridges / veth
+        "lock_ports": True,           # SSH and panel ports stay open whatever the mode
+        "panel_allow": [],            # only these addresses may open the panel (empty = everyone)
+        "custom_rules": "",           # extra nftables statements for new connections
+    },
     "sysctl": {"applied": [], "original": {}},
     "notify": {"attacks": True, "bans": False},
 }
@@ -4590,9 +5492,9 @@ def change(mutator, rollback=True, what="config"):
             raise ValueError(f"The new rules were rejected, nothing changed: {e}")
         CFG = new
         save_json("config.json", CFG)
-        if rollback and (new["enabled"] or prev["enabled"]):
+        if rollback and ROLLBACK_SECONDS() > 0 and (new["enabled"] or prev["enabled"]):
             old_pending = STATE["pending"]
-            STATE["pending"] = {"until": time.time() + ROLLBACK_SECONDS,
+            STATE["pending"] = {"until": time.time() + ROLLBACK_SECONDS(),
                                 "prev": old_pending["prev"] if old_pending else prev, "what": what}
         event("applied", what=what)
         return status()
@@ -4639,8 +5541,8 @@ def parse_net(value, allow_any=False):
         net = ipaddress.ip_network(str(value).strip(), strict=False)
     except ValueError:
         raise ValueError(f"Not an IP address or network: {value}")
-    if not allow_any and net.prefixlen < (8 if net.version == 4 else 32):
-        raise ValueError(f"{value} is too large a range")
+    if not allow_any and net.prefixlen == 0:
+        raise ValueError(f"{value} is the whole internet")
     return net
 
 
@@ -4670,7 +5572,7 @@ def validate(cfg):
         if key in seen:
             raise ValueError(f"Port {p['port']} is listed twice")
         seen.add(key)
-    if len(fw["ports"]) > 300:
+    if len(fw["ports"]) > 5000:
         raise ValueError("too many ports")
     for i in fw["trusted_ifaces"]:
         if not IFACE_RE.match(i):
@@ -4679,14 +5581,26 @@ def validate(cfg):
         for e in cfg[lst]:
             e["ip"] = net_str(parse_net(e["ip"], allow_any=(lst == "allow")))
             e["note"] = str(e.get("note", ""))[:80]
-        if len(cfg[lst]) > 5000:
+        if len(cfg[lst]) > 100000:
             raise ValueError("list too long")
     codes = sorted({str(c).strip().lower() for c in cfg["geo"].get("block", [])})
-    if len(codes) > 150 or not all(geo.CC_RE.match(c) for c in codes):
+    if len(codes) > 300 or not all(geo.CC_RE.match(c) for c in codes):
         raise ValueError("invalid country list")
     cfg["geo"]["block"] = codes
+    a = cfg["advanced"]
+    for k, lo, hi in (("rollback_seconds", 0, 3600), ("ssh_rate", 0, 100000), ("ssh_ban_minutes", 1, 525600), ("autoban_factor", 0, 1000),
+                      ("detect_drops", 1, 10**9), ("detect_cookies", 1, 10**9), ("detect_pps", 1, 10**10), ("detect_conntrack", 1, 100),
+                      ("calm_seconds", 5, 86400), ("deescalate_minutes", 0, 10080)):
+        v = a.get(k, DEFAULT["advanced"][k])
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or not lo <= v <= hi:
+            raise ValueError(f"{k}: must be between {lo} and {hi}")
+        a[k] = int(v)
+    for k in ("trust_docker", "lock_ports"):
+        a[k] = bool(a.get(k, True))
+    a["panel_allow"] = [net_str(parse_net(x, allow_any=True)) for x in a.get("panel_allow", []) if str(x).strip()][:5000]
+    a["custom_rules"] = nftrules.check_custom(a.get("custom_rules", ""))
     g = cfg["ssh_guard"]
-    for k, lo, hi in (("failures", 2, 100), ("window", 1, 1440), ("ban", 1, 525600)):
+    for k, lo, hi in (("failures", 1, 100000), ("window", 1, 525600), ("ban", 1, 5256000)):
         if not isinstance(g.get(k), (int, float)) or not lo <= g[k] <= hi:
             raise ValueError(f"SSH guard {k}: must be between {lo} and {hi}")
         g[k] = int(g[k])
@@ -4921,13 +5835,13 @@ def stats_loop():
                 if base is None:
                     base = pps
                 signals = []
-                if s["drop"] > 300:
+                if s["drop"] > ADV("detect_drops"):
                     signals.append("drops")
-                if (s["cookies"] or 0) > 50:
+                if (s["cookies"] or 0) > ADV("detect_cookies"):
                     signals.append("syn_flood")
-                if pps > 20000 and pps > 6 * max(base, 1000):
+                if pps > ADV("detect_pps") and pps > 6 * max(base, 1000):
                     signals.append("traffic")
-                if (s["ct"] or 0) > 90:
+                if (s["ct"] or 0) > ADV("detect_conntrack"):
                     signals.append("conntrack")
                 att = STATE["attack"]
                 if signals:
@@ -4950,10 +5864,10 @@ def stats_loop():
                         except Exception as e:
                             STATE["escalated"] = False
                             log("escalate failed", e)
-                elif att["active"] and calm >= 30:
+                elif att["active"] and calm >= ADV("calm_seconds"):
                     att.update(active=False, ended=t0)
                     event("attack_end", seconds=round(t0 - att["since"]), peak={k: round(v) for k, v in att["peak"].items()})
-                if STATE["escalated"] and not att["active"] and t0 - att["ended"] > DEESCALATE_AFTER:
+                if STATE["escalated"] and not att["active"] and t0 - att["ended"] > ADV("deescalate_minutes") * 60:
                     STATE["escalated"] = False
                     try:
                         apply()
@@ -4994,7 +5908,7 @@ def status():
             "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
             "effective": effective_limits(), "profiles": nftrules.PROFILES,
             "attack": {k: v for k, v in STATE["attack"].items()},
-            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify")},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced")},
             "allow": CFG["allow"], "block": CFG["block"],
             "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
             "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
@@ -5067,6 +5981,10 @@ def _cfg_patch(body):
                     c["ssh_guard"][k] = g[k]
         if "notify" in body:
             c["notify"].update({k: bool(v) for k, v in body["notify"].items() if k in ("attacks", "bans")})
+        if isinstance(body.get("advanced"), dict):
+            for k, v in body["advanced"].items():
+                if k in DEFAULT["advanced"]:
+                    c["advanced"][k] = v
         if "geo" in body and isinstance(body["geo"], dict) and "block" in body["geo"]:
             c["geo"]["block"] = [str(x) for x in body["geo"]["block"]][:200]
     return mut
@@ -5103,7 +6021,30 @@ def api_sysctl(body):
     rec = {k: r for k, r, _ in hostinfo.SYSCTLS}
     with LOCK:
         sc = CFG["sysctl"]
-        if body.get("action") == "restore":
+        if body.get("action") in ("custom_set", "custom_del"):
+            key = str(body.get("key", "")).strip()
+            if not re.match(r"^(net|kernel|vm|fs)\.[A-Za-z0-9_.\-]{1,120}$", key) or ".." in key or not os.path.exists("/proc/sys/" + key.replace(".", "/")):
+                raise ValueError(f"Unknown kernel setting: {key}")
+            custom = sc.setdefault("custom", {})
+            if body["action"] == "custom_set":
+                value = str(body.get("value", "")).strip()
+                if not value or len(value) > 200 or "\n" in value:
+                    raise ValueError("Invalid value")
+                sc["original"].setdefault(key, hostinfo.sysctl_get(key))
+                try:
+                    hostinfo.sysctl_set(key, value)
+                except OSError as e:
+                    raise ValueError(f"{key}: {e}")
+                custom[key] = value
+            else:
+                custom.pop(key, None)
+                if sc["original"].get(key) is not None:
+                    try:
+                        hostinfo.sysctl_set(key, sc["original"][key])
+                    except OSError:
+                        pass
+            event("sysctl", action=body["action"].replace("custom_", "custom "), n=1)
+        elif body.get("action") == "restore":
             for k in want:
                 if k in sc["original"]:
                     try:
@@ -5127,10 +6068,15 @@ def api_sysctl(body):
                     sc["applied"].append(k)
             event("sysctl", action="apply", n=len(want))
         save_json("config.json", CFG)
-    return {"rows": hostinfo.sysctl_report(), "applied": CFG["sysctl"]["applied"]}
+    return {"rows": hostinfo.sysctl_report(), "applied": CFG["sysctl"]["applied"], "custom": CFG["sysctl"].get("custom", {})}
 
 
 def reapply_sysctl():
+    for k, v in (CFG["sysctl"].get("custom") or {}).items():
+        try:
+            hostinfo.sysctl_set(k, v)
+        except OSError as e:
+            log("sysctl", k, e)
     rec = {k: r for k, r, _ in hostinfo.SYSCTLS}
     for k in CFG["sysctl"]["applied"]:
         try:
@@ -5146,7 +6092,7 @@ def api_audit():
         if c["id"] == "fail2ban" and f2b.installed() and not f2b.running():
             c.update(id="fail2ban_stopped", sev=2)
     return {"checks": checks, "score": hostinfo.score(checks), "sysctl": hostinfo.sysctl_report(),
-            "sysctl_applied": CFG["sysctl"]["applied"]}
+            "sysctl_applied": CFG["sysctl"]["applied"], "sysctl_custom": CFG["sysctl"].get("custom", {})}
 
 
 def api_live(q):
@@ -5169,7 +6115,7 @@ def f2b_jail_name(name, must_run=False):
     running = f2b.jail_names() if f2b.running() else []
     if must_run and name not in running:
         raise ValueError(f"The jail {name} is not running")
-    if name not in running and name not in f2b.PRESETS and name not in F2B["jails"]:
+    if name not in running and name not in f2b.PRESETS and name not in F2B["jails"] and not f2b.jail_config(name)[1]:
         raise ValueError(f"Unknown jail: {name}")
     return name
 
@@ -5190,9 +6136,34 @@ def f2b_save(mutate, what):
 
 
 def api_f2b_jail(b):
+    name = str(b.get("name") or "").strip()
+    if b.get("create"):
+        if not f2b.NAME_RE.match(name) or name.upper() == "DEFAULT":
+            raise ValueError("Jail names use letters, digits, - _ . (up to 40)")
+        if name in (f2b.jail_names() if f2b.running() else []) or name in F2B["jails"] or f2b.jail_config(name)[1]:
+            raise ValueError(f"A jail named {name} already exists")
+    else:
+        name = f2b_jail_name(name)
+    upd = {k: b[k] for k in f2b.JAIL_KEYS + ("extra",) if k in b}
+
+    def mut(m):
+        if b.get("replace") or b.get("create"):
+            m["jails"][name] = upd
+        else:
+            m["jails"].setdefault(name, {}).update(upd)
+    return f2b_save(mut, f"{'new ' if b.get('create') else ''}jail {name}")
+
+
+def api_f2b_jail_delete(b):
+    global F2B
     name = f2b_jail_name(b.get("name"))
-    upd = {k: b[k] for k in ("enabled", "bantime", "findtime", "maxretry") if k in b}
-    return f2b_save(lambda m: m["jails"].setdefault(name, {}).update(upd), f"jail {name}")
+    with LOCK:
+        new = copy.deepcopy(F2B)
+        res = f2b.delete_jail(name, new)
+        F2B = new
+        save_json("f2b.json", F2B)
+    event("f2b_config", what=f"deleted jail {name}")
+    return {**f2b_view(force=True), **res}
 
 
 def api_f2b_defaults(b):
@@ -5242,6 +6213,18 @@ def api_f2b_uninstall(b):
     return {"job": job}
 
 
+def api_f2b_file_save(b):
+    out = f2b.file_write(b.get("path"), b.get("text", ""))
+    event("f2b_config", what=f"file {out['path']}")
+    return out
+
+
+def api_f2b_file_delete(b):
+    out = f2b.file_delete(b.get("path"))
+    event("f2b_config", what=f"deleted {b.get('path')}")
+    return out
+
+
 def api_f2b_bans(q):
     return {"rows": f2b.jail_bans(f2b_jail_name(q.get("jail"), must_run=True))}
 
@@ -5267,7 +6250,7 @@ def geo_refresh_loop():
 
 
 EXPORT_KEYS = ("enabled", "profile", "limits", "auto_escalate", "ddos", "firewall", "allow", "block", "ssh_guard",
-               "trust_logged_in", "trust_cdn", "geo", "notify")
+               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced")
 
 
 def api_export(q):
@@ -5314,6 +6297,9 @@ GET = {
     "/f2b": lambda q: f2b_view(),
     "/f2b/bans": api_f2b_bans,
     "/f2b/log": lambda q: {"text": f2b.log_tail()},
+    "/f2b/jail": lambda q: f2b.jail_detail(f2b_jail_name(q.get("jail")), F2B),
+    "/f2b/files": lambda q: {"rows": f2b.files(), "backups": f2b.BACKUPS},
+    "/f2b/file": lambda q: f2b.file_read(q.get("path")),
     "/geo": api_geo,
     "/export": api_export,
 }
@@ -5331,6 +6317,9 @@ POST = {
     "/f2b/install": api_f2b_install,
     "/f2b/uninstall": api_f2b_uninstall,
     "/f2b/jail": api_f2b_jail,
+    "/f2b/jail/delete": api_f2b_jail_delete,
+    "/f2b/file": api_f2b_file_save,
+    "/f2b/file/delete": api_f2b_file_delete,
     "/f2b/defaults": api_f2b_defaults,
     "/f2b/ban": api_f2b_ban,
     "/f2b/unban": api_f2b_unban,
@@ -5373,7 +6362,7 @@ class Handler(BaseHTTPRequestHandler):
         if "?" in self.path:
             for part in self.path.split("?", 1)[1].split("&"):
                 k, _, v = part.partition("=")
-                q[k] = v
+                q[k] = unquote(v)
         self._route(GET, q)
 
     def do_POST(self):
@@ -5442,6 +6431,7 @@ Order of the chain (first match wins):
                                                    -> drop (and ban at 3x the limit)
 """
 import ipaddress
+import re
 
 PROFILES = {
     # per source IP. syn/conn/udp/icmp: packets or new flows per second (burst = 2x). conc: open TCP connections.
@@ -5453,7 +6443,7 @@ LIMIT_KEYS = {"syn": (1, 100000), "conn": (1, 100000), "conc": (5, 1000000), "ud
               "icmp": (1, 10000), "ban": (1, 10080)}
 AUTOBAN_FACTOR = 3        # a source going this many times over a limit is banned, not just slowed down
 SSH_NEW_PER_MIN = 12      # new SSH connections per source and minute before the source is banned
-COUNTERS = ("allow", "block", "ban", "geo", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
+COUNTERS = ("allow", "block", "ban", "geo", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
             "udp", "icmp", "autoban", "new", "all")
 ALWAYS_TRUSTED = ("lo", "docker*", "br-*", "veth*")
 # Cloudflare's edge (https://www.cloudflare.com/ips/). A site or proxy behind Cloudflare receives all of its
@@ -5464,14 +6454,35 @@ CDN4 = ("173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22"
 CDN6 = ("2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32", "2405:8100::/32", "2a06:98c0::/29", "2c0f:f248::/32")
 
 
+FORBIDDEN = re.compile(r"^\s*(table|chain|flush|delete|include|define|add\s+(table|chain|rule)|insert|replace|reset|list)\b", re.I)
+
+
+def check_custom(text):
+    """Custom rules: nft statements, one per line, that run inside the Firewall's chain for new connections.
+    They are checked by the kernel with the whole ruleset (nft -c) before anything is applied; here we only
+    make sure a line cannot leave the chain (unbalanced braces, table/chain commands)."""
+    out = []
+    for raw in str(text or "").replace("\r", "").split("\n"):
+        ln = raw.strip()
+        if not ln or ln.startswith("#"):
+            continue
+        if FORBIDDEN.match(ln) or ln.count("{") != ln.count("}") or ";" in ln:
+            raise ValueError(f"Not allowed in a custom rule: {ln[:80]}")
+        out.append(ln)
+    if len(out) > 500:
+        raise ValueError("At most 500 custom rules")
+    return "\n".join(out)
+
+
 def ports_expr(items):
     """['22', '8000-8100'] -> '{ 22, 8000-8100 }' (nft set syntax)."""
     return "{ " + ", ".join(items) + " }"
 
 
-def iface_rules(ifaces):
+def iface_rules(ifaces, trust_docker=True):
     out = []
-    for name in list(ALWAYS_TRUSTED) + [i for i in ifaces if i not in ALWAYS_TRUSTED]:
+    base = ALWAYS_TRUSTED if trust_docker else ("lo",)
+    for name in list(base) + [i for i in ifaces if i not in base]:
         out.append(f'        iifname "{name}" accept')
     return out
 
@@ -5492,7 +6503,9 @@ def set_block(name, family, items, extra=""):
 def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=()):
     """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table)."""
     fw = cfg["firewall"]
+    adv = cfg.get("advanced") or {}
     allow4, allow6 = split_ips(a["ip"] for a in cfg["allow"])
+    pallow4, pallow6 = split_ips(adv.get("panel_allow") or [])
     block4, block6 = split_ips(b["ip"] for b in cfg["block"] if not b.get("until"))
     ban_elements = ban_elements or {"ban4": [], "ban6": []}
     ban_t = f"{int(limits['ban'])}m"
@@ -5502,7 +6515,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
               set_block("block4", "ipv4", block4), set_block("block6", "ipv6", block6),
               set_block("cdn4", "ipv4", list(CDN4) if cfg.get("trust_cdn", True) else []),
               set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else []),
-              set_block("geo4", "ipv4", list(geo4), " auto-merge;"), set_block("geo6", "ipv6", list(geo6), " auto-merge;")]
+              set_block("geo4", "ipv4", list(geo4), " auto-merge;"), set_block("geo6", "ipv6", list(geo6), " auto-merge;"),
+              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6)]
     for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
         els = ban_elements.get(name) or []
         body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
@@ -5514,18 +6528,22 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
         lines.append(f"    set m_conc{suffix} {{ type {fam}_addr; flags dynamic; size 262144; }}")
 
     ssh = sorted({str(p) for p in ssh_ports}) or ["22"]
-    open_tcp = sorted({str(p) for p in ssh} | {str(p) for p in panel_ports} |
+    locked = ({str(p) for p in ssh} | {str(p) for p in panel_ports}) if adv.get("lock_ports", True) else set()
+    open_tcp = sorted(locked |
                       {p["port"] for p in fw["ports"] if p["proto"] in ("tcp", "both") and not p.get("from")}, key=_port_key)
     open_udp = sorted({p["port"] for p in fw["ports"] if p["proto"] in ("udp", "both") and not p.get("from")}, key=_port_key)
 
     r = ["", "    chain pre {", "        type filter hook prerouting priority -150; policy accept;"]
-    r += iface_rules(fw.get("trusted_ifaces", []))
+    r += iface_rules(fw.get("trusted_ifaces", []), adv.get("trust_docker", True))
     r += ["        ip saddr @allow4 counter name c_allow accept",
           "        ip6 saddr @allow6 counter name c_allow accept",
           "        ip saddr @block4 counter name c_block drop",
           "        ip6 saddr @block6 counter name c_block drop",
           "        ip saddr @ban4 counter name c_ban drop",
           "        ip6 saddr @ban6 counter name c_ban drop",
+          *([f"        meta nfproto ipv4 tcp dport {ports_expr([str(p) for p in panel_ports])} ip saddr != @pallow4 counter name c_panel drop",
+             f"        meta nfproto ipv6 tcp dport {ports_expr([str(p) for p in panel_ports])} ip6 saddr != @pallow6 counter name c_panel drop"]
+            if adv.get("panel_allow") and panel_ports else []),   # panel only for listed addresses (admins pass above)
           "        ip saddr @cdn4 accept",   # blocklist and bans above still apply to the CDN
           "        ip6 saddr @cdn6 accept",
           "        ip saddr @geo4 counter name c_geo drop",    # blocked countries (allowlist, admins, CDN pass above)
@@ -5539,10 +6557,14 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
                       "& (fin|rst) == fin|rst", "& (fin|psh|urg) == fin|psh|urg", "& (fin|ack) == fin"):
             r.append(f"        tcp flags {flags} counter name c_badflags drop")
     r.append("        counter name c_new")
-    if cfg["ssh_guard"].get("l4", True):
+    for ln in (adv.get("custom_rules") or "").split("\n"):
+        if ln.strip():
+            r.append(f"        {ln.strip()}")
+    ssh_rate = int(adv.get("ssh_rate", SSH_NEW_PER_MIN))
+    if cfg["ssh_guard"].get("l4", True) and ssh_rate > 0:
         for fam, suffix in (("ip", "4"), ("ip6", "6")):
-            r.append(f"        tcp dport {ports_expr(ssh)} tcp flags syn update @m_ssh{suffix} {{ {fam} saddr limit rate over {SSH_NEW_PER_MIN}/minute burst {SSH_NEW_PER_MIN} packets }} "
-                     f"add @ban{suffix} {{ {fam} saddr timeout 60m }} counter name c_ssh drop")
+            r.append(f"        tcp dport {ports_expr(ssh)} tcp flags syn update @m_ssh{suffix} {{ {fam} saddr limit rate over {ssh_rate}/minute burst {ssh_rate} packets }} "
+                     f"add @ban{suffix} {{ {fam} saddr timeout {int(adv.get('ssh_ban_minutes', 60))}m }} counter name c_ssh drop")
     # Ports with a source restriction ("only from 1.2.3.0/24") are accepted for that source only.
     for p in fw["ports"]:
         if p.get("from"):
@@ -5554,11 +6576,13 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
         r.append(f"        meta l4proto udp udp dport != {ports_expr(open_udp)} counter name c_policy drop" if open_udp
                  else "        meta l4proto udp counter name c_policy drop")
     L = limits
+    F = int(adv.get("autoban_factor", AUTOBAN_FACTOR))
     for fam, suffix, icmp in (("ip", "4", "icmp type echo-request"), ("ip6", "6", "icmpv6 type echo-request")):
+        nfp = "ipv4" if suffix == "4" else "ipv6"
         r += [
-            f"        tcp flags & (syn|ack) == syn update @m_synb{suffix} {{ {fam} saddr limit rate over {L['syn'] * AUTOBAN_FACTOR}/second burst {L['syn'] * AUTOBAN_FACTOR * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop",
+            *([f"        tcp flags & (syn|ack) == syn update @m_synb{suffix} {{ {fam} saddr limit rate over {L['syn'] * F}/second burst {L['syn'] * F * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
             f"        tcp flags & (syn|ack) == syn update @m_syn{suffix} {{ {fam} saddr limit rate over {L['syn']}/second burst {L['syn'] * 2} packets }} counter name c_syn drop",
-            f"        meta nfproto {'ipv4' if suffix == '4' else 'ipv6'} ct state new update @m_connb{suffix} {{ {fam} saddr limit rate over {L['conn'] * AUTOBAN_FACTOR}/second burst {L['conn'] * AUTOBAN_FACTOR * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop",
+            *([f"        meta nfproto {nfp} ct state new update @m_connb{suffix} {{ {fam} saddr limit rate over {L['conn'] * F}/second burst {L['conn'] * F * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
             f"        meta nfproto {'ipv4' if suffix == '4' else 'ipv6'} ct state new update @m_conn{suffix} {{ {fam} saddr limit rate over {L['conn']}/second burst {L['conn'] * 2} packets }} counter name c_conn drop",
             f"        meta l4proto tcp add @m_conc{suffix} {{ {fam} saddr ct count over {L['conc']} }} counter name c_conc drop",
             f"        meta l4proto udp update @m_udp{suffix} {{ {fam} saddr limit rate over {L['udp']}/second burst {L['udp'] * 2} packets }} counter name c_udp drop",
@@ -6007,8 +7031,11 @@ fixed commands only. Settings the panel changes go to one file, jail.d/zzz-panel
 after every other file and holds only the values changed here; each change is checked with
 `fail2ban-client -t` first and the previous file is put back if the check fails.
 """
+import configparser
+import glob
 import ipaddress
 import os
+import shutil
 import pickle
 import re
 import socket
@@ -6044,7 +7071,13 @@ PRESETS = {
     "mysqld-auth": {"log": "/var/log/mysql/error.log", "auto": True},
 }
 DEFAULT_KEYS = ("bantime", "findtime", "maxretry", "bantime.increment", "bantime.maxtime", "ignoreip")
-JAIL_KEYS = ("enabled", "bantime", "findtime", "maxretry")
+JAIL_KEYS = ("enabled", "port", "protocol", "filter", "logpath", "backend", "maxretry", "findtime", "bantime",
+             "banaction", "action", "ignoreip", "bantime.increment", "bantime.factor", "bantime.maxtime", "usedns", "mode")
+KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.]{0,40}$")
+ETC = "/etc/fail2ban"
+FILE_RE = re.compile(r"^(jail\.local|jail\.conf|fail2ban\.local|fail2ban\.conf|paths-[a-z]+\.conf|"
+                     r"(jail\.d|filter\.d|action\.d|fail2ban\.d)/[A-Za-z0-9_.\-]{1,80}\.(conf|local))$")
+BACKUPS = ETC + "/.panel-backup"
 
 
 def host(args, timeout=60):
@@ -6296,19 +7329,57 @@ def validate(managed):
         d["ignoreip"] = sorted(set(ips), key=lambda x: (":" in x, x))[:200]
     jails = managed.setdefault("jails", {})
     for name, j in list(jails.items()):
-        if not NAME_RE.match(name):
+        if not NAME_RE.match(name) or name.upper() == "DEFAULT":
             raise ValueError(f"invalid jail name: {name}")
+        extra = j.pop("extra", None)
         for k in list(j):
             if k not in JAIL_KEYS:
                 del j[k]
+        for k, v in list(j.items()):
+            if v is None or v == "":
+                del j[k]          # empty field = use the value from the other files
         if "enabled" in j:
             j["enabled"] = bool(j["enabled"])
-        for k in ("bantime", "findtime"):
+        if "bantime.increment" in j:
+            j["bantime.increment"] = bool(j["bantime.increment"])
+        for k in ("bantime", "findtime", "bantime.maxtime"):
             if k in j:
                 j[k] = _dur(j[k])
         if "maxretry" in j:
-            j["maxretry"] = str(max(1, min(100, int(j["maxretry"]))))
+            j["maxretry"] = str(max(1, min(100000, int(j["maxretry"]))))
+        for k, v in list(j.items()):
+            if isinstance(v, str):
+                j[k] = _value(v, multiline=k in ("logpath", "action", "ignoreip"))
+        if extra is not None:
+            j["extra"] = _extra(extra)
     return managed
+
+
+def _value(v, multiline=False):
+    v = str(v).replace("\r", "")
+    lines = [ln.strip() for ln in v.split("\n") if ln.strip()]
+    if not multiline and len(lines) > 1:
+        raise ValueError(f"Only one line allowed: {lines[0]}…")
+    if any(ln.startswith("[") for ln in lines):
+        raise ValueError("A value cannot start with [")
+    return "\n".join(lines)[:4000]
+
+
+def _extra(text):
+    """Additional `key = value` lines for a jail, kept as written (validated so they cannot open a new section)."""
+    out = []
+    for ln in str(text).replace("\r", "").split("\n"):
+        ln = ln.rstrip()
+        if not ln.strip() or ln.strip().startswith(("#", ";")):
+            continue
+        if ln[:1].isspace():   # continuation of the previous value
+            out.append(ln)
+            continue
+        k, sep, v = ln.partition("=")
+        if not sep or not KEY_RE.match(k.strip()):
+            raise ValueError(f"Not a `key = value` line: {ln[:60]}")
+        out.append(f"{k.strip()} = {v.strip()}")
+    return "\n".join(out)[:8000]
 
 
 def render(managed):
@@ -6338,31 +7409,229 @@ def render(managed):
         for k in JAIL_KEYS:
             if k in j:
                 v = j[k]
-                lines.append(f"{k} = {'true' if v is True else 'false' if v is False else v}")
+                v = "true" if v is True else "false" if v is False else str(v).replace("\n", "\n    ")
+                lines.append(f"{k} = {v}")
+        if j.get("extra"):
+            lines.append(j["extra"])
         lines.append("")
     return "\n".join(lines) + "\n"
 
 
-def write_settings(managed):
-    """Write, test, reload. On a failed test the previous file comes back and nothing changes."""
-    path = hostinfo.host_path(PANEL_FILE)
-    old = None
-    if os.path.exists(path):
-        with open(path) as f:
-            old = f.read()
-    with open(path, "w") as f:
-        f.write(render(managed))
+def write_settings(managed, also=None):
+    """Write, test, reload. On a failed test every touched file comes back and nothing changes.
+    `also`: extra {path: new text or None (delete)} changed in the same step (used when deleting a jail)."""
+    changes = {PANEL_FILE: render(managed)}
+    changes.update(also or {})
+    _apply_files(changes)
+
+
+def _apply_files(changes):
+    old = {}
+    for rel, text in changes.items():
+        path = hostinfo.host_path(rel)
+        old[rel] = open(path).read() if os.path.exists(path) else None
+        if old[rel] is not None and rel != PANEL_FILE:
+            _backup(rel, old[rel])
+        if text is None:
+            if os.path.exists(path):
+                os.unlink(path)
+        else:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write(text if text.endswith("\n") else text + "\n")
     rc, out = host(["fail2ban-client", "-t"], timeout=60)
     if rc != 0:
-        if old is None:
-            os.unlink(path)
-        else:
-            with open(path, "w") as f:
-                f.write(old)
-        lines = [ln for ln in out.splitlines() if "ERROR" in ln or "rror" in ln] or out.splitlines()
-        raise ValueError("fail2ban rejected the settings, nothing changed: " + " / ".join(lines[-3:])[-600:])
+        for rel, text in old.items():
+            path = hostinfo.host_path(rel)
+            if text is None:
+                if os.path.exists(path):
+                    os.unlink(path)
+            else:
+                with open(path, "w") as f:
+                    f.write(text)
+        lines = [re.sub(r"^\S+ \S+ fail2ban(\.\S+)?\s+\[\d+\]:\s*(ERROR\s*)?", "", ln).strip()
+                 for ln in out.splitlines() if "ERROR" in ln or "rror" in ln] or out.splitlines()
+        raise ValueError("fail2ban rejected the change, nothing changed: " + " / ".join(x for x in lines[-3:] if x)[-700:])
+    _cache["at"] = 0
     if running():
         reload()
+        # fail2ban accepts some broken jails (a missing filter, an unreadable log) and then silently does not
+        # start them: check that every enabled jail runs, and undo the change if one does not.
+        missing = sorted(expected_jails() - set(jail_names()))
+        if missing:
+            for rel, text in old.items():
+                path = hostinfo.host_path(rel)
+                if text is None:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                else:
+                    with open(path, "w") as f:
+                        f.write(text)
+            reload()
+            raise ValueError(f"fail2ban could not start {', '.join(missing)} with this change (check the filter, log path and backend). "
+                             "The previous settings are back.")
+
+
+def _backup(rel, text):
+    d = hostinfo.host_path(BACKUPS)
+    os.makedirs(d, exist_ok=True)
+    name = rel.replace("/", "__") + time.strftime(".%Y%m%d-%H%M%S")
+    with open(os.path.join(d, name), "w") as f:
+        f.write(text)
+
+
+# ------------------------------------------------------------------ what the files say about each jail
+
+def _jail_files():
+    """Configuration files in the order fail2ban reads them (later ones win)."""
+    root = hostinfo.host_path(ETC)
+    out = [f"{root}/jail.conf"]
+    out += sorted(glob.glob(f"{root}/jail.d/*.conf"))
+    out.append(f"{root}/jail.local")
+    out += sorted(glob.glob(f"{root}/jail.d/*.local"))
+    return [p for p in out if os.path.isfile(p)]
+
+
+def _parser():
+    return configparser.RawConfigParser(strict=False, interpolation=None, default_section="__none__",
+                                        comment_prefixes=("#", ";"), inline_comment_prefixes=None)
+
+
+def expected_jails():
+    """Jails the configuration files switch on (what fail2ban should be running)."""
+    merged = _parser()
+    for path in _jail_files():
+        try:
+            merged.read(path, encoding="utf-8")
+        except configparser.Error:
+            continue
+    default_on = merged.has_section("DEFAULT") and merged.get("DEFAULT", "enabled", fallback="false").strip().lower() in ("true", "yes", "1", "on")
+    out = set()
+    for sec in merged.sections():
+        if sec in ("DEFAULT", "INCLUDES", "Definition", "Init"):
+            continue
+        val = merged.get(sec, "enabled", fallback=None)
+        on = val.strip().lower() in ("true", "yes", "1", "on") if val is not None else default_on
+        if on:
+            out.add(sec)
+    return out
+
+
+def jail_config(name, skip_panel=False):
+    """{key: (value, file)} for one jail across all files, plus where the jail is defined."""
+    values, defined = {}, []
+    root = hostinfo.host_path(ETC)
+    for path in _jail_files():
+        if skip_panel and path.endswith(PANEL_FILE[len(ETC):]):
+            continue
+        cp = _parser()
+        try:
+            cp.read(path, encoding="utf-8")
+        except configparser.Error:
+            continue
+        if cp.has_section(name):
+            rel = path[len(root) + 1:]
+            defined.append(rel)
+            for k, v in cp.items(name):
+                values[k] = (v.strip(), rel)
+    return values, defined
+
+
+def jail_detail(name, managed):
+    values, defined = jail_config(name)
+    base, _ = jail_config(name, skip_panel=True)
+    own = managed.get("jails", {}).get(name, {})
+    return {"name": name, "values": {k: v for k, (v, _) in values.items()}, "base": {k: v for k, (v, _) in base.items()}, "sources": {k: f for k, (_, f) in values.items()},
+            "defined": defined, "stock": "jail.conf" in defined, "panel": own,
+            "filters": filters(), "running": running() and name in jail_names()}
+
+
+def filters():
+    d = hostinfo.host_path(ETC + "/filter.d")
+    return sorted({os.path.basename(p).rsplit(".", 1)[0] for p in glob.glob(f"{d}/*.conf") + glob.glob(f"{d}/*.local")})
+
+
+def delete_jail(name, managed):
+    """Remove a jail everywhere the panel may: its own section, and the jail's section in jail.d / jail.local
+    files (backed up first). A jail that only comes from jail.conf (shipped with fail2ban) is switched off."""
+    _, defined = jail_config(name)
+    managed["jails"].pop(name, None)
+    also = {}
+    root = hostinfo.host_path(ETC)
+    for rel in defined:
+        if rel in ("jail.conf", PANEL_FILE[len(ETC) + 1:]):
+            continue
+        path = f"{root}/{rel}"
+        text = open(path).read()
+        new = _drop_section(text, name)
+        also[f"{ETC}/{rel}"] = new
+        if not re.search(r"^\s*\[[^\]]+\]", new, re.M):
+            also[f"{ETC}/{rel}"] = None     # nothing left in the file: remove it (a backup is kept)
+    stock = "jail.conf" in defined
+    if stock:
+        managed["jails"][name] = {"enabled": False}
+    write_settings(managed, also)
+    return {"disabled_only": stock}
+
+
+def _drop_section(text, name):
+    out, skip = [], False
+    for ln in text.splitlines(keepends=True):
+        m = re.match(r"^\s*\[([^\]]+)\]", ln)
+        if m:
+            skip = m.group(1).strip() == name
+        if not skip:
+            out.append(ln)
+    return "".join(out)
+
+
+# ------------------------------------------------------------------ raw file editor
+
+def files():
+    root = hostinfo.host_path(ETC)
+    rows = []
+    for pattern in ("*.conf", "*.local", "jail.d/*", "fail2ban.d/*", "filter.d/*", "action.d/*"):
+        for p in sorted(glob.glob(f"{root}/{pattern}")):
+            rel = p[len(root) + 1:]
+            if os.path.isfile(p) and FILE_RE.match(rel):
+                st = os.stat(p)
+                rows.append({"path": rel, "size": st.st_size, "mtime": int(st.st_mtime),
+                             "group": rel.split("/")[0] if "/" in rel else "main", "panel": f"{ETC}/{rel}" == PANEL_FILE})
+    return rows
+
+
+def _rel(path):
+    path = str(path or "").strip().lstrip("/")
+    if path.startswith("etc/fail2ban/"):
+        path = path[len("etc/fail2ban/"):]
+    if not FILE_RE.match(path) or ".." in path:
+        raise ValueError("Only files inside /etc/fail2ban (jail.d, filter.d, action.d, fail2ban.d, *.conf, *.local) can be edited")
+    return path
+
+
+def file_read(path):
+    rel = _rel(path)
+    p = hostinfo.host_path(f"{ETC}/{rel}")
+    if not os.path.isfile(p):
+        return {"path": rel, "text": "", "exists": False}
+    with open(p, errors="replace") as f:
+        return {"path": rel, "text": f.read(2_000_000), "exists": True}
+
+
+def file_write(path, text):
+    rel = _rel(path)
+    if len(text) > 2_000_000:
+        raise ValueError("file too large")
+    _apply_files({f"{ETC}/{rel}": str(text).replace("\r\n", "\n")})
+    return file_read(rel)
+
+
+def file_delete(path):
+    rel = _rel(path)
+    if rel in ("jail.conf", "fail2ban.conf"):
+        raise ValueError("The main files shipped with fail2ban cannot be deleted; edit jail.local instead")
+    _apply_files({f"{ETC}/{rel}": None})
+    return {"ok": True}
 
 
 # ------------------------------------------------------------------ overview for the panel
@@ -6536,6 +7805,7 @@ __MONITORING_EOF__
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
   <script src="/defender.js" defer></script>
+  <script src="/security.js" defer></script>
 </head>
 <body>
   <div class="app">
@@ -6616,6 +7886,10 @@ __MONITORING_EOF__
       <div class="field">
         <label for="password" data-i18n="password">Password</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="field" id="otp-field" hidden>
+        <label for="otp" data-i18n="otp">Code from your authenticator app</label>
+        <input id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" dir="ltr">
       </div>
       <div class="form-error" id="error" role="alert"></div>
       <button class="btn primary" type="submit" id="submit" data-i18n="signin">Sign in</button>
@@ -8286,12 +9560,17 @@ __MONITORING_EOF__
   write_file panel/static/login.js 644 <<'__MONITORING_EOF__'
 (() => {
   const T = {
-    en: { title: "Server Monitor", signin_sub: "Sign in to continue", user: "Username", password: "Password", signin: "Sign in", bad: "Wrong username or password", net: "Could not reach the server" },
-    fa: { title: "مانیتورینگ سرور", signin_sub: "برای ادامه وارد شوید", user: "نام کاربری", password: "رمز عبور", signin: "ورود", bad: "نام کاربری یا رمز عبور اشتباه است", net: "ارتباط با سرور برقرار نشد" },
+    en: { title: "Server Monitor", signin_sub: "Sign in to continue", user: "Username", password: "Password", signin: "Sign in", otp: "Code from your authenticator app",
+      otp_need: "Enter the 6-digit code from your authenticator app.", bad: "Wrong username or password", bad_otp: "Wrong username, password or code",
+      locked: "Too many wrong attempts from this address. Try again in {m} minutes.", busy: "Too many requests. Wait a moment and try again.", net: "Could not reach the server" },
+    fa: { title: "مانیتورینگ سرور", signin_sub: "برای ادامه وارد شوید", user: "نام کاربری", password: "رمز عبور", signin: "ورود", otp: "کد برنامه‌ی احراز هویت",
+      otp_need: "کد ۶ رقمی برنامه‌ی احراز هویت (مثل Google Authenticator) را وارد کنید.", bad: "نام کاربری یا رمز عبور اشتباه است", bad_otp: "نام کاربری، رمز یا کد اشتباه است",
+      locked: "تلاش اشتباه زیادی از این آدرس شده. {m} دقیقه‌ی دیگر دوباره امتحان کنید.", busy: "درخواست زیاد است. کمی صبر کنید و دوباره امتحان کنید.", net: "ارتباط با سرور برقرار نشد" },
   };
   let lang = "en", theme = "dark";
   try { lang = localStorage.getItem("lang") || lang; theme = localStorage.getItem("theme") || theme; } catch (e) { /* storage blocked */ }
   if (!T[lang]) lang = "en";
+  const t = (k, v = {}) => T[lang][k].replace(/\{(\w+)\}/g, (_, x) => v[x]);
   document.documentElement.dataset.theme = theme;
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === "fa" ? "rtl" : "ltr";
@@ -8299,6 +9578,7 @@ __MONITORING_EOF__
   document.title = T[lang].signin + " - " + T[lang].title;
 
   const form = document.getElementById("form"), err = document.getElementById("error"), btn = document.getElementById("submit");
+  const otpBox = document.getElementById("otp-field"), otp = document.getElementById("otp");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     err.textContent = "";
@@ -8307,15 +9587,27 @@ __MONITORING_EOF__
       const r = await fetch("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: form.user.value, password: form.password.value }),
+        body: JSON.stringify({ user: form.user.value, password: form.password.value, otp: otp.value }),
       });
       if (r.ok) { location.replace("/"); return; }
-      err.textContent = T[lang].bad;
+      const d = await r.json().catch(() => ({}));
+      if (d.otp && !otp.value) {             // password was right: now the second factor
+        otpBox.hidden = false;
+        err.textContent = t("otp_need");
+        otp.focus();
+      } else if (r.status === 429 && d.locked) {
+        err.textContent = t("locked", { m: Math.max(1, Math.ceil(d.locked / 60)) });
+      } else if (r.status === 429) {
+        err.textContent = t("busy");
+      } else {
+        err.textContent = otpBox.hidden ? t("bad") : t("bad_otp");
+        otp.value = "";
+      }
     } catch (x) {
-      err.textContent = T[lang].net;
+      err.textContent = t("net");
     }
     btn.disabled = false;
-    form.password.select();
+    if (otpBox.hidden) form.password.select();
   });
 })();
 __MONITORING_EOF__
@@ -9138,6 +10430,17 @@ label.btn input[type="file"] { display: none; }
   .geo-grid { grid-template-columns: minmax(0, 1fr); max-height: 380px; }
   .f2b-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* firewall: full control, panel security */
+.field[hidden] { display: none; }
+.df-code { width: 100%; min-height: 120px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+  font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; tab-size: 4; }
+.df-code:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.df-adv { margin-top: 6px; }
+.df-adv > summary { cursor: pointer; font-weight: 650; color: var(--muted); padding: 6px 0; }
+.f2b-jail .f2b-manage { border-top: 1px dashed var(--line); padding-top: 10px; }
+.sec-key { font: 600 18px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .08em; padding: 12px 14px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--line); overflow-wrap: anywhere; user-select: all; }
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'
 /* Vazirmatn (SIL Open Font License 1.1) - Latin + Persian/Arabic subset, embedded so the panel needs no external font host. */

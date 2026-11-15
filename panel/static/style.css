@@ -816,3 +816,14 @@ label.btn input[type="file"] { display: none; }
   .geo-grid { grid-template-columns: minmax(0, 1fr); max-height: 380px; }
   .f2b-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* firewall: full control, panel security */
+.field[hidden] { display: none; }
+.df-code { width: 100%; min-height: 120px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+  font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; tab-size: 4; }
+.df-code:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.df-adv { margin-top: 6px; }
+.df-adv > summary { cursor: pointer; font-weight: 650; color: var(--muted); padding: 6px 0; }
+.f2b-jail .f2b-manage { border-top: 1px dashed var(--line); padding-top: 10px; }
+.sec-key { font: 600 18px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .08em; padding: 12px 14px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--line); overflow-wrap: anywhere; user-select: all; }

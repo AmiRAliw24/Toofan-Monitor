@@ -28,6 +28,7 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler
+from urllib.parse import unquote
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import f2b  # noqa: E402
@@ -40,9 +41,11 @@ DATA = os.environ.get("DATA_DIR", "/data")
 SOCK = os.path.join(DATA, "agent.sock")
 PANEL_GID = int(os.environ.get("PANEL_GID", "65534"))
 PANEL_PORTS = sorted({int(p) for p in re.findall(r"\d+", os.environ.get("PANEL_PORTS", "3000"))})
-ROLLBACK_SECONDS = 60
+def ROLLBACK_SECONDS():  # noqa: N802 - kept as a "constant" name; the value lives in the configuration
+    return int(CFG.get("advanced", {}).get("rollback_seconds", 60))
 KEEP = 300                     # live samples (5 minutes)
-DEESCALATE_AFTER = 600         # back to the chosen profile 10 minutes after an attack ended
+def ADV(key):  # noqa: N802
+    return CFG.get("advanced", {}).get(key, DEFAULT["advanced"][key])
 LOCK = threading.RLock()
 
 DEFAULT = {
@@ -58,6 +61,19 @@ DEFAULT = {
     "trust_logged_in": True,
     "trust_cdn": True,
     "geo": {"block": []},
+    # Expert settings (Advanced tab). Everything that used to be fixed can be changed here.
+    "advanced": {
+        "rollback_seconds": 60,       # 0 = apply changes without the safety test
+        "ssh_rate": 12,               # new SSH connections per minute and source before a ban (0 = off)
+        "ssh_ban_minutes": 60,
+        "autoban_factor": 3,          # ban a source going this many times over a limit (0 = never ban, only drop)
+        "detect_drops": 300, "detect_cookies": 50, "detect_pps": 20000, "detect_conntrack": 90, "calm_seconds": 30,
+        "deescalate_minutes": 10,
+        "trust_docker": True,         # never filter traffic from Docker bridges / veth
+        "lock_ports": True,           # SSH and panel ports stay open whatever the mode
+        "panel_allow": [],            # only these addresses may open the panel (empty = everyone)
+        "custom_rules": "",           # extra nftables statements for new connections
+    },
     "sysctl": {"applied": [], "original": {}},
     "notify": {"attacks": True, "bans": False},
 }
@@ -201,9 +217,9 @@ def change(mutator, rollback=True, what="config"):
             raise ValueError(f"The new rules were rejected, nothing changed: {e}")
         CFG = new
         save_json("config.json", CFG)
-        if rollback and (new["enabled"] or prev["enabled"]):
+        if rollback and ROLLBACK_SECONDS() > 0 and (new["enabled"] or prev["enabled"]):
             old_pending = STATE["pending"]
-            STATE["pending"] = {"until": time.time() + ROLLBACK_SECONDS,
+            STATE["pending"] = {"until": time.time() + ROLLBACK_SECONDS(),
                                 "prev": old_pending["prev"] if old_pending else prev, "what": what}
         event("applied", what=what)
         return status()
@@ -250,8 +266,8 @@ def parse_net(value, allow_any=False):
         net = ipaddress.ip_network(str(value).strip(), strict=False)
     except ValueError:
         raise ValueError(f"Not an IP address or network: {value}")
-    if not allow_any and net.prefixlen < (8 if net.version == 4 else 32):
-        raise ValueError(f"{value} is too large a range")
+    if not allow_any and net.prefixlen == 0:
+        raise ValueError(f"{value} is the whole internet")
     return net
 
 
@@ -281,7 +297,7 @@ def validate(cfg):
         if key in seen:
             raise ValueError(f"Port {p['port']} is listed twice")
         seen.add(key)
-    if len(fw["ports"]) > 300:
+    if len(fw["ports"]) > 5000:
         raise ValueError("too many ports")
     for i in fw["trusted_ifaces"]:
         if not IFACE_RE.match(i):
@@ -290,14 +306,26 @@ def validate(cfg):
         for e in cfg[lst]:
             e["ip"] = net_str(parse_net(e["ip"], allow_any=(lst == "allow")))
             e["note"] = str(e.get("note", ""))[:80]
-        if len(cfg[lst]) > 5000:
+        if len(cfg[lst]) > 100000:
             raise ValueError("list too long")
     codes = sorted({str(c).strip().lower() for c in cfg["geo"].get("block", [])})
-    if len(codes) > 150 or not all(geo.CC_RE.match(c) for c in codes):
+    if len(codes) > 300 or not all(geo.CC_RE.match(c) for c in codes):
         raise ValueError("invalid country list")
     cfg["geo"]["block"] = codes
+    a = cfg["advanced"]
+    for k, lo, hi in (("rollback_seconds", 0, 3600), ("ssh_rate", 0, 100000), ("ssh_ban_minutes", 1, 525600), ("autoban_factor", 0, 1000),
+                      ("detect_drops", 1, 10**9), ("detect_cookies", 1, 10**9), ("detect_pps", 1, 10**10), ("detect_conntrack", 1, 100),
+                      ("calm_seconds", 5, 86400), ("deescalate_minutes", 0, 10080)):
+        v = a.get(k, DEFAULT["advanced"][k])
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or not lo <= v <= hi:
+            raise ValueError(f"{k}: must be between {lo} and {hi}")
+        a[k] = int(v)
+    for k in ("trust_docker", "lock_ports"):
+        a[k] = bool(a.get(k, True))
+    a["panel_allow"] = [net_str(parse_net(x, allow_any=True)) for x in a.get("panel_allow", []) if str(x).strip()][:5000]
+    a["custom_rules"] = nftrules.check_custom(a.get("custom_rules", ""))
     g = cfg["ssh_guard"]
-    for k, lo, hi in (("failures", 2, 100), ("window", 1, 1440), ("ban", 1, 525600)):
+    for k, lo, hi in (("failures", 1, 100000), ("window", 1, 525600), ("ban", 1, 5256000)):
         if not isinstance(g.get(k), (int, float)) or not lo <= g[k] <= hi:
             raise ValueError(f"SSH guard {k}: must be between {lo} and {hi}")
         g[k] = int(g[k])
@@ -532,13 +560,13 @@ def stats_loop():
                 if base is None:
                     base = pps
                 signals = []
-                if s["drop"] > 300:
+                if s["drop"] > ADV("detect_drops"):
                     signals.append("drops")
-                if (s["cookies"] or 0) > 50:
+                if (s["cookies"] or 0) > ADV("detect_cookies"):
                     signals.append("syn_flood")
-                if pps > 20000 and pps > 6 * max(base, 1000):
+                if pps > ADV("detect_pps") and pps > 6 * max(base, 1000):
                     signals.append("traffic")
-                if (s["ct"] or 0) > 90:
+                if (s["ct"] or 0) > ADV("detect_conntrack"):
                     signals.append("conntrack")
                 att = STATE["attack"]
                 if signals:
@@ -561,10 +589,10 @@ def stats_loop():
                         except Exception as e:
                             STATE["escalated"] = False
                             log("escalate failed", e)
-                elif att["active"] and calm >= 30:
+                elif att["active"] and calm >= ADV("calm_seconds"):
                     att.update(active=False, ended=t0)
                     event("attack_end", seconds=round(t0 - att["since"]), peak={k: round(v) for k, v in att["peak"].items()})
-                if STATE["escalated"] and not att["active"] and t0 - att["ended"] > DEESCALATE_AFTER:
+                if STATE["escalated"] and not att["active"] and t0 - att["ended"] > ADV("deescalate_minutes") * 60:
                     STATE["escalated"] = False
                     try:
                         apply()
@@ -605,7 +633,7 @@ def status():
             "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
             "effective": effective_limits(), "profiles": nftrules.PROFILES,
             "attack": {k: v for k, v in STATE["attack"].items()},
-            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify")},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced")},
             "allow": CFG["allow"], "block": CFG["block"],
             "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
             "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
@@ -678,6 +706,10 @@ def _cfg_patch(body):
                     c["ssh_guard"][k] = g[k]
         if "notify" in body:
             c["notify"].update({k: bool(v) for k, v in body["notify"].items() if k in ("attacks", "bans")})
+        if isinstance(body.get("advanced"), dict):
+            for k, v in body["advanced"].items():
+                if k in DEFAULT["advanced"]:
+                    c["advanced"][k] = v
         if "geo" in body and isinstance(body["geo"], dict) and "block" in body["geo"]:
             c["geo"]["block"] = [str(x) for x in body["geo"]["block"]][:200]
     return mut
@@ -714,7 +746,30 @@ def api_sysctl(body):
     rec = {k: r for k, r, _ in hostinfo.SYSCTLS}
     with LOCK:
         sc = CFG["sysctl"]
-        if body.get("action") == "restore":
+        if body.get("action") in ("custom_set", "custom_del"):
+            key = str(body.get("key", "")).strip()
+            if not re.match(r"^(net|kernel|vm|fs)\.[A-Za-z0-9_.\-]{1,120}$", key) or ".." in key or not os.path.exists("/proc/sys/" + key.replace(".", "/")):
+                raise ValueError(f"Unknown kernel setting: {key}")
+            custom = sc.setdefault("custom", {})
+            if body["action"] == "custom_set":
+                value = str(body.get("value", "")).strip()
+                if not value or len(value) > 200 or "\n" in value:
+                    raise ValueError("Invalid value")
+                sc["original"].setdefault(key, hostinfo.sysctl_get(key))
+                try:
+                    hostinfo.sysctl_set(key, value)
+                except OSError as e:
+                    raise ValueError(f"{key}: {e}")
+                custom[key] = value
+            else:
+                custom.pop(key, None)
+                if sc["original"].get(key) is not None:
+                    try:
+                        hostinfo.sysctl_set(key, sc["original"][key])
+                    except OSError:
+                        pass
+            event("sysctl", action=body["action"].replace("custom_", "custom "), n=1)
+        elif body.get("action") == "restore":
             for k in want:
                 if k in sc["original"]:
                     try:
@@ -738,10 +793,15 @@ def api_sysctl(body):
                     sc["applied"].append(k)
             event("sysctl", action="apply", n=len(want))
         save_json("config.json", CFG)
-    return {"rows": hostinfo.sysctl_report(), "applied": CFG["sysctl"]["applied"]}
+    return {"rows": hostinfo.sysctl_report(), "applied": CFG["sysctl"]["applied"], "custom": CFG["sysctl"].get("custom", {})}
 
 
 def reapply_sysctl():
+    for k, v in (CFG["sysctl"].get("custom") or {}).items():
+        try:
+            hostinfo.sysctl_set(k, v)
+        except OSError as e:
+            log("sysctl", k, e)
     rec = {k: r for k, r, _ in hostinfo.SYSCTLS}
     for k in CFG["sysctl"]["applied"]:
         try:
@@ -757,7 +817,7 @@ def api_audit():
         if c["id"] == "fail2ban" and f2b.installed() and not f2b.running():
             c.update(id="fail2ban_stopped", sev=2)
     return {"checks": checks, "score": hostinfo.score(checks), "sysctl": hostinfo.sysctl_report(),
-            "sysctl_applied": CFG["sysctl"]["applied"]}
+            "sysctl_applied": CFG["sysctl"]["applied"], "sysctl_custom": CFG["sysctl"].get("custom", {})}
 
 
 def api_live(q):
@@ -780,7 +840,7 @@ def f2b_jail_name(name, must_run=False):
     running = f2b.jail_names() if f2b.running() else []
     if must_run and name not in running:
         raise ValueError(f"The jail {name} is not running")
-    if name not in running and name not in f2b.PRESETS and name not in F2B["jails"]:
+    if name not in running and name not in f2b.PRESETS and name not in F2B["jails"] and not f2b.jail_config(name)[1]:
         raise ValueError(f"Unknown jail: {name}")
     return name
 
@@ -801,9 +861,34 @@ def f2b_save(mutate, what):
 
 
 def api_f2b_jail(b):
+    name = str(b.get("name") or "").strip()
+    if b.get("create"):
+        if not f2b.NAME_RE.match(name) or name.upper() == "DEFAULT":
+            raise ValueError("Jail names use letters, digits, - _ . (up to 40)")
+        if name in (f2b.jail_names() if f2b.running() else []) or name in F2B["jails"] or f2b.jail_config(name)[1]:
+            raise ValueError(f"A jail named {name} already exists")
+    else:
+        name = f2b_jail_name(name)
+    upd = {k: b[k] for k in f2b.JAIL_KEYS + ("extra",) if k in b}
+
+    def mut(m):
+        if b.get("replace") or b.get("create"):
+            m["jails"][name] = upd
+        else:
+            m["jails"].setdefault(name, {}).update(upd)
+    return f2b_save(mut, f"{'new ' if b.get('create') else ''}jail {name}")
+
+
+def api_f2b_jail_delete(b):
+    global F2B
     name = f2b_jail_name(b.get("name"))
-    upd = {k: b[k] for k in ("enabled", "bantime", "findtime", "maxretry") if k in b}
-    return f2b_save(lambda m: m["jails"].setdefault(name, {}).update(upd), f"jail {name}")
+    with LOCK:
+        new = copy.deepcopy(F2B)
+        res = f2b.delete_jail(name, new)
+        F2B = new
+        save_json("f2b.json", F2B)
+    event("f2b_config", what=f"deleted jail {name}")
+    return {**f2b_view(force=True), **res}
 
 
 def api_f2b_defaults(b):
@@ -853,6 +938,18 @@ def api_f2b_uninstall(b):
     return {"job": job}
 
 
+def api_f2b_file_save(b):
+    out = f2b.file_write(b.get("path"), b.get("text", ""))
+    event("f2b_config", what=f"file {out['path']}")
+    return out
+
+
+def api_f2b_file_delete(b):
+    out = f2b.file_delete(b.get("path"))
+    event("f2b_config", what=f"deleted {b.get('path')}")
+    return out
+
+
 def api_f2b_bans(q):
     return {"rows": f2b.jail_bans(f2b_jail_name(q.get("jail"), must_run=True))}
 
@@ -878,7 +975,7 @@ def geo_refresh_loop():
 
 
 EXPORT_KEYS = ("enabled", "profile", "limits", "auto_escalate", "ddos", "firewall", "allow", "block", "ssh_guard",
-               "trust_logged_in", "trust_cdn", "geo", "notify")
+               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced")
 
 
 def api_export(q):
@@ -925,6 +1022,9 @@ GET = {
     "/f2b": lambda q: f2b_view(),
     "/f2b/bans": api_f2b_bans,
     "/f2b/log": lambda q: {"text": f2b.log_tail()},
+    "/f2b/jail": lambda q: f2b.jail_detail(f2b_jail_name(q.get("jail")), F2B),
+    "/f2b/files": lambda q: {"rows": f2b.files(), "backups": f2b.BACKUPS},
+    "/f2b/file": lambda q: f2b.file_read(q.get("path")),
     "/geo": api_geo,
     "/export": api_export,
 }
@@ -942,6 +1042,9 @@ POST = {
     "/f2b/install": api_f2b_install,
     "/f2b/uninstall": api_f2b_uninstall,
     "/f2b/jail": api_f2b_jail,
+    "/f2b/jail/delete": api_f2b_jail_delete,
+    "/f2b/file": api_f2b_file_save,
+    "/f2b/file/delete": api_f2b_file_delete,
     "/f2b/defaults": api_f2b_defaults,
     "/f2b/ban": api_f2b_ban,
     "/f2b/unban": api_f2b_unban,
@@ -984,7 +1087,7 @@ class Handler(BaseHTTPRequestHandler):
         if "?" in self.path:
             for part in self.path.split("?", 1)[1].split("&"):
                 k, _, v = part.partition("=")
-                q[k] = v
+                q[k] = unquote(v)
         self._route(GET, q)
 
     def do_POST(self):

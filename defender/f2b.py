@@ -6,8 +6,11 @@ fixed commands only. Settings the panel changes go to one file, jail.d/zzz-panel
 after every other file and holds only the values changed here; each change is checked with
 `fail2ban-client -t` first and the previous file is put back if the check fails.
 """
+import configparser
+import glob
 import ipaddress
 import os
+import shutil
 import pickle
 import re
 import socket
@@ -43,7 +46,13 @@ PRESETS = {
     "mysqld-auth": {"log": "/var/log/mysql/error.log", "auto": True},
 }
 DEFAULT_KEYS = ("bantime", "findtime", "maxretry", "bantime.increment", "bantime.maxtime", "ignoreip")
-JAIL_KEYS = ("enabled", "bantime", "findtime", "maxretry")
+JAIL_KEYS = ("enabled", "port", "protocol", "filter", "logpath", "backend", "maxretry", "findtime", "bantime",
+             "banaction", "action", "ignoreip", "bantime.increment", "bantime.factor", "bantime.maxtime", "usedns", "mode")
+KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.]{0,40}$")
+ETC = "/etc/fail2ban"
+FILE_RE = re.compile(r"^(jail\.local|jail\.conf|fail2ban\.local|fail2ban\.conf|paths-[a-z]+\.conf|"
+                     r"(jail\.d|filter\.d|action\.d|fail2ban\.d)/[A-Za-z0-9_.\-]{1,80}\.(conf|local))$")
+BACKUPS = ETC + "/.panel-backup"
 
 
 def host(args, timeout=60):
@@ -295,19 +304,57 @@ def validate(managed):
         d["ignoreip"] = sorted(set(ips), key=lambda x: (":" in x, x))[:200]
     jails = managed.setdefault("jails", {})
     for name, j in list(jails.items()):
-        if not NAME_RE.match(name):
+        if not NAME_RE.match(name) or name.upper() == "DEFAULT":
             raise ValueError(f"invalid jail name: {name}")
+        extra = j.pop("extra", None)
         for k in list(j):
             if k not in JAIL_KEYS:
                 del j[k]
+        for k, v in list(j.items()):
+            if v is None or v == "":
+                del j[k]          # empty field = use the value from the other files
         if "enabled" in j:
             j["enabled"] = bool(j["enabled"])
-        for k in ("bantime", "findtime"):
+        if "bantime.increment" in j:
+            j["bantime.increment"] = bool(j["bantime.increment"])
+        for k in ("bantime", "findtime", "bantime.maxtime"):
             if k in j:
                 j[k] = _dur(j[k])
         if "maxretry" in j:
-            j["maxretry"] = str(max(1, min(100, int(j["maxretry"]))))
+            j["maxretry"] = str(max(1, min(100000, int(j["maxretry"]))))
+        for k, v in list(j.items()):
+            if isinstance(v, str):
+                j[k] = _value(v, multiline=k in ("logpath", "action", "ignoreip"))
+        if extra is not None:
+            j["extra"] = _extra(extra)
     return managed
+
+
+def _value(v, multiline=False):
+    v = str(v).replace("\r", "")
+    lines = [ln.strip() for ln in v.split("\n") if ln.strip()]
+    if not multiline and len(lines) > 1:
+        raise ValueError(f"Only one line allowed: {lines[0]}…")
+    if any(ln.startswith("[") for ln in lines):
+        raise ValueError("A value cannot start with [")
+    return "\n".join(lines)[:4000]
+
+
+def _extra(text):
+    """Additional `key = value` lines for a jail, kept as written (validated so they cannot open a new section)."""
+    out = []
+    for ln in str(text).replace("\r", "").split("\n"):
+        ln = ln.rstrip()
+        if not ln.strip() or ln.strip().startswith(("#", ";")):
+            continue
+        if ln[:1].isspace():   # continuation of the previous value
+            out.append(ln)
+            continue
+        k, sep, v = ln.partition("=")
+        if not sep or not KEY_RE.match(k.strip()):
+            raise ValueError(f"Not a `key = value` line: {ln[:60]}")
+        out.append(f"{k.strip()} = {v.strip()}")
+    return "\n".join(out)[:8000]
 
 
 def render(managed):
@@ -337,31 +384,229 @@ def render(managed):
         for k in JAIL_KEYS:
             if k in j:
                 v = j[k]
-                lines.append(f"{k} = {'true' if v is True else 'false' if v is False else v}")
+                v = "true" if v is True else "false" if v is False else str(v).replace("\n", "\n    ")
+                lines.append(f"{k} = {v}")
+        if j.get("extra"):
+            lines.append(j["extra"])
         lines.append("")
     return "\n".join(lines) + "\n"
 
 
-def write_settings(managed):
-    """Write, test, reload. On a failed test the previous file comes back and nothing changes."""
-    path = hostinfo.host_path(PANEL_FILE)
-    old = None
-    if os.path.exists(path):
-        with open(path) as f:
-            old = f.read()
-    with open(path, "w") as f:
-        f.write(render(managed))
+def write_settings(managed, also=None):
+    """Write, test, reload. On a failed test every touched file comes back and nothing changes.
+    `also`: extra {path: new text or None (delete)} changed in the same step (used when deleting a jail)."""
+    changes = {PANEL_FILE: render(managed)}
+    changes.update(also or {})
+    _apply_files(changes)
+
+
+def _apply_files(changes):
+    old = {}
+    for rel, text in changes.items():
+        path = hostinfo.host_path(rel)
+        old[rel] = open(path).read() if os.path.exists(path) else None
+        if old[rel] is not None and rel != PANEL_FILE:
+            _backup(rel, old[rel])
+        if text is None:
+            if os.path.exists(path):
+                os.unlink(path)
+        else:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write(text if text.endswith("\n") else text + "\n")
     rc, out = host(["fail2ban-client", "-t"], timeout=60)
     if rc != 0:
-        if old is None:
-            os.unlink(path)
-        else:
-            with open(path, "w") as f:
-                f.write(old)
-        lines = [ln for ln in out.splitlines() if "ERROR" in ln or "rror" in ln] or out.splitlines()
-        raise ValueError("fail2ban rejected the settings, nothing changed: " + " / ".join(lines[-3:])[-600:])
+        for rel, text in old.items():
+            path = hostinfo.host_path(rel)
+            if text is None:
+                if os.path.exists(path):
+                    os.unlink(path)
+            else:
+                with open(path, "w") as f:
+                    f.write(text)
+        lines = [re.sub(r"^\S+ \S+ fail2ban(\.\S+)?\s+\[\d+\]:\s*(ERROR\s*)?", "", ln).strip()
+                 for ln in out.splitlines() if "ERROR" in ln or "rror" in ln] or out.splitlines()
+        raise ValueError("fail2ban rejected the change, nothing changed: " + " / ".join(x for x in lines[-3:] if x)[-700:])
+    _cache["at"] = 0
     if running():
         reload()
+        # fail2ban accepts some broken jails (a missing filter, an unreadable log) and then silently does not
+        # start them: check that every enabled jail runs, and undo the change if one does not.
+        missing = sorted(expected_jails() - set(jail_names()))
+        if missing:
+            for rel, text in old.items():
+                path = hostinfo.host_path(rel)
+                if text is None:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                else:
+                    with open(path, "w") as f:
+                        f.write(text)
+            reload()
+            raise ValueError(f"fail2ban could not start {', '.join(missing)} with this change (check the filter, log path and backend). "
+                             "The previous settings are back.")
+
+
+def _backup(rel, text):
+    d = hostinfo.host_path(BACKUPS)
+    os.makedirs(d, exist_ok=True)
+    name = rel.replace("/", "__") + time.strftime(".%Y%m%d-%H%M%S")
+    with open(os.path.join(d, name), "w") as f:
+        f.write(text)
+
+
+# ------------------------------------------------------------------ what the files say about each jail
+
+def _jail_files():
+    """Configuration files in the order fail2ban reads them (later ones win)."""
+    root = hostinfo.host_path(ETC)
+    out = [f"{root}/jail.conf"]
+    out += sorted(glob.glob(f"{root}/jail.d/*.conf"))
+    out.append(f"{root}/jail.local")
+    out += sorted(glob.glob(f"{root}/jail.d/*.local"))
+    return [p for p in out if os.path.isfile(p)]
+
+
+def _parser():
+    return configparser.RawConfigParser(strict=False, interpolation=None, default_section="__none__",
+                                        comment_prefixes=("#", ";"), inline_comment_prefixes=None)
+
+
+def expected_jails():
+    """Jails the configuration files switch on (what fail2ban should be running)."""
+    merged = _parser()
+    for path in _jail_files():
+        try:
+            merged.read(path, encoding="utf-8")
+        except configparser.Error:
+            continue
+    default_on = merged.has_section("DEFAULT") and merged.get("DEFAULT", "enabled", fallback="false").strip().lower() in ("true", "yes", "1", "on")
+    out = set()
+    for sec in merged.sections():
+        if sec in ("DEFAULT", "INCLUDES", "Definition", "Init"):
+            continue
+        val = merged.get(sec, "enabled", fallback=None)
+        on = val.strip().lower() in ("true", "yes", "1", "on") if val is not None else default_on
+        if on:
+            out.add(sec)
+    return out
+
+
+def jail_config(name, skip_panel=False):
+    """{key: (value, file)} for one jail across all files, plus where the jail is defined."""
+    values, defined = {}, []
+    root = hostinfo.host_path(ETC)
+    for path in _jail_files():
+        if skip_panel and path.endswith(PANEL_FILE[len(ETC):]):
+            continue
+        cp = _parser()
+        try:
+            cp.read(path, encoding="utf-8")
+        except configparser.Error:
+            continue
+        if cp.has_section(name):
+            rel = path[len(root) + 1:]
+            defined.append(rel)
+            for k, v in cp.items(name):
+                values[k] = (v.strip(), rel)
+    return values, defined
+
+
+def jail_detail(name, managed):
+    values, defined = jail_config(name)
+    base, _ = jail_config(name, skip_panel=True)
+    own = managed.get("jails", {}).get(name, {})
+    return {"name": name, "values": {k: v for k, (v, _) in values.items()}, "base": {k: v for k, (v, _) in base.items()}, "sources": {k: f for k, (_, f) in values.items()},
+            "defined": defined, "stock": "jail.conf" in defined, "panel": own,
+            "filters": filters(), "running": running() and name in jail_names()}
+
+
+def filters():
+    d = hostinfo.host_path(ETC + "/filter.d")
+    return sorted({os.path.basename(p).rsplit(".", 1)[0] for p in glob.glob(f"{d}/*.conf") + glob.glob(f"{d}/*.local")})
+
+
+def delete_jail(name, managed):
+    """Remove a jail everywhere the panel may: its own section, and the jail's section in jail.d / jail.local
+    files (backed up first). A jail that only comes from jail.conf (shipped with fail2ban) is switched off."""
+    _, defined = jail_config(name)
+    managed["jails"].pop(name, None)
+    also = {}
+    root = hostinfo.host_path(ETC)
+    for rel in defined:
+        if rel in ("jail.conf", PANEL_FILE[len(ETC) + 1:]):
+            continue
+        path = f"{root}/{rel}"
+        text = open(path).read()
+        new = _drop_section(text, name)
+        also[f"{ETC}/{rel}"] = new
+        if not re.search(r"^\s*\[[^\]]+\]", new, re.M):
+            also[f"{ETC}/{rel}"] = None     # nothing left in the file: remove it (a backup is kept)
+    stock = "jail.conf" in defined
+    if stock:
+        managed["jails"][name] = {"enabled": False}
+    write_settings(managed, also)
+    return {"disabled_only": stock}
+
+
+def _drop_section(text, name):
+    out, skip = [], False
+    for ln in text.splitlines(keepends=True):
+        m = re.match(r"^\s*\[([^\]]+)\]", ln)
+        if m:
+            skip = m.group(1).strip() == name
+        if not skip:
+            out.append(ln)
+    return "".join(out)
+
+
+# ------------------------------------------------------------------ raw file editor
+
+def files():
+    root = hostinfo.host_path(ETC)
+    rows = []
+    for pattern in ("*.conf", "*.local", "jail.d/*", "fail2ban.d/*", "filter.d/*", "action.d/*"):
+        for p in sorted(glob.glob(f"{root}/{pattern}")):
+            rel = p[len(root) + 1:]
+            if os.path.isfile(p) and FILE_RE.match(rel):
+                st = os.stat(p)
+                rows.append({"path": rel, "size": st.st_size, "mtime": int(st.st_mtime),
+                             "group": rel.split("/")[0] if "/" in rel else "main", "panel": f"{ETC}/{rel}" == PANEL_FILE})
+    return rows
+
+
+def _rel(path):
+    path = str(path or "").strip().lstrip("/")
+    if path.startswith("etc/fail2ban/"):
+        path = path[len("etc/fail2ban/"):]
+    if not FILE_RE.match(path) or ".." in path:
+        raise ValueError("Only files inside /etc/fail2ban (jail.d, filter.d, action.d, fail2ban.d, *.conf, *.local) can be edited")
+    return path
+
+
+def file_read(path):
+    rel = _rel(path)
+    p = hostinfo.host_path(f"{ETC}/{rel}")
+    if not os.path.isfile(p):
+        return {"path": rel, "text": "", "exists": False}
+    with open(p, errors="replace") as f:
+        return {"path": rel, "text": f.read(2_000_000), "exists": True}
+
+
+def file_write(path, text):
+    rel = _rel(path)
+    if len(text) > 2_000_000:
+        raise ValueError("file too large")
+    _apply_files({f"{ETC}/{rel}": str(text).replace("\r\n", "\n")})
+    return file_read(rel)
+
+
+def file_delete(path):
+    rel = _rel(path)
+    if rel in ("jail.conf", "fail2ban.conf"):
+        raise ValueError("The main files shipped with fail2ban cannot be deleted; edit jail.local instead")
+    _apply_files({f"{ETC}/{rel}": None})
+    return {"ok": True}
 
 
 # ------------------------------------------------------------------ overview for the panel

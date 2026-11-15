@@ -9,18 +9,21 @@ import re
 import socket
 import threading
 import time
+from urllib.parse import quote
 
 import monitor
 import store
 
 SOCK = os.environ.get("DEFENDER_SOCKET", "/defender/agent.sock")
 GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "rules", "ssh",
-             "f2b", "f2b/bans", "f2b/log", "geo", "export"}
+             "f2b", "f2b/bans", "f2b/log", "f2b/jail", "f2b/files", "f2b/file", "geo", "export"}
 POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unallow", "unban", "sysctl",
-              "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/defaults", "f2b/ban", "f2b/unban", "import"}
+              "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
+              "f2b/file", "f2b/file/delete", "import"}
 NOT_RUNNING = ("The firewall service (defender) is not running. On the server run: "
                "cd /opt/server-monitoring && docker compose up -d --build defender")
 JAIL_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
+PATH_RE = re.compile(r"^[A-Za-z0-9_.\-/]{1,120}$")
 
 
 class AgentError(Exception):
@@ -45,6 +48,8 @@ def _query(params):
         out.append(f"since={params['since']}")
     if JAIL_RE.match(str(params.get("jail", ""))):
         out.append(f"jail={params['jail']}")
+    if PATH_RE.match(str(params.get("path", ""))):
+        out.append(f"path={quote(params['path'], safe='')}")
     return "&".join(out)
 
 

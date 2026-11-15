@@ -24,6 +24,8 @@ FILES=(
   panel/live.py:644
   panel/defender.py:644
   panel/static/defender.js:644
+  panel/static/security.js:644
+  panel/security.py:644
   defender/Dockerfile:644
   defender/agent.py:644
   defender/nftrules.py:644

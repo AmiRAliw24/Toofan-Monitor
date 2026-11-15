@@ -33,6 +33,10 @@
         <label for="password" data-i18n="password">Password</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
       </div>
+      <div class="field" id="otp-field" hidden>
+        <label for="otp" data-i18n="otp">Code from your authenticator app</label>
+        <input id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" dir="ltr">
+      </div>
       <div class="form-error" id="error" role="alert"></div>
       <button class="btn primary" type="submit" id="submit" data-i18n="signin">Sign in</button>
     </form>

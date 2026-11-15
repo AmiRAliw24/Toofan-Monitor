@@ -17,6 +17,7 @@ Order of the chain (first match wins):
                                                    -> drop (and ban at 3x the limit)
 """
 import ipaddress
+import re
 
 PROFILES = {
     # per source IP. syn/conn/udp/icmp: packets or new flows per second (burst = 2x). conc: open TCP connections.
@@ -28,7 +29,7 @@ LIMIT_KEYS = {"syn": (1, 100000), "conn": (1, 100000), "conc": (5, 1000000), "ud
               "icmp": (1, 10000), "ban": (1, 10080)}
 AUTOBAN_FACTOR = 3        # a source going this many times over a limit is banned, not just slowed down
 SSH_NEW_PER_MIN = 12      # new SSH connections per source and minute before the source is banned
-COUNTERS = ("allow", "block", "ban", "geo", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
+COUNTERS = ("allow", "block", "ban", "geo", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
             "udp", "icmp", "autoban", "new", "all")
 ALWAYS_TRUSTED = ("lo", "docker*", "br-*", "veth*")
 # Cloudflare's edge (https://www.cloudflare.com/ips/). A site or proxy behind Cloudflare receives all of its
@@ -39,14 +40,35 @@ CDN4 = ("173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22"
 CDN6 = ("2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32", "2405:8100::/32", "2a06:98c0::/29", "2c0f:f248::/32")
 
 
+FORBIDDEN = re.compile(r"^\s*(table|chain|flush|delete|include|define|add\s+(table|chain|rule)|insert|replace|reset|list)\b", re.I)
+
+
+def check_custom(text):
+    """Custom rules: nft statements, one per line, that run inside the Firewall's chain for new connections.
+    They are checked by the kernel with the whole ruleset (nft -c) before anything is applied; here we only
+    make sure a line cannot leave the chain (unbalanced braces, table/chain commands)."""
+    out = []
+    for raw in str(text or "").replace("\r", "").split("\n"):
+        ln = raw.strip()
+        if not ln or ln.startswith("#"):
+            continue
+        if FORBIDDEN.match(ln) or ln.count("{") != ln.count("}") or ";" in ln:
+            raise ValueError(f"Not allowed in a custom rule: {ln[:80]}")
+        out.append(ln)
+    if len(out) > 500:
+        raise ValueError("At most 500 custom rules")
+    return "\n".join(out)
+
+
 def ports_expr(items):
     """['22', '8000-8100'] -> '{ 22, 8000-8100 }' (nft set syntax)."""
     return "{ " + ", ".join(items) + " }"
 
 
-def iface_rules(ifaces):
+def iface_rules(ifaces, trust_docker=True):
     out = []
-    for name in list(ALWAYS_TRUSTED) + [i for i in ifaces if i not in ALWAYS_TRUSTED]:
+    base = ALWAYS_TRUSTED if trust_docker else ("lo",)
+    for name in list(base) + [i for i in ifaces if i not in base]:
         out.append(f'        iifname "{name}" accept')
     return out
 
@@ -67,7 +89,9 @@ def set_block(name, family, items, extra=""):
 def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=()):
     """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table)."""
     fw = cfg["firewall"]
+    adv = cfg.get("advanced") or {}
     allow4, allow6 = split_ips(a["ip"] for a in cfg["allow"])
+    pallow4, pallow6 = split_ips(adv.get("panel_allow") or [])
     block4, block6 = split_ips(b["ip"] for b in cfg["block"] if not b.get("until"))
     ban_elements = ban_elements or {"ban4": [], "ban6": []}
     ban_t = f"{int(limits['ban'])}m"
@@ -77,7 +101,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
               set_block("block4", "ipv4", block4), set_block("block6", "ipv6", block6),
               set_block("cdn4", "ipv4", list(CDN4) if cfg.get("trust_cdn", True) else []),
               set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else []),
-              set_block("geo4", "ipv4", list(geo4), " auto-merge;"), set_block("geo6", "ipv6", list(geo6), " auto-merge;")]
+              set_block("geo4", "ipv4", list(geo4), " auto-merge;"), set_block("geo6", "ipv6", list(geo6), " auto-merge;"),
+              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6)]
     for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
         els = ban_elements.get(name) or []
         body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
@@ -89,18 +114,22 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
         lines.append(f"    set m_conc{suffix} {{ type {fam}_addr; flags dynamic; size 262144; }}")
 
     ssh = sorted({str(p) for p in ssh_ports}) or ["22"]
-    open_tcp = sorted({str(p) for p in ssh} | {str(p) for p in panel_ports} |
+    locked = ({str(p) for p in ssh} | {str(p) for p in panel_ports}) if adv.get("lock_ports", True) else set()
+    open_tcp = sorted(locked |
                       {p["port"] for p in fw["ports"] if p["proto"] in ("tcp", "both") and not p.get("from")}, key=_port_key)
     open_udp = sorted({p["port"] for p in fw["ports"] if p["proto"] in ("udp", "both") and not p.get("from")}, key=_port_key)
 
     r = ["", "    chain pre {", "        type filter hook prerouting priority -150; policy accept;"]
-    r += iface_rules(fw.get("trusted_ifaces", []))
+    r += iface_rules(fw.get("trusted_ifaces", []), adv.get("trust_docker", True))
     r += ["        ip saddr @allow4 counter name c_allow accept",
           "        ip6 saddr @allow6 counter name c_allow accept",
           "        ip saddr @block4 counter name c_block drop",
           "        ip6 saddr @block6 counter name c_block drop",
           "        ip saddr @ban4 counter name c_ban drop",
           "        ip6 saddr @ban6 counter name c_ban drop",
+          *([f"        meta nfproto ipv4 tcp dport {ports_expr([str(p) for p in panel_ports])} ip saddr != @pallow4 counter name c_panel drop",
+             f"        meta nfproto ipv6 tcp dport {ports_expr([str(p) for p in panel_ports])} ip6 saddr != @pallow6 counter name c_panel drop"]
+            if adv.get("panel_allow") and panel_ports else []),   # panel only for listed addresses (admins pass above)
           "        ip saddr @cdn4 accept",   # blocklist and bans above still apply to the CDN
           "        ip6 saddr @cdn6 accept",
           "        ip saddr @geo4 counter name c_geo drop",    # blocked countries (allowlist, admins, CDN pass above)
@@ -114,10 +143,14 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
                       "& (fin|rst) == fin|rst", "& (fin|psh|urg) == fin|psh|urg", "& (fin|ack) == fin"):
             r.append(f"        tcp flags {flags} counter name c_badflags drop")
     r.append("        counter name c_new")
-    if cfg["ssh_guard"].get("l4", True):
+    for ln in (adv.get("custom_rules") or "").split("\n"):
+        if ln.strip():
+            r.append(f"        {ln.strip()}")
+    ssh_rate = int(adv.get("ssh_rate", SSH_NEW_PER_MIN))
+    if cfg["ssh_guard"].get("l4", True) and ssh_rate > 0:
         for fam, suffix in (("ip", "4"), ("ip6", "6")):
-            r.append(f"        tcp dport {ports_expr(ssh)} tcp flags syn update @m_ssh{suffix} {{ {fam} saddr limit rate over {SSH_NEW_PER_MIN}/minute burst {SSH_NEW_PER_MIN} packets }} "
-                     f"add @ban{suffix} {{ {fam} saddr timeout 60m }} counter name c_ssh drop")
+            r.append(f"        tcp dport {ports_expr(ssh)} tcp flags syn update @m_ssh{suffix} {{ {fam} saddr limit rate over {ssh_rate}/minute burst {ssh_rate} packets }} "
+                     f"add @ban{suffix} {{ {fam} saddr timeout {int(adv.get('ssh_ban_minutes', 60))}m }} counter name c_ssh drop")
     # Ports with a source restriction ("only from 1.2.3.0/24") are accepted for that source only.
     for p in fw["ports"]:
         if p.get("from"):
@@ -129,11 +162,13 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
         r.append(f"        meta l4proto udp udp dport != {ports_expr(open_udp)} counter name c_policy drop" if open_udp
                  else "        meta l4proto udp counter name c_policy drop")
     L = limits
+    F = int(adv.get("autoban_factor", AUTOBAN_FACTOR))
     for fam, suffix, icmp in (("ip", "4", "icmp type echo-request"), ("ip6", "6", "icmpv6 type echo-request")):
+        nfp = "ipv4" if suffix == "4" else "ipv6"
         r += [
-            f"        tcp flags & (syn|ack) == syn update @m_synb{suffix} {{ {fam} saddr limit rate over {L['syn'] * AUTOBAN_FACTOR}/second burst {L['syn'] * AUTOBAN_FACTOR * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop",
+            *([f"        tcp flags & (syn|ack) == syn update @m_synb{suffix} {{ {fam} saddr limit rate over {L['syn'] * F}/second burst {L['syn'] * F * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
             f"        tcp flags & (syn|ack) == syn update @m_syn{suffix} {{ {fam} saddr limit rate over {L['syn']}/second burst {L['syn'] * 2} packets }} counter name c_syn drop",
-            f"        meta nfproto {'ipv4' if suffix == '4' else 'ipv6'} ct state new update @m_connb{suffix} {{ {fam} saddr limit rate over {L['conn'] * AUTOBAN_FACTOR}/second burst {L['conn'] * AUTOBAN_FACTOR * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop",
+            *([f"        meta nfproto {nfp} ct state new update @m_connb{suffix} {{ {fam} saddr limit rate over {L['conn'] * F}/second burst {L['conn'] * F * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
             f"        meta nfproto {'ipv4' if suffix == '4' else 'ipv6'} ct state new update @m_conn{suffix} {{ {fam} saddr limit rate over {L['conn']}/second burst {L['conn'] * 2} packets }} counter name c_conn drop",
             f"        meta l4proto tcp add @m_conc{suffix} {{ {fam} saddr ct count over {L['conc']} }} counter name c_conc drop",
             f"        meta l4proto udp update @m_udp{suffix} {{ {fam} saddr limit rate over {L['udp']}/second burst {L['udp'] * 2} packets }} counter name c_udp drop",

@@ -8,6 +8,7 @@ X-Panel header (a cross-site page cannot send that header), and is checked again
 """
 import json
 import os
+import secrets
 import sys
 import threading
 import time
@@ -22,15 +23,22 @@ import health
 import icons
 import live
 import monitor
+import security
 import store
-from auth import SESSION_TTL, Auth
+from auth import Auth
+from security import guard, limiter, sessions, totp
+from security import log as seclog
+from security import settings as secsettings
 
 USER = os.environ.get("PANEL_USER", "admin")
 PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PORT = int(os.environ.get("PANEL_LISTEN_PORT", "8080"))
 STATIC = Path(__file__).parent / "static"
 COOKIE = "panel_session"
-VERSION = "2.1"
+VERSION = "2.2"
+SESSION_TTL = security.SESSION_MAX
+TRUST_PROXY = os.environ.get("PANEL_TRUST_PROXY", "0") == "1"   # behind your own reverse proxy: use X-Forwarded-For
+BIG_BODY = {"/api/defender/import", "/api/defender/f2b/file", "/api/defender/config"}
 LIVE_MAX_SECONDS = 15 * 60   # a live stream is closed after this long; the browser reconnects at once
 
 if not PASSWORD:
@@ -49,6 +57,7 @@ PRIVATE_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/defender.js": ("defender.js", "text/javascript; charset=utf-8"),
+    "/security.js": ("security.js", "text/javascript; charset=utf-8"),
 }
 # Generated icons, served without a login so a browser tab can always show them.
 ICONS = {
@@ -63,9 +72,9 @@ WRITE_HINT = ("The panel cannot write its configuration files (permission denied
               "chown -R 65534:65534 /opt/server-monitoring/data /opt/server-monitoring/prometheus/targets "
               "/opt/server-monitoring/prometheus/rules /opt/server-monitoring/alertmanager")
 
-# Failed logins are serialised and delayed, which caps brute-forcing at ~1 guess/second overall
-# without letting an attacker lock the real user out (Docker hides client IPs behind its proxy).
-_fail_lock = threading.Lock()
+# Failed logins are handled per address in security.py: a short random delay, a lock after 5 failures
+# in 15 minutes (doubling up to a day), and a firewall ban for persistent guessers. Docker passes the real
+# client address to published ports, so one attacker cannot lock the real user out.
 
 
 class BadRequest(ValueError):
@@ -174,9 +183,70 @@ def post_docker_action(b, _h):
 
 def post_password(b, h):
     auth.change(str(b.get("current", "")), str(b.get("new", "")), b.get("user"))
-    # The session key changed with the credentials: hand the current browser a fresh cookie.
-    h.new_cookie = f"{COOKIE}={auth.make_token()}; Path=/; Max-Age={SESSION_TTL}; HttpOnly; SameSite=Strict"
+    sessions.revoke_all(keep_token=h.token)     # signed out everywhere else
+    seclog.add("password", h.ip)
     return {"ok": True, "user": auth.user}
+
+
+# ------------------------------------------------------------------ security page
+
+def api_security(_q, h=None):
+    return {"sessions": sessions.list(h.token if h else None), "locks": guard.list(), "log": seclog.list(),
+            "totp": totp.enabled(), "settings": secsettings.get(), "ip": h.ip if h else "",
+            "limits": {"lock_after": security.LOCK_AFTER, "window": security.LOCK_WINDOW, "firewall_after": security.FIREWALL_AFTER}}
+
+
+def post_session_revoke(b, h):
+    sessions.revoke(str(b.get("id", "")))
+    seclog.add("session_revoked", h.ip)
+    return api_security({}, h)
+
+
+def post_sessions_others(_b, h):
+    sessions.revoke_all(keep_token=h.token)
+    seclog.add("sessions_revoked", h.ip)
+    return api_security({}, h)
+
+
+def post_unlock(b, h):
+    guard.unlock(str(b.get("ip", "")))
+    seclog.add("unlocked", h.ip, target=str(b.get("ip", ""))[:64])
+    return api_security({}, h)
+
+
+def _need_password(b):
+    if not auth.verify(auth.user, str(b.get("password", ""))):
+        raise ValueError("The password is wrong")
+
+
+def post_2fa_setup(b, h):
+    _need_password(b)
+    if totp.enabled():
+        raise ValueError("Two-factor sign-in is already on; turn it off first")
+    secret = totp.setup()
+    return {"secret": secret, "uri": totp.uri(auth.user, "Server Monitor")}
+
+
+def post_2fa_enable(b, h):
+    if not totp.enable(b.get("code", "")):
+        raise ValueError("The code is not right. Check the time on your phone and try the newest code.")
+    sessions.revoke_all(keep_token=h.token)
+    seclog.add("2fa_on", h.ip)
+    return api_security({}, h)
+
+
+def post_2fa_disable(b, h):
+    _need_password(b)
+    if totp.enabled() and not totp.verify(b.get("code", "")):
+        raise ValueError("The code is not right")
+    totp.disable()
+    seclog.add("2fa_off", h.ip)
+    return api_security({}, h)
+
+
+def post_security_settings(b, h):
+    secsettings.set(**{k: b[k] for k in ("notify_login", "notify_lock") if k in b})
+    return api_security({}, h)
 
 
 POST_API = {
@@ -185,7 +255,31 @@ POST_API = {
     "/api/telegram/chats": post_telegram_chats, "/api/telegram/remove": post_telegram_remove,
     "/api/alerts/test": post_alert_test, "/api/rules/set": post_rules_set, "/api/rules/reset": post_rules_reset,
     "/api/docker/action": post_docker_action, "/api/password": post_password,
+    "/api/security/revoke": post_session_revoke, "/api/security/revoke-others": post_sessions_others,
+    "/api/security/unlock": post_unlock, "/api/security/2fa/setup": post_2fa_setup,
+    "/api/security/2fa/enable": post_2fa_enable, "/api/security/2fa/disable": post_2fa_disable,
+    "/api/security/settings": post_security_settings,
 }
+
+
+def _notify(text):
+    """Telegram message about the panel's own security, sent in the background."""
+    def send():
+        try:
+            defender._send(f"\U0001F510 Panel \u00b7 {defender._host_label()}\n{text}")
+        except Exception as e:
+            print("security notify:", e, flush=True)
+    threading.Thread(target=send, daemon=True).start()
+
+
+def _firewall_ban(ip):
+    def ban():
+        try:
+            defender.post("block", {"ip": ip, "minutes": 60, "note": "panel login brute force"})
+            seclog.add("firewall_ban", ip)
+        except Exception as e:   # firewall off, agent missing, admin address: the login lock still applies
+            print("panel brute force ban:", e, flush=True)
+    threading.Thread(target=ban, daemon=True).start()
 
 # ------------------------------------------------------------------ http
 
@@ -207,6 +301,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", CSP)
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()")
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("X-Permitted-Cross-Domain-Policies", "none")
+        if self._https():
+            self.send_header("Strict-Transport-Security", "max-age=31536000")
         for k, v in extra:
             self.send_header(k, v)
         self.end_headers()
@@ -226,9 +326,36 @@ class Handler(BaseHTTPRequestHandler):
     def _redirect(self, location):
         self._headers(302, "text/plain", 0, [("Location", location)])
 
+    @property
+    def ip(self):
+        if TRUST_PROXY:
+            fwd = self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            if fwd:
+                return fwd[:64]
+        return self.client_address[0]
+
+    @property
+    def token(self):
+        try:
+            c = SimpleCookie(self.headers.get("Cookie", ""))
+        except Exception:
+            return ""
+        return c[COOKIE].value if COOKIE in c else ""
+
+    def _https(self):
+        return TRUST_PROXY and self.headers.get("X-Forwarded-Proto", "") == "https"
+
+    def _cookie(self, value, max_age):
+        return f"{COOKIE}={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Strict" + ("; Secure" if self._https() else "")
+
     def _authed(self):
-        cookie = SimpleCookie(self.headers.get("Cookie", ""))
-        return COOKIE in cookie and auth.valid_token(cookie[COOKIE].value)
+        return sessions.get(self.token) is not None
+
+    def _rate_ok(self):
+        """Signed-in browsers get a generous budget; everything else (scanners, bots) a small one."""
+        if self._authed():
+            return limiter.allow(f"s:{self.token[:16]}", 3000, 600)
+        return limiter.allow(f"ip:{self.ip}", 120, 60)
 
     def _run(self, fn, *args):
         """Call an API function and turn its exceptions into JSON error responses."""
@@ -253,6 +380,8 @@ class Handler(BaseHTTPRequestHandler):
         path = url.path
         if path == "/healthz":
             return self._json(200, {"ok": True})
+        if not self._rate_ok():
+            return self._json(429, {"error": "too many requests"}, [("Retry-After", "30")])
         if path in ICONS:
             make, ctype = ICONS[path]
             return self._bytes(make(), ctype)
@@ -270,6 +399,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._live({k: v[0] for k, v in parse_qs(url.query).items()})
         if path.startswith("/api/defender/"):
             return self._run(defender.get, path[len("/api/defender/"):], {k: v[0] for k, v in parse_qs(url.query).items()})
+        if path == "/api/security":
+            return self._run(api_security, {}, self)
         if path in GET_API:
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             return self._run(GET_API[path], params)
@@ -287,7 +418,7 @@ class Handler(BaseHTTPRequestHandler):
             last = float(self.headers.get("Last-Event-ID") or params.get("since") or 0)
         except ValueError:
             last = 0.0
-        token = SimpleCookie(self.headers.get("Cookie", ""))[COOKIE].value
+        token = self.token
         self.send_response(200)
         for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
                      ("X-Accel-Buffering", "no"), ("X-Content-Type-Options", "nosniff"), ("Content-Security-Policy", CSP)):
@@ -306,7 +437,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(b"retry: 3000\n\n")
             sampler = live.sampler(instance)
             send("hello", {"instance": instance, "interval": live.INTERVAL, "keep": live.KEEP})
-            while time.time() < deadline and auth.valid_token(token):
+            while time.time() < deadline and sessions.get(token) is not None:
                 new = sampler.since(last)
                 if new:
                     last = new[-1]["t"]
@@ -325,7 +456,8 @@ class Handler(BaseHTTPRequestHandler):
     def _body(self):
         try:
             length = int(self.headers.get("Content-Length", 0))
-            if length > 65536:
+            limit = 4_000_000 if urlparse(self.path).path in BIG_BODY else 65536
+            if length > limit or length < 0:
                 raise BadRequest("request too large")
             data = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(data, dict):
@@ -340,9 +472,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if not self._rate_ok():
+            return self._json(429, {"error": "too many requests"}, [("Retry-After", "30")])
         if path == "/logout":
-            return self._json(200, {"ok": True}, [("Set-Cookie", f"{COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict")])
+            if self.token and sessions.get(self.token):
+                seclog.add("logout", self.ip)
+            sessions.revoke_token(self.token)
+            return self._json(200, {"ok": True}, [("Set-Cookie", self._cookie("", 0))])
         if path == "/login":
+            if not self._same_origin():
+                return self._json(403, {"error": "forbidden"})
             return self._login()
         fn = POST_API.get(path)
         if fn is None and path.startswith("/api/defender/") and path[len("/api/defender/"):] in defender.POST_PATHS:
@@ -361,17 +500,39 @@ class Handler(BaseHTTPRequestHandler):
         self._run(fn, body, self)
 
     def _login(self):
+        ip = self.ip
+        left = guard.locked(ip)
+        if left:
+            return self._json(429, {"error": "locked", "locked": left})
         try:
             data = self._body()
-            user, password = str(data.get("user", "")), str(data.get("password", ""))
+            user, password, code = str(data.get("user", ""))[:200], str(data.get("password", ""))[:500], str(data.get("otp", ""))[:20]
         except BadRequest:
             return self._json(400, {"error": "bad request"})
-        if not auth.verify(user, password):
-            with _fail_lock:
-                time.sleep(1)
-            return self._json(401, {"error": "invalid credentials"})
-        cookie = f"{COOKIE}={auth.make_token()}; Path=/; Max-Age={SESSION_TTL}; HttpOnly; SameSite=Strict"
-        self._json(200, {"ok": True}, [("Set-Cookie", cookie)])
+        ok = auth.verify(user, password)
+        if ok and totp.enabled():
+            if not code:
+                return self._json(401, {"error": "code required", "otp": True})   # right password: not a failure yet
+            ok = totp.verify(code)
+        if not ok:
+            locked, total = guard.failed(ip)
+            seclog.add("login_failed", ip, user=user[:64])
+            time.sleep(0.6 + secrets.randbelow(600) / 1000)   # slows guessing without blocking other users
+            if locked:
+                seclog.add("locked", ip, minutes=locked // 60)
+                if secsettings.get()["notify_lock"]:
+                    _notify(f"{ip} was locked out of the panel for {locked // 60} min after repeated wrong logins.")
+            if total >= security.FIREWALL_AFTER:
+                _firewall_ban(ip)
+            return self._json(429 if locked else 401, {"error": "locked" if locked else "invalid credentials", "locked": locked,
+                                                       "otp": totp.enabled() and bool(code)})
+        guard.success(ip)
+        known = seclog.known_ip(ip)
+        seclog.add("login", ip, ua=self.headers.get("User-Agent", "")[:120])
+        if not known and secsettings.get()["notify_login"]:
+            _notify(f"New sign-in from {ip}. If this was not you, change the password and revoke the session in Settings.")
+        token = sessions.create(ip, self.headers.get("User-Agent", ""))
+        self._json(200, {"ok": True}, [("Set-Cookie", self._cookie(token, SESSION_TTL))])
 
 
 def main():
