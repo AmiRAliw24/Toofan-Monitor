@@ -151,11 +151,26 @@ def rule_parts(rule, zones):
             L = rule["limit"]
             tail.append(f"update @r_{rid}_m{v} {{ {fam} saddr limit rate over {L['rate']}/second burst {L['burst']} packets }}")
             if L.get("ban"):
-                tail.append(f"add @ban{v} {{ {fam} saddr timeout {L['ban']}m }}")
+                tail.append(f"add @rb_{rid}{v} {{ {fam} saddr timeout {L['ban']}m }}")
             tail.append("drop")
         for when in schedule_parts(rule.get("schedule")):
             lines.append("        " + " ".join(parts + when + tail))
     return sets, lines
+
+
+# Bans live in one set per reason, so the panel can say why an address is banned:
+#   ban   by the agent (manual, SSH login guard)   fban  SYN flood   cban  connection flood
+#   sban  too many new SSH connections             rb_<rule id>  a firewall rule with "ban"
+BAN_KINDS = ("ban", "fban", "cban", "sban")
+
+
+def ban_sets(cfg):
+    """Names (without the 4/6) of every ban set the ruleset declares."""
+    out = list(BAN_KINDS)
+    for rule in cfg.get("rules") or []:
+        if rule.get("enabled", True) and rule.get("action") == "limit" and (rule.get("limit") or {}).get("ban"):
+            out.append(f"rb_{rule['id']}")
+    return out
 
 
 def threat_parts(threat_lists, outbound):
@@ -192,7 +207,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     allow4, allow6 = split_ips(a["ip"] for a in cfg["allow"])
     pallow4, pallow6 = split_ips(adv.get("panel_allow") or [])
     block4, block6 = split_ips(b["ip"] for b in cfg["block"] if not b.get("until"))
-    ban_elements = ban_elements or {"ban4": [], "ban6": []}
+    ban_elements = ban_elements or {}
     ban_t = f"{int(limits['ban'])}m"
     lines = ["table inet defender", "delete table inet defender", "table inet defender {"]
     lines += [f"    counter c_{c} {{ }}" for c in COUNTERS]
@@ -204,10 +219,13 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
               set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6)]
     t_decl, t_pre, t_out = threat_parts(threat_lists, (cfg.get("threat") or {}).get("outbound", False))
     lines += t_decl
-    for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
-        els = ban_elements.get(name) or []
-        body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
-        lines.append(f"    set {name} {{ type {fam}_addr; flags timeout; timeout {ban_t}; size 262144;{body} }}")
+    kinds = ban_sets(cfg)
+    for kind in kinds:
+        for fam, v in (("ipv4", "4"), ("ipv6", "6")):
+            # elements keep their whole ban time and what is left of it, so "banned at" survives a rebuild
+            els = ban_elements.get(f"{kind}{v}") or []
+            body = f" elements = {{ {', '.join(f'{ip} timeout {int(total)}s expires {int(left)}s' for ip, total, left in els)} }};" if els else ""
+            lines.append(f"    set {kind}{v} {{ type {fam}_addr; flags timeout; timeout {ban_t}; size 262144;{body} }}")
     for meter in ("syn", "synb", "conn", "connb", "udp", "udpb", "icmp", "icmpb", "ssh"):
         for fam, suffix in (("ipv4", "4"), ("ipv6", "6")):
             lines.append(f"    set m_{meter}{suffix} {{ type {fam}_addr; flags dynamic, timeout; timeout 2m; size 262144; }}")
@@ -226,8 +244,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
           "        ip6 saddr @allow6 counter name c_allow accept",
           "        ip saddr @block4 counter name c_block drop",
           "        ip6 saddr @block6 counter name c_block drop",
-          "        ip saddr @ban4 counter name c_ban drop",
-          "        ip6 saddr @ban6 counter name c_ban drop",
+          *[f"        {fam} saddr @{kind}{v} counter name c_ban drop" for kind in kinds for fam, v in (("ip", "4"), ("ip6", "6"))],
           *([f"        meta nfproto ipv4 tcp dport {ports_expr([str(p) for p in panel_ports])} ip saddr != @pallow4 counter name c_panel drop",
              f"        meta nfproto ipv6 tcp dport {ports_expr([str(p) for p in panel_ports])} ip6 saddr != @pallow6 counter name c_panel drop"]
             if adv.get("panel_allow") and panel_ports else []),   # panel only for listed addresses (admins pass above)
@@ -261,7 +278,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     if cfg["ssh_guard"].get("l4", True) and ssh_rate > 0:
         for fam, suffix in (("ip", "4"), ("ip6", "6")):
             r.append(f"        tcp dport {ports_expr(ssh)} tcp flags syn update @m_ssh{suffix} {{ {fam} saddr limit rate over {ssh_rate}/minute burst {ssh_rate} packets }} "
-                     f"add @ban{suffix} {{ {fam} saddr timeout {int(adv.get('ssh_ban_minutes', 60))}m }} counter name c_ssh drop")
+                     f"add @sban{suffix} {{ {fam} saddr timeout {int(adv.get('ssh_ban_minutes', 60))}m }} counter name c_ssh drop")
     # Ports with a source restriction ("only from 1.2.3.0/24") are accepted for that source only.
     for p in fw["ports"]:
         if p.get("from"):
@@ -277,9 +294,9 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     for fam, suffix, icmp in (("ip", "4", "icmp type echo-request"), ("ip6", "6", "icmpv6 type echo-request")):
         nfp = "ipv4" if suffix == "4" else "ipv6"
         r += [
-            *([f"        tcp flags & (syn|ack) == syn update @m_synb{suffix} {{ {fam} saddr limit rate over {L['syn'] * F}/second burst {L['syn'] * F * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
+            *([f"        tcp flags & (syn|ack) == syn update @m_synb{suffix} {{ {fam} saddr limit rate over {L['syn'] * F}/second burst {L['syn'] * F * 2} packets }} add @fban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
             f"        tcp flags & (syn|ack) == syn update @m_syn{suffix} {{ {fam} saddr limit rate over {L['syn']}/second burst {L['syn'] * 2} packets }} counter name c_syn drop",
-            *([f"        meta nfproto {nfp} ct state new update @m_connb{suffix} {{ {fam} saddr limit rate over {L['conn'] * F}/second burst {L['conn'] * F * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
+            *([f"        meta nfproto {nfp} ct state new update @m_connb{suffix} {{ {fam} saddr limit rate over {L['conn'] * F}/second burst {L['conn'] * F * 2} packets }} add @cban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
             f"        meta nfproto {'ipv4' if suffix == '4' else 'ipv6'} ct state new update @m_conn{suffix} {{ {fam} saddr limit rate over {L['conn']}/second burst {L['conn'] * 2} packets }} counter name c_conn drop",
             f"        meta l4proto tcp add @m_conc{suffix} {{ {fam} saddr ct count over {L['conc']} }} counter name c_conc drop",
             f"        meta l4proto udp update @m_udp{suffix} {{ {fam} saddr limit rate over {L['udp']}/second burst {L['udp'] * 2} packets }} counter name c_udp drop",

@@ -67,6 +67,8 @@ def effective():
     """`sshd -T`: what sshd really uses after every file and default."""
     rc, out = _sshd(["-T"])
     if rc != 0:
+        if "No such file" in out and "sshd" in out:
+            raise ValueError("The OpenSSH server (sshd) is not installed on this server")
         raise ValueError(f"sshd -T failed: {out[-300:]}")
     conf = {}
     for line in out.splitlines():

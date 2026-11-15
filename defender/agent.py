@@ -37,6 +37,7 @@ import hostinfo  # noqa: E402
 import nftlib  # noqa: E402
 import nftrules  # noqa: E402
 import sshmgr  # noqa: E402
+import sysfw  # noqa: E402
 import threat  # noqa: E402
 
 VERSION = "1.0"
@@ -172,26 +173,44 @@ def table_exists():
         return False
 
 
-def current_bans():
-    """Elements of the ban sets with their remaining time, so a rebuild of the table keeps them."""
-    out = {"ban4": [], "ban6": []}
+def current_bans(cfg=None):
+    """Elements of every ban set: {set name: [(ip, whole ban seconds, seconds left)]}, so a rebuild of
+    the table keeps them (with their real ban time) and the panel can show when and why."""
+    out = {}
     if not table_exists():
         return out
-    for name in out:
+    names = [f"{k}{v}" for k in nftrules.ban_sets(cfg or CFG) for v in ("4", "6")]
+    names += [f"{k}{v}" for k in nftrules.ban_sets(CFG) for v in ("4", "6") if f"{k}{v}" not in names]
+    for name in names:
         try:
             data = json.loads(nft(["-j", "list", "set", "inet", "defender", name]))
         except (RuntimeError, ValueError):
             continue
+        rows = out.setdefault(name, [])
         for item in data.get("nftables", []):
+            default = (item.get("set") or {}).get("timeout", 900)
             for el in (item.get("set") or {}).get("elem", []) or []:
                 if isinstance(el, dict) and "elem" in el:
                     e = el["elem"]
-                    left = e.get("expires", e.get("timeout", 0))
+                    total = e.get("timeout", default)
+                    left = e.get("expires", total)
                     if isinstance(e.get("val"), str) and left and left > 1:
-                        out[name].append((e["val"], left))
+                        rows.append((e["val"], max(total, left), left))
                 elif isinstance(el, str):
-                    out[name].append((el, 900))
+                    rows.append((el, default, default))
     return out
+
+
+BAN_REASON = {"ban": None, "fban": "syn_flood", "cban": "conn_flood", "sban": "ssh_rate"}
+
+
+def ban_kind(set_name):
+    """("syn_flood" | "conn_flood" | "ssh_rate" | "rule" | None, rule) for a ban set name."""
+    base = set_name[:-1]
+    if base.startswith("rb_"):
+        rule = next((r for r in CFG["rules"] if r.get("id") == base[3:]), None)
+        return "rule", rule
+    return BAN_REASON.get(base), None
 
 
 def effective_limits():
@@ -208,7 +227,7 @@ def ruleset(cfg=None):
         if rule.get("enabled", True) and rule.get("countries"):
             z4, z6, _ = geo.build(DATA, rule["countries"], download=False)
             zones[rule["id"]] = (z4, z6)
-    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones,
+    return nftrules.build(view, effective_limits(), current_bans(cfg), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones,
                           threat_lists(cfg), hostinfo.public_iface())
 
 
@@ -514,7 +533,7 @@ def seed_recent_logins():
 
 # ------------------------------------------------------------------ bans
 
-def ban(ip, minutes, reason, source):
+def ban(ip, minutes, reason, source, detail=""):
     net = parse_net(ip)
     if net.num_addresses > 1:
         raise ValueError("Temporary bans are for single addresses; use the blocklist for networks")
@@ -526,16 +545,17 @@ def ban(ip, minutes, reason, source):
     name = "ban4" if net.version == 4 else "ban6"
     nft(["add", "element", "inet", "defender", name, f"{{ {addr} timeout {int(minutes)}m }}"])
     with LOCK:
-        BANS[addr] = {"until": time.time() + minutes * 60, "reason": reason, "source": source}
+        BANS[addr] = {"at": time.time(), "until": time.time() + minutes * 60, "reason": reason, "source": source, "detail": detail}
         save_json("bans.json", BANS)
     return addr
 
 
 def unban(ip):
     addr = str(parse_net(ip).network_address)
-    if table_exists():
-        name = "ban4" if ":" not in addr else "ban6"
-        nft(["delete", "element", "inet", "defender", name, f"{{ {addr} }}"], check=False)
+    if table_exists():        # whatever banned it: every ban set of its family
+        v = "6" if ":" in addr else "4"
+        for kind in nftrules.ban_sets(CFG):
+            nft(["delete", "element", "inet", "defender", f"{kind}{v}", f"{{ {addr} }}"], check=False)
     with LOCK:
         BANS.pop(addr, None)
         save_json("bans.json", BANS)
@@ -546,9 +566,13 @@ def ban_list():
     now = time.time()
     rows = []
     for name, items in current_bans().items():
-        for ip, left in items:
-            meta = BANS.get(ip, {})
-            rows.append({"ip": ip, "left": int(left), "source": meta.get("source", "auto"), "reason": meta.get("reason", "rate")})
+        kind, rule = ban_kind(name)
+        for ip, total, left in items:
+            meta = BANS.get(ip, {}) if kind is None else {}
+            rows.append({"ip": ip, "left": int(left), "total": int(total), "at": round(now - (total - left)), "detail": meta.get("detail", ""),
+                         "source": meta.get("source", "auto") if kind is None else "auto",
+                         "reason": meta.get("reason", "rate") if kind is None else kind,
+                         **({"rule": rule["name"] if rule else "?"} if kind == "rule" else {})})
     with LOCK:   # forget metadata of bans that ended
         live = {r["ip"] for r in rows}
         ended = [k for k, v in BANS.items() if v["until"] < now or (STATE["applied"] and k not in live and v["until"] - now < 5)]
@@ -559,7 +583,8 @@ def ban_list():
     try:
         f2b_rows = f2b.all_bans()
         for r in f2b_rows:
-            rows.append({"ip": r["ip"], "left": int(r["until"] - now) if r["until"] else None, "source": "fail2ban", "reason": r["jail"], "jail": r["jail"]})
+            rows.append({"ip": r["ip"], "left": int(r["until"] - now) if r["until"] else None, "at": r.get("at"),
+                         "source": "fail2ban", "reason": r["jail"], "jail": r["jail"]})
     except Exception:
         f2b_rows = None
     if f2b_rows is None:
@@ -636,7 +661,7 @@ def ssh_line(line):
     if len(q) >= g["failures"]:
         GUARD["failures"].pop(ip, None)
         try:
-            ban(ip, g["ban"], "ssh", "ssh")
+            ban(ip, g["ban"], "ssh", "ssh", detail=f"{len(q)}/{g['window']}")
             event("ssh_ban", ip=ip, failures=len(q), minutes=g["ban"])
         except Exception as e:
             log("ssh guard: cannot ban", ip, e)
@@ -823,7 +848,23 @@ def status():
         }
 
 
+_sysfw_cache = {"at": 0, "st": None}
+
+
+def sysfw_status(fresh=False):
+    """The server's own firewall (ufw / firewalld / iptables), cached for 15 s (it runs host commands)."""
+    if fresh or not _sysfw_cache["st"] or time.time() - _sysfw_cache["at"] > 15:
+        try:
+            _sysfw_cache.update(st=sysfw.status(), at=time.time())
+        except Exception as e:  # nsenter or a tool missing: show no system firewall rather than failing the page
+            log("system firewall:", e)
+            _sysfw_cache.update(st={"active": None, "ufw": {"installed": False}, "firewalld": {"installed": False},
+                                    "iptables_policy": None, "_input": ""}, at=time.time())
+    return _sysfw_cache["st"]
+
+
 def ports_view():
+    sys_st = sysfw_status()
     published = hostinfo.docker_published()
     fw = CFG["firewall"]
     rows = []
@@ -835,13 +876,73 @@ def ports_view():
         r["always"] = r["proto"] == "tcp" and (r["port"] in hostinfo.ssh_ports() or r["port"] in PANEL_PORTS)
         r["allowed"] = r["always"] or any(_port_match(p, r) for p in fw["ports"])
         r["restricted"] = not r["allowed"] and any(_port_match(dict(p, **{"from": ""}), r) for p in fw["ports"] if p.get("from"))
+        # published Docker ports go around ufw/firewalld (Docker adds its own rules before them)
+        r["sys"] = None if r["docker"] else sysfw.port_open(sys_st, r["proto"], r["port"])
         rows.append(r)
     for proto, port in sorted(published):
         if not any(r["proto"] == proto and r["port"] == port for r in rows):
             rows.append({"proto": proto, "port": port, "addrs": [], "public": True, "process": "docker", "docker": True,
                          "always": port in PANEL_PORTS and proto == "tcp",
-                         "allowed": any(_port_match(p, {"proto": proto, "port": port}) for p in fw["ports"])})
-    return {"rows": rows}
+                         "allowed": any(_port_match(p, {"proto": proto, "port": port}) for p in fw["ports"]), "sys": None})
+    return {"rows": rows, "sysfw": {k: v for k, v in sys_st.items() if not k.startswith("_")}}
+
+
+def api_open_port(b):
+    """Opens a port everywhere it can be closed: our firewall (strict mode) and the server's own firewall
+    (ufw / firewalld / iptables) - what `ufw allow 8080/tcp` does by hand."""
+    port, src = sysfw._check(b.get("port"), b.get("proto", "tcp"), b.get("from", ""))
+    src = net_str(parse_net(src, allow_any=True)) if src else ""     # the same spelling the config uses
+    proto = b.get("proto", "tcp")
+    note = str(b.get("note", ""))[:80]
+    done = sysfw.allow(port, proto, src) if b.get("system", True) else {"done": [], "firewall": None}
+    _sysfw_cache["at"] = 0
+
+    def mut(c):
+        ports = [p for p in c["firewall"]["ports"] if not (str(p["port"]) == port and p["proto"] == proto and p.get("from", "") == src)]
+        c["firewall"]["ports"] = ports + [{"port": port, "proto": proto, "from": src, "note": note}]
+    if CFG["firewall"]["mode"] == "strict" or src or b.get("ours"):
+        change(mut, rollback=False, what=f"open port {port}")
+    event("port_opened", port=port, proto=proto, src=src, system=done["firewall"])
+    listening = any(r["public"] and (r["proto"] == proto or proto == "both") and _port_match({"proto": r["proto"], "port": port}, r)
+                    for r in hostinfo.listening(max_age=0))
+    return {**ports_view(), "done": done["done"], "firewall": done["firewall"], "listening": listening}
+
+
+def api_close_port(b):
+    port, src = sysfw._check(b.get("port"), b.get("proto", "tcp"), b.get("from", ""))
+    src = net_str(parse_net(src, allow_any=True)) if src else ""     # the same spelling the config uses
+    proto = b.get("proto", "tcp")
+    done = sysfw.remove(port, proto, src)
+    _sysfw_cache["at"] = 0
+
+    def mut(c):
+        c["firewall"]["ports"] = [p for p in c["firewall"]["ports"] if not (str(p["port"]) == port and p["proto"] == proto and p.get("from", "") == src)]
+    if any(str(p["port"]) == port and p["proto"] == proto and p.get("from", "") == src for p in CFG["firewall"]["ports"]):
+        change(mut, rollback=False, what=f"close port {port}")
+    event("port_closed", port=port, proto=proto, src=src, system=done["firewall"])
+    return {**ports_view(), "done": done["done"], "firewall": done["firewall"]}
+
+
+def api_ufw(b):
+    action = b.get("action")
+    if action == "delete":
+        sysfw.ufw_delete(str(b.get("text", "")))
+    elif action == "enable":
+        # everything that is reachable now stays reachable: SSH, the panel and every public port in use
+        keep = set(hostinfo.ssh_ports()) | set(PANEL_PORTS)
+        rows = [r for r in hostinfo.listening(max_age=0) if r["public"]]
+        keep |= {r["port"] for r in rows if r["proto"] == "tcp"}
+        sysfw.ufw_enable(sorted(keep))
+        for r in rows:
+            if r["proto"] == "udp":
+                sysfw.allow(str(r["port"]), "udp")
+    elif action == "disable":
+        sysfw.ufw_disable()
+    else:
+        raise ValueError("Unknown action")
+    _sysfw_cache["at"] = 0
+    event("ufw", action=action)
+    return ports_view()
 
 
 def _port_match(p, r):
@@ -1627,6 +1728,9 @@ POST = {
     "/sshd/key/add": api_sshd_key_add,
     "/sshd/key/remove": api_sshd_key_remove,
     "/threat/refresh": api_threat_refresh,
+    "/port/open": api_open_port,
+    "/port/close": api_close_port,
+    "/sysfw/ufw": api_ufw,
     "/threat/custom/add": api_threat_custom_add,
     "/threat/custom/remove": api_threat_custom_remove,
     "/test": api_test,

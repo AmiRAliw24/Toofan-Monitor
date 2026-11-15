@@ -572,11 +572,11 @@ ssh root@SERVER 'bash install.sh'
 | | بخش | کار |
 |:-:|---|---|
 | 📊 | **نمای کلی** | وضعیت محافظت، بسته‌ها و ترافیک ورودی، اتصال‌های جدید، مسدودشده‌ها (هر ۲ ثانیه)، نمودار ۵ دقیقه‌ی اخیر، دلیل مسدودی‌ها، پرترافیک‌ترین آی‌پی‌ها با دکمه‌ی مسدود/مجاز، رویدادها |
-| 🔥 | **پورت‌ها و قوانین** | حالت **باز** (فقط ترافیک مخرب بسته می‌شود) یا **سخت‌گیر** (فقط پورت‌های مجاز)، لیست سرویس‌هایی که از اینترنت باز هستند، قانون پورت با محدودیت منبع («این پورت فقط از این آی‌پی»)، اینترفیس‌های مورد اعتماد (VPN و تانل)، دیدن قوانین nftables قبل از اعمال |
+| 🔥 | **پورت‌ها و قوانین** | **باز کردن پورت** با یک فرم (مثل `ufw allow`: هم در فایروال خود سرور — ufw، firewalld یا iptables، هر کدام روشن باشد — و هم در حالت سخت‌گیر)، ستون «فایروال سرور» برای هر سرویس با دکمه‌ی باز کردن، روشن/خاموش کردن ufw (پورت‌های در حال استفاده اول باز می‌شوند) و حذف قوانینش؛ حالت **باز** (فقط ترافیک مخرب بسته می‌شود) یا **سخت‌گیر** (فقط پورت‌های مجاز)، لیست سرویس‌هایی که از اینترنت باز هستند، قانون پورت با محدودیت منبع («این پورت فقط از این آی‌پی»)، اینترفیس‌های مورد اعتماد (VPN و تانل)، دیدن قوانین nftables قبل از اعمال |
 | ⚡ | **ضد DDoS** | سه سطح آماده (عادی، سخت‌گیر، زیر حمله) و تنظیم دستی؛ برای هر آی‌پی: SYN فلاد، فلاد اتصال، اتصال هم‌زمان بیش از حد، UDP فلاد، پینگ فلاد، بسته‌های نامعتبر و اسکن پورت. هر کس ۳ برابر حد برود خودکار مسدود می‌شود |
 | 🚨 | **تشخیص حمله** | با دیدن حمله، خودکار به حالت «زیر حمله» می‌رود و ۱۰ دقیقه بعد از پایان برمی‌گردد؛ پیام تلگرام شروع و پایان حمله |
 | 🧭 | **قوانین** | قوانین فایروال مثل Cloudflare و ابر آروان: شرط بر اساس **کشور** (از / نه از این کشورها)، **آدرس** یا شبکه، **پروتکل** و **پورت**، و یکی از کارها: **اجازه** (حتی از محدودیت‌های فلاد رد شود)، **مسدود**، **محدود** با حساسیت کم/متوسط/زیاد/خیلی زیاد یا دلخواه و مسدودی خودکار، یا **فقط شمارش**. قوانین از بالا به پایین اجرا می‌شوند، هر قانون تعداد برخوردهایش را نشان می‌دهد و الگوهای آماده دارد (مسدود کردن کشورها، فقط چند کشور، محدودیت سخت برای کشورها، اجازه به یک آدرس، بستن یک پورت). لیست آی‌پی کشورها از ipdeny.com می‌آید و هر هفته بروز می‌شود؛ ادمین‌ها، لیست سفید و Cloudflare تحت تأثیر نیستند. هر قانون می‌تواند **ورودی یا خروجی** باشد (مثلاً بستن پورت‌های ایمیل خروجی یا ارتباط سرور با یک آدرس)، فقط در **روزها و ساعت‌های مشخص** فعال شود و **تاریخ انقضا** داشته باشد (۱ ساعت تا ۷ روز، بعد خودش خاموش می‌شود) |
-| 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول همه‌ی مسدودها (فلاد، محافظ SSH، دستی و fail2ban با نام جیل) و رفع مسدودی از همان‌جا؛ **بررسی آدرس** (این آی‌پی روی این پورت چه سرنوشتی دارد و کدام قانون تصمیم می‌گیرد، قدم به قدم) |
+| 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول همه‌ی مسدودها با **علت** (فلاد SYN، اتصال بیش از حد، اتصال SSH بیش از حد، رمز اشتباه SSH، نام قانون، دستی با یادداشت، جیل fail2ban)، **زمان مسدودی** و زمان باقی‌مانده، رفع مسدودی یا «مجاز کن» (رفع مسدودی و افزودن به لیست سفید) از همان‌جا؛ **بررسی آدرس** (این آی‌پی روی این پورت چه سرنوشتی دارد و کدام قانون تصمیم می‌گیرد، قدم به قدم) |
 | 🛰️ | **لیست‌های تهدید** | ۹ لیست عمومی آدرس‌های مهاجم با یک کلید (Spamhaus DROP، FireHOL Level 1، abuse.ch Feodo Tracker، Emerging Threats، CINS Army، blocklist.de، IPsum، GreenSnow، نودهای خروجی Tor) و **لیست‌های خودتان** با آدرس https؛ برای هر لیست حالت **مسدود** یا **فقط نظارت** (می‌شمارد چه چیزی را مسدود می‌کرد، بدون مسدود کردن)، تعداد برخورد هر لیست، خطای آخرین دانلود و دکمه‌ی بروزرسانی؛ مسدود کردن **اتصال خود سرور** به آدرس‌های لیست (مثلاً سرورهای بات‌نت)؛ جدول **آدرس‌هایی که در یک ساعت اخیر** به لیست‌ها خورده‌اند با دکمه‌ی «مجاز کن»؛ بروزرسانی خودکار هر ۳ تا ۴۸ ساعت فقط وقتی محتوا عوض شده و بدون بازسازی فایروال؛ جواب اتصال‌هایی که خود سرور باز می‌کند هیچ‌وقت مسدود نمی‌شود |
 | 🔑 | **SSH** | **مدیریت سرور SSH**: عوض کردن یا اضافه کردن پورت (تا ۵ پورت)، ورود root (آزاد / فقط با کلید / بسته)، خاموش کردن ورود با رمز، تعداد تلاش، زمان ورود، قطع نشست بی‌کار، فوروارد پورت و X11؛ **مدیریت کلیدهای SSH** کاربر root (افزودن، دیدن اثر انگشت، حذف)؛ و محافظ حمله‌ی رمز که آی‌پی‌هایی که مدام رمز اشتباه می‌زنند را مسدود می‌کند |
 | 🚔 | **fail2ban** | نصب و حذف با یک کلیک، شروع/توقف/ری‌استارت و اجرا هنگام بوت؛ **ساخت، ویرایش کامل (همه‌ی گزینه‌ها: فیلتر، لاگ، پورت، backend، روش مسدودی، …) و حذف جیل‌ها**، و **ویرایشگر همه‌ی فایل‌های /etc/fail2ban** با بررسی و برگشت خودکار؛ هر جیل یک کارت با کلید روشن/خاموش، آمار مسدودها و تنظیمات ساده («۳ خطا در ۳۰ دقیقه ← ۱ ساعت مسدودی»)؛ محافظت‌های آماده (Nginx، Apache، ایمیل، FTP، MySQL، متخلفان تکراری) فقط وقتی آن سرویس هست؛ مسدودی تکراری طولانی‌تر، لیست «هرگز مسدود نشود»، مسدود/رفع مسدودی دستی و لاگ |
@@ -3587,7 +3587,7 @@ GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "r
 POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unallow", "unban", "sysctl",
               "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
               "f2b/file", "f2b/file/delete", "import", "sshd/apply", "sshd/confirm", "sshd/revert", "sshd/key/add",
-              "sshd/key/remove", "test", "threat/refresh", "threat/custom/add", "threat/custom/remove"}
+              "sshd/key/remove", "test", "threat/refresh", "threat/custom/add", "threat/custom/remove", "port/open", "port/close", "sysfw/ufw"}
 NOT_RUNNING = ("The firewall service (defender) is not running. On the server run: "
                "cd /opt/server-monitoring && docker compose up -d --build defender")
 JAIL_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
@@ -3785,6 +3785,22 @@ __MONITORING_EOF__
     df_fw_mode: "Firewall mode", df_fw_mode_sub: "Open blocks only abuse. Strict also closes every port that is not on the list below.",
     df_mode_open_d: "Every port stays reachable; floods, scans and banned IPs are blocked.", df_mode_strict_d: "Only the ports you allow are reachable (TCP and UDP). Tunnels and other protocols keep working.",
     df_always: "Always open:", df_ssh: "SSH", df_panel: "Panel",
+    df_po_title: "Open a port", df_po_sub: "Like running ufw allow: the port is opened in the server's own firewall (ufw, firewalld or iptables, whichever is on) and in this firewall's strict mode. Use it when a panel or service listens but does not load.",
+    df_po_port: "Port or range", df_po_proto: "Protocol", df_po_from: "Only from (optional)", df_po_from_ph: "any address", df_po_btn: "Open port",
+    df_po_done: "Port {port}/{proto} is open", df_po_done_sys: "Port {port}/{proto} is open (also in {fw})", df_po_none: "No other firewall is filtering on this server, so the port was already open there.",
+    df_po_nolisten: "Nothing is listening on port {port} yet: start the program first, or check the port it uses.",
+    df_po_provider: "Still not loading? Check your hosting provider's firewall (for example the Hetzner Cloud Firewall): it sits in front of the server.",
+    df_po_closed: "Port {port}/{proto} is closed again",
+    df_sys_title: "Server firewall", df_sys_sub: "The firewall of the operating system. This firewall only blocks; it cannot open what the server's own firewall closes.",
+    df_sys_none: "No other firewall is filtering incoming traffic on this server (ufw is off or missing, iptables lets everything in). Every listening port is reachable unless this firewall blocks it.",
+    df_sys_ufw_on: "ufw is on", df_sys_ufw_off: "ufw is installed but off", df_sys_ufw_missing: "ufw is not installed", df_sys_incoming: "Incoming by default: {p}",
+    df_sys_fwd_on: "firewalld is on", df_sys_ipt: "iptables drops incoming traffic by default (policy {p})",
+    df_sys_enable: "Turn ufw on", df_sys_disable: "Turn ufw off",
+    df_sys_enable_confirm: "Turn ufw on? Every port that is in use now (SSH, the panel and all listening services) is opened in ufw first, so nothing that works now stops working.",
+    df_sys_disable_confirm: "Turn ufw off? Its rules are kept and come back when it is turned on again.",
+    df_sys_rules: "ufw rules", df_sys_to: "To", df_sys_action: "Action", df_sys_from: "From", df_sys_del_confirm: "Delete the ufw rule \"{rule}\"?",
+    df_sys_col: "Server firewall", df_sys_open: "open", df_sys_blocked: "blocked", df_sys_partly: "some addresses", df_sys_docker: "Docker (passes)", df_sys_open_btn: "Open",
+    df_sys_fwd_ports: "Open in firewalld: {ports}",
     df_services: "Services reachable from the internet", df_services_sub: "Programs listening on a public address right now.",
     df_port: "Port", df_proto: "Protocol", df_process: "Program", df_state: "In strict mode", df_open: "Open", df_closed: "Closed", df_only_from: "Only from listed IPs", df_locked: "Always open",
     df_open_it: "Allow", df_close_it: "Close", df_rules: "Port rules", df_rules_sub: "Ports that stay open in strict mode. A source limits a port to one IP or network.", df_add_rule: "Add rule",
@@ -3804,7 +3820,7 @@ __MONITORING_EOF__
     // lists
     df_add_ip: "Add an address", df_ip: "IP or network", df_action: "Action", df_a_block: "Block permanently", df_a_ban1h: "Ban for 1 hour", df_a_ban24h: "Ban for 24 hours", df_a_ban7d: "Ban for 7 days", df_a_allow: "Allow (never blocked)",
     df_admins: "Trusted because they logged in over SSH (now or in the last 7 days), so they are never limited or banned: {ips}",
-    df_cdn: "Trust Cloudflare's addresses", df_cdn_sub: "For sites and proxies behind Cloudflare: all their visitors arrive from Cloudflare's IPs, so per-IP limits would hit everyone at once. The blocklist still applies.", df_bans: "Banned now", df_filter: "Filter…", df_source: "Banned by", df_left: "Ends in",
+    df_cdn: "Trust Cloudflare's addresses", df_cdn_sub: "For sites and proxies behind Cloudflare: all their visitors arrive from Cloudflare's IPs, so per-IP limits would hit everyone at once. The blocklist still applies.", df_bans: "Banned now", df_filter: "Filter…", df_source: "Banned by", df_left: "Time left",
     df_s_auto: "Flood", df_s_ssh: "SSH guard", df_s_manual: "Manual", df_s_fail2ban: "fail2ban", df_blocklist: "Blocklist", df_allowlist: "Allowlist", df_added: "Added",
     df_f2b_note: "fail2ban's bans are shown for reference; manage them with fail2ban-client.",
     // ssh
@@ -3868,6 +3884,22 @@ __MONITORING_EOF__
     df_fw_mode: "حالت فایروال", df_fw_mode_sub: "حالت باز فقط ترافیک مخرب را می‌بندد. حالت سخت‌گیر هر پورتی که در لیست پایین نیست را هم می‌بندد.",
     df_mode_open_d: "همه‌ی پورت‌ها در دسترس می‌مانند؛ فلاد، اسکن و آی‌پی‌های مسدود بسته می‌شوند.", df_mode_strict_d: "فقط پورت‌هایی که اجازه می‌دهید در دسترس‌اند (TCP و UDP). تانل‌ها و پروتکل‌های دیگر کار می‌کنند.",
     df_always: "همیشه باز:", df_ssh: "SSH", df_panel: "پنل",
+    df_po_title: "باز کردن پورت", df_po_sub: "مثل زدن ufw allow: پورت در فایروال خود سرور (ufw، firewalld یا iptables، هر کدام روشن باشد) و در حالت سخت‌گیر این فایروال باز می‌شود. وقتی یک پنل یا سرویس گوش می‌دهد ولی لود نمی‌شود از این استفاده کنید.",
+    df_po_port: "پورت یا بازه", df_po_proto: "پروتکل", df_po_from: "فقط از (اختیاری)", df_po_from_ph: "هر آدرسی", df_po_btn: "باز کردن پورت",
+    df_po_done: "پورت {port}/{proto} باز است", df_po_done_sys: "پورت {port}/{proto} باز است (در {fw} هم)", df_po_none: "فایروال دیگری روی این سرور ترافیک را فیلتر نمی‌کند، پس پورت آن‌جا از قبل باز بود.",
+    df_po_nolisten: "هنوز برنامه‌ای روی پورت {port} گوش نمی‌دهد: اول برنامه را اجرا کنید یا پورتش را بررسی کنید.",
+    df_po_provider: "باز هم لود نمی‌شود؟ فایروال شرکت سرور را بررسی کنید (مثلاً Hetzner Cloud Firewall): آن جلوتر از سرور است.",
+    df_po_closed: "پورت {port}/{proto} دوباره بسته شد",
+    df_sys_title: "فایروال خود سرور", df_sys_sub: "فایروال سیستم‌عامل. این فایروال فقط مسدود می‌کند و نمی‌تواند چیزی را که فایروال خود سرور بسته باز کند.",
+    df_sys_none: "فایروال دیگری روی این سرور ترافیک ورودی را فیلتر نمی‌کند (ufw خاموش یا نصب‌نشده است و iptables همه را راه می‌دهد). هر پورتی که برنامه‌ای رویش گوش دهد در دسترس است، مگر این فایروال مسدودش کند.",
+    df_sys_ufw_on: "ufw روشن است", df_sys_ufw_off: "ufw نصب است ولی خاموش", df_sys_ufw_missing: "ufw نصب نیست", df_sys_incoming: "ورودی به طور پیش‌فرض: {p}",
+    df_sys_fwd_on: "firewalld روشن است", df_sys_ipt: "iptables ترافیک ورودی را به طور پیش‌فرض دور می‌ریزد (سیاست {p})",
+    df_sys_enable: "روشن کردن ufw", df_sys_disable: "خاموش کردن ufw",
+    df_sys_enable_confirm: "ufw روشن شود؟ همه‌ی پورت‌هایی که الان استفاده می‌شوند (SSH، پنل و همه‌ی سرویس‌های در حال گوش دادن) اول در ufw باز می‌شوند تا چیزی که الان کار می‌کند قطع نشود.",
+    df_sys_disable_confirm: "ufw خاموش شود؟ قوانینش می‌مانند و با روشن شدن دوباره برمی‌گردند.",
+    df_sys_rules: "قوانین ufw", df_sys_to: "به", df_sys_action: "عمل", df_sys_from: "از", df_sys_del_confirm: "قانون ufw «{rule}» حذف شود؟",
+    df_sys_col: "فایروال سرور", df_sys_open: "باز", df_sys_blocked: "بسته", df_sys_partly: "برای بعضی آدرس‌ها", df_sys_docker: "داکر (رد می‌شود)", df_sys_open_btn: "باز کن",
+    df_sys_fwd_ports: "باز در firewalld: {ports}",
     df_services: "سرویس‌هایی که از اینترنت در دسترس‌اند", df_services_sub: "برنامه‌هایی که همین الان روی آدرس عمومی گوش می‌دهند.",
     df_port: "پورت", df_proto: "پروتکل", df_process: "برنامه", df_state: "در حالت سخت‌گیر", df_open: "باز", df_closed: "بسته", df_only_from: "فقط از آی‌پی‌های مشخص", df_locked: "همیشه باز",
     df_open_it: "اجازه", df_close_it: "بستن", df_rules: "قوانین پورت", df_rules_sub: "پورت‌هایی که در حالت سخت‌گیر باز می‌مانند. منبع، پورت را به یک آی‌پی یا شبکه محدود می‌کند.", df_add_rule: "افزودن قانون",
@@ -3885,7 +3917,7 @@ __MONITORING_EOF__
     df_cv_scan: "اسکن پورت با فلگ‌های جعلی و بسته‌های نامعتبر", df_cv_ssh: "حمله‌ی رمز به SSH (اتصال‌ها و ورودهای ناموفق)", df_cv_l7: "پوشش داده نمی‌شود: فلاد درخواست‌های HTTP معتبر (برای آن از CDN یا ریورس‌پروکسی با محدودیت نرخ استفاده کنید).",
     df_add_ip: "افزودن آدرس", df_ip: "آی‌پی یا شبکه", df_action: "کار", df_a_block: "مسدود همیشگی", df_a_ban1h: "مسدود ۱ ساعت", df_a_ban24h: "مسدود ۲۴ ساعت", df_a_ban7d: "مسدود ۷ روز", df_a_allow: "مجاز (هرگز مسدود نشود)",
     df_admins: "این آدرس‌ها چون با SSH وارد شده‌اند (الان یا در ۷ روز اخیر) مورد اعتمادند و هرگز محدود یا مسدود نمی‌شوند: {ips}",
-    df_cdn: "اعتماد به آدرس‌های Cloudflare", df_cdn_sub: "برای سایت‌ها و پروکسی‌های پشت Cloudflare: همه‌ی کاربرانشان از آی‌پی‌های Cloudflare می‌آیند، پس محدودیت هر آی‌پی همه را با هم می‌بندد. لیست سیاه همچنان اعمال می‌شود.", df_bans: "مسدودهای فعلی", df_filter: "جستجو…", df_source: "مسدودکننده", df_left: "پایان تا",
+    df_cdn: "اعتماد به آدرس‌های Cloudflare", df_cdn_sub: "برای سایت‌ها و پروکسی‌های پشت Cloudflare: همه‌ی کاربرانشان از آی‌پی‌های Cloudflare می‌آیند، پس محدودیت هر آی‌پی همه را با هم می‌بندد. لیست سیاه همچنان اعمال می‌شود.", df_bans: "مسدودهای فعلی", df_filter: "جستجو…", df_source: "مسدودکننده", df_left: "زمان باقی‌مانده",
     df_s_auto: "فلاد", df_s_ssh: "محافظ SSH", df_s_manual: "دستی", df_s_fail2ban: "fail2ban", df_blocklist: "لیست سیاه", df_allowlist: "لیست سفید", df_added: "افزوده‌شده",
     df_f2b_note: "مسدودی‌های fail2ban فقط برای اطلاع نمایش داده می‌شوند؛ با fail2ban-client مدیریتشان کنید.",
     df_ssh_title: "محافظ حمله‌ی رمز SSH", df_ssh_sub: "لاگ ورود SSH را می‌خواند و آدرس‌هایی که مدام ورود ناموفق دارند را مسدود می‌کند. کاربرهای واردشده و آدرس‌هایی که امروز موفق وارد شده‌اند هرگز مسدود نمی‌شوند.",
@@ -4157,6 +4189,7 @@ __MONITORING_EOF__
     if (!D.fw) D.fw = clone(D.st.config.firewall);
     const ports = await api("/api/defender/ports");
     D.ports = ports.rows;
+    D.sysfw = ports.sysfw;
     return firewallHTML();
   }
   const portLabel = (p) => `${p.port}/${p.proto === "both" ? "tcp+udp" : p.proto}`;
@@ -4170,6 +4203,7 @@ __MONITORING_EOF__
     const services = table([
       { h: "df_port", cls: "strong", cell: (r) => `${num(esc(`${r.port}/${r.proto}`))}${r.docker ? '<span class="tag">docker</span>' : ""}` },
       { h: "df_process", cell: (r) => esc(r.process || "–") },
+      { h: "df_sys_col", cell: sysCell },
       { h: "df_state", cell: (r) => r.always ? pill("ok", t("df_locked")) : ruleFor(r) >= 0 ? pill("ok", t("df_open")) : r.restricted ? pill("warn", t("df_only_from")) : strict ? pill("bad", t("df_closed")) : pill("", t("df_open")) },
       { h: "actions", cell: (r) => r.always ? "–" : ruleFor(r) >= 0
         ? `<button type="button" class="btn small" data-a="fw-close" data-proto="${r.proto}" data-port="${r.port}">${esc(t("df_close_it"))}</button>`
@@ -4183,10 +4217,11 @@ __MONITORING_EOF__
     ], fw.ports);
     const ifaces = fw.trusted_ifaces.map((n, i) => `<span class="chip">${num(esc(n))}<button type="button" class="chip-x" data-a="if-del" data-i="${i}" aria-label="${esc(t("df_remove"))} ${esc(n)}">${icon("x")}</button></span>`).join("");
     const known = (st.interfaces || []).map((n) => `<option value="${esc(n)}">`).join("");
-    return `<section class="sec"><div class="sec-head"><h3>${icon("lock")}${esc(t("df_fw_mode"))}</h3><p class="muted">${esc(t("df_fw_mode_sub"))}</p></div>
+    return `${openPortHTML()}<section class="sec"><div class="sec-head"><h3>${icon("lock")}${esc(t("df_fw_mode"))}</h3><p class="muted">${esc(t("df_fw_mode_sub"))}</p></div>
         <div class="df-choice">${opt("open")}${opt("strict")}</div><div class="chips df-always"><span class="muted">${esc(t("df_always"))}</span>${always}</div>
         ${D.prefilled ? `<div class="notice warn">${icon("bell")}<span>${esc(t("df_strict_prefill"))}</span></div>` : ""}</section>
       <section class="sec"><div class="sec-head"><h3>${icon("globe")}${esc(t("df_services"))}</h3><p class="muted">${esc(t("df_services_sub"))}</p></div>${services}</section>
+      ${sysHTML()}
       <section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("list")}${esc(t("df_rules"))}</h3><p class="muted">${esc(t("df_rules_sub"))}</p></div>
         <button type="button" class="btn small primary" data-a="fw-add">${icon("plus")}<span>${esc(t("df_add_rule"))}</span></button></div>${rules}</section>
       <section class="sec"><div class="sec-head"><h3>${icon("network")}${esc(t("df_ifaces"))}</h3><p class="muted">${esc(t("df_ifaces_sub"))}</p></div>
@@ -4196,6 +4231,60 @@ __MONITORING_EOF__
         <button type="button" class="btn" data-a="rules">${icon("eye")}<span>${esc(t("df_review"))}</span></button>
         <button type="button" class="btn" data-a="fw-reset" ${dirty ? "" : "disabled"}>${esc(t("df_discard"))}</button>
         <button type="button" class="btn primary" data-a="fw-apply" ${dirty ? "" : "disabled"}>${icon("check")}<span>${esc(t("df_apply"))}</span></button></div>`;
+  }
+  function sysCell(r) {
+    if (r.docker) return `<span class="muted">${esc(t("df_sys_docker"))}</span>`;
+    if (r.sys == null) return `<span class="muted">–</span>`;
+    if (r.sys === true) return pill("ok", t("df_sys_open"), false);
+    const btn = `<button type="button" class="btn small" data-a="sys-open" data-port="${r.port}" data-proto="${r.proto}" data-note="${esc(r.process || "")}">${esc(t("df_sys_open_btn"))}</button>`;
+    return `<span class="df-rowbtns">${pill(r.sys === "partly" ? "warn" : "bad", t(r.sys === "partly" ? "df_sys_partly" : "df_sys_blocked"), false)}${btn}</span>`;
+  }
+  function openPortHTML() {
+    return `<section class="sec"><div class="sec-head"><h3>${icon("unlock")}${esc(t("df_po_title"))}</h3><p class="muted">${esc(t("df_po_sub"))}</p></div>
+      <form class="subcard" data-f="port-open"><div class="df-form-grid">${field(t("df_po_port"), '<input name="port" dir="ltr" required placeholder="8080 / 8000-8100" inputmode="numeric" autocomplete="off" maxlength="11">')}
+        ${field(t("df_po_proto"), '<select name="proto"><option value="tcp">TCP</option><option value="udp">UDP</option><option value="both">TCP + UDP</option></select>')}
+        ${field(t("df_po_from"), `<input name="from" dir="ltr" placeholder="${esc(t("df_po_from_ph"))}" autocomplete="off">`)}
+        ${field(t("df_note"), '<input name="note" maxlength="80" autocomplete="off">')}</div>
+        <div class="actions-row"><button type="submit" class="btn primary">${icon("unlock")}<span>${esc(t("df_po_btn"))}</span></button></div><div id="df-po-out"></div></form></section>`;
+  }
+  function sysHTML() {
+    const s = D.sysfw || {}, u = s.ufw || {}, f = s.firewalld || {};
+    const lines = [];
+    if (u.installed) lines.push(`<span class="chip">${pill(u.active ? "ok" : "", t(u.active ? "df_sys_ufw_on" : "df_sys_ufw_off"), true)}${u.active ? `<span class="muted">${esc(t("df_sys_incoming", { p: u.incoming }))}</span>` : ""}</span>`);
+    else lines.push(`<span class="chip"><span class="muted">${esc(t("df_sys_ufw_missing"))}</span></span>`);
+    if (f.active) lines.push(`<span class="chip">${pill("ok", t("df_sys_fwd_on"), true)}<span class="muted" dir="ltr">${esc(f.ports.join(", ") || "–")}</span></span>`);
+    if (s.active === "iptables") lines.push(`<span class="chip">${pill("warn", t("df_sys_ipt", { p: s.iptables_policy }), true)}</span>`);
+    const btn = u.installed ? (u.active
+      ? `<button type="button" class="btn small" data-a="ufw" data-act="disable">${icon("power")}<span>${esc(t("df_sys_disable"))}</span></button>`
+      : `<button type="button" class="btn small" data-a="ufw" data-act="enable">${icon("power")}<span>${esc(t("df_sys_enable"))}</span></button>`) : "";
+    const rules = u.active && u.rules.length ? `<h4 class="fw-h">${esc(t("df_sys_rules"))}</h4>${table([
+      { h: "df_sys_to", cls: "strong", cell: (r) => `<code dir="ltr">${esc(r.to)}</code>` },
+      { h: "df_sys_action", cell: (r) => pill(r.action === "ALLOW" ? "ok" : r.action === "LIMIT" ? "warn" : "bad", `${r.action} ${r.dir}`, false) },
+      { h: "df_sys_from", cell: (r) => `<span dir="ltr">${esc(r.from)}</span>` },
+      { h: "actions", cell: (r) => btnIcon("trash", t("df_remove"), `data-a="ufw-del" data-text="${esc(r.text)}"`, "danger") },
+    ], u.rules)}` : "";
+    return `<section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("shield")}${esc(t("df_sys_title"))}</h3><p class="muted">${esc(t("df_sys_sub"))}</p></div>${btn}</div>
+      <div class="chips">${lines.join("")}</div>${s.active ? "" : `<p class="muted">${esc(t("df_sys_none"))}</p>`}${rules}</section>`;
+  }
+  async function openPort(btn, body) {
+    const r = await act(btn, () => post("/api/defender/port/open", body));
+    if (!r) return false;
+    const label = { port: body.port, proto: body.proto === "both" ? "tcp+udp" : body.proto };
+    toast(r.firewall ? t("df_po_done_sys", { ...label, fw: r.firewall }) : t("df_po_done", label));
+    const out = D.root.querySelector("#df-po-out");
+    if (out) {
+      out.innerHTML = [r.firewall ? "" : `<div class="notice">${icon("check")}<span>${esc(t("df_po_none"))}</span></div>`,
+        r.listening ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_po_nolisten", { port: body.port }))}</span></div>`,
+        `<div class="notice">${icon("globe")}<span>${esc(t("df_po_provider"))}</span></div>`].join("");
+    }
+    D.ports = r.rows; D.sysfw = r.sysfw;
+    D.st = await api("/api/defender/status").catch(() => D.st);
+    D.fw = clone(D.st.config.firewall);
+    const keep = out ? out.innerHTML : "";
+    repaintFw();
+    const again = D.root.querySelector("#df-po-out");
+    if (again) again.innerHTML = keep;
+    return true;
   }
   const repaintFw = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "firewall") b.innerHTML = firewallHTML(); };
 
@@ -4254,14 +4343,15 @@ __MONITORING_EOF__
     const b = await api("/api/defender/bans");
     D.bans = b;
     const admins = b.admin_ips.length ? `<div class="notice ok">${icon("check")}<span>${esc(t("df_admins", { ips: b.admin_ips.join("، ") }))}</span></div>` : "";
-    const left = (s) => (s == null ? "–" : s > 86400 ? `${nf(s / 86400, 1)}d` : s > 3600 ? `${nf(s / 3600, 1)}h` : `${nf(s / 60, 0)}m`);
     const bans = table([
-      { h: "df_ip", cls: "strong", cell: (r) => num(esc(r.ip)) },
-      { h: "df_source", cell: (r) => pill(r.source === "manual" || r.source === "fail2ban" ? "" : "warn", r.jail ? t("df_s_fail2ban_jail", { jail: r.jail }) : t(`df_s_${r.source}`)) },
-      { h: "df_left", cell: (r) => num(esc(left(r.left))) },
-      { h: "actions", cell: (r) => (r.source === "fail2ban" ? (r.jail ? `<button type="button" class="btn small" data-a="f2b-unban" data-ip="${esc(r.ip)}" data-jail="${esc(r.jail)}">${esc(t("df_unban"))}</button>` : "–")
-        : `<button type="button" class="btn small" data-a="unban" data-ip="${esc(r.ip)}">${esc(t("df_unban"))}</button>`) },
-    ], b.rows, (r) => `data-ip="${esc(r.ip)}"`);
+      { h: "df_ip", cls: "strong", cell: (r) => `<code dir="ltr">${esc(r.ip)}</code>` },
+      { h: "df_ban_reason", cell: banReason },
+      { h: "df_ban_at", cell: (r) => (r.at ? `<span class="df-when"><b>${esc(clock(r.at))}</b><small class="muted">${esc(ago(r.at))}</small></span>` : "–") },
+      { h: "df_left", cell: banLeft },
+      { h: "actions", cell: (r) => `<span class="df-rowbtns">${r.source === "fail2ban"
+        ? (r.jail ? `<button type="button" class="btn small" data-a="f2b-unban" data-ip="${esc(r.ip)}" data-jail="${esc(r.jail)}">${esc(t("df_unban"))}</button>` : "")
+        : `<button type="button" class="btn small" data-a="unban" data-ip="${esc(r.ip)}">${esc(t("df_unban"))}</button>`}${btnIcon("check", t("df_ban_trust", { ip: r.ip }), `data-a="ban-allow" data-ip="${esc(r.ip)}" data-jail="${esc(r.jail || "")}"`)}</span>` },
+    ], [...b.rows].sort((x, y) => (y.at || 0) - (x.at || 0)), (r) => `data-ip="${esc(r.ip)}"`);
     const listTable = (rows, kind) => table([
       { h: "df_ip", cls: "strong", cell: (r) => num(esc(r.ip)) },
       { h: "df_note", cell: (r) => esc(r.note || "") },
@@ -4279,6 +4369,28 @@ __MONITORING_EOF__
         <input type="search" id="df-ban-filter" class="df-filter" placeholder="${esc(t("df_filter"))}" aria-label="${esc(t("df_filter"))}" dir="ltr"></div><div id="df-bans">${bans}</div>${f2b}</section>
       <div class="df-grid2"><section class="sec"><div class="sec-head"><h3>${icon("ban")}${esc(t("df_blocklist"))}</h3></div>${listTable(b.block, "block")}</section>
       <section class="sec"><div class="sec-head"><h3>${icon("check")}${esc(t("df_allowlist"))}</h3></div>${listTable(b.allow, "allow")}</section></div>`;
+  }
+  const clock = (ts) => new Date(ts * 1000).toLocaleString(P.state.lang === "fa" ? "fa-IR" : "en-GB", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  const dur = (s) => (s == null ? "–" : s >= 86400 ? t("df_d", { n: nf(s / 86400, s >= 864000 ? 0 : 1) }) : s >= 3600 ? t("df_h", { n: nf(s / 3600, s >= 36000 ? 0 : 1) }) : t("df_m", { n: nf(Math.max(1, s / 60), 0) }));
+  function banReason(r) {   // why this address is banned, in words
+    let kind = "", text;
+    if (r.source === "fail2ban") text = t("df_br_f2b", { jail: r.jail || "fail2ban" });
+    else if (r.reason === "syn_flood") { kind = "bad"; text = t("df_br_syn"); }
+    else if (r.reason === "conn_flood") { kind = "bad"; text = t("df_br_conn"); }
+    else if (r.reason === "ssh_rate") { kind = "warn"; text = t("df_br_sshrate"); }
+    else if (r.reason === "rule") { kind = "warn"; text = t("df_br_rule", { name: r.rule || "?" }); }
+    else if (r.source === "ssh") {
+      kind = "warn";
+      const [n, w] = String(r.detail || "").split("/");
+      text = n && w ? t("df_br_ssh_n", { n, w }) : t("df_br_ssh");
+    } else if (r.source === "manual") text = r.reason && r.reason !== "manual" ? t("df_br_manual_note", { note: r.reason }) : t("df_br_manual");
+    else { kind = "bad"; text = t("df_br_flood"); }
+    return pill(kind, text, false);
+  }
+  function banLeft(r) {
+    if (r.left == null) return `<span class="muted">${esc(t("df_ban_forever"))}</span>`;
+    const pct = r.total ? Math.max(2, Math.min(100, (r.left / r.total) * 100)) : null;
+    return `<span class="df-left"><b>${num(esc(dur(r.left)))}</b>${r.total ? `<small class="muted">${esc(t("df_ban_of", { n: dur(r.total) }))}</small><i style="--w:${pct.toFixed(1)}%"></i>` : ""}</span>`;
   }
   function filterBans(q) {
     q = q.trim().toLowerCase();
@@ -4382,6 +4494,11 @@ __MONITORING_EOF__
     "f2bj_mysqld-auth": "MySQL logins", "f2bd_mysqld-auth": "Bans addresses that guess database passwords.",
     df_e_f2b_ban: "fail2ban [{jail}] banned {ip}", df_e_f2b_unban: "fail2ban: {ip} unbanned", df_e_f2b_config: "fail2ban settings changed ({what})", df_e_f2b_service: "fail2ban: {action}",
     df_s_fail2ban_jail: "fail2ban · {jail}",
+    df_ban_reason: "Why", df_ban_at: "Banned at", df_ban_forever: "until removed", df_ban_of: "of {n}", df_d: "{n} d", df_h: "{n} h", df_m: "{n} min",
+    df_br_f2b: "fail2ban · {jail}", df_br_syn: "SYN flood", df_br_conn: "Too many new connections", df_br_sshrate: "Too many SSH connections",
+    df_br_rule: "Rule «{name}»", df_br_ssh: "Wrong SSH passwords", df_br_ssh_n: "{n} wrong SSH passwords in {w} min", df_br_manual: "Manual",
+    df_br_manual_note: "Manual · {note}", df_br_flood: "Flood",
+    df_ban_trust: "Unban {ip} and add it to the allowlist", df_ban_trusted: "{ip} is unbanned and on the allowlist", df_ban_trusted_note: "trusted after a ban",
     df_c_fail2ban_stopped: ["fail2ban is installed but not running", "fail2ban is running"], df_f_fail2ban_stopped: "Start it in the fail2ban tab.",
     // backup
     df_backup: "Backup and restore", df_backup_sub: "Download every firewall setting (rules, lists, limits, countries, fail2ban) as a file, or load one from another server.",
@@ -4430,6 +4547,11 @@ __MONITORING_EOF__
     "f2bj_mysqld-auth": "ورود MySQL", "f2bd_mysqld-auth": "آدرس‌هایی که رمز دیتابیس را حدس می‌زنند مسدود می‌کند.",
     df_e_f2b_ban: "fail2ban [{jail}] آدرس {ip} را مسدود کرد", df_e_f2b_unban: "fail2ban: مسدودی {ip} برداشته شد", df_e_f2b_config: "تنظیمات fail2ban تغییر کرد ({what})", df_e_f2b_service: "fail2ban: {action}",
     df_s_fail2ban_jail: "fail2ban · {jail}",
+    df_ban_reason: "علت", df_ban_at: "زمان مسدودی", df_ban_forever: "تا وقتی برداشته شود", df_ban_of: "از {n}", df_d: "{n} روز", df_h: "{n} ساعت", df_m: "{n} دقیقه",
+    df_br_f2b: "fail2ban · {jail}", df_br_syn: "فلاد SYN", df_br_conn: "اتصال جدید بیش از حد", df_br_sshrate: "اتصال SSH بیش از حد",
+    df_br_rule: "قانون «{name}»", df_br_ssh: "رمز اشتباه SSH", df_br_ssh_n: "{n} رمز اشتباه SSH در {w} دقیقه", df_br_manual: "دستی",
+    df_br_manual_note: "دستی · {note}", df_br_flood: "فلاد",
+    df_ban_trust: "{ip} از مسدودی دربیاید و به لیست سفید برود", df_ban_trusted: "{ip} از مسدودی درآمد و در لیست سفید است", df_ban_trusted_note: "مورد اعتماد پس از مسدودی",
     df_c_fail2ban_stopped: ["fail2ban نصب است ولی اجرا نمی‌شود", "fail2ban در حال اجراست"], df_f_fail2ban_stopped: "از تب fail2ban روشنش کنید.",
     df_backup: "پشتیبان‌گیری و بازگردانی", df_backup_sub: "همه‌ی تنظیمات فایروال (قوانین، لیست‌ها، محدودیت‌ها، کشورها، fail2ban) را به‌صورت فایل دانلود کنید، یا فایل یک سرور دیگر را بارگذاری کنید.",
     df_export: "دانلود پشتیبان", df_import: "بازگردانی از فایل", df_import_confirm: "تنظیمات فایروال با تنظیمات {name} جایگزین شود؟ قوانین مثل هر تغییر دیگری ۶۰ ثانیه آزمایش می‌شوند.",
@@ -5349,6 +5471,29 @@ __MONITORING_EOF__
     if (a === "profile") { if (await apply(b, "config", { profile: b.dataset.p, _what: "profile" })) rerender(); return; }
     if (a === "ban") { if (await act(b, () => post("/api/defender/block", { ip: b.dataset.ip, minutes: +b.dataset.min }), `${b.dataset.ip} ✓`)) { D.st.bans++; if (D.tab !== "overview") rerender(); else refreshOverviewSlow(); } return; }
     if (a === "allow") { if (await act(b, () => post("/api/defender/allow", { ip: b.dataset.ip }), `${b.dataset.ip} ✓`)) refreshOverviewSlow(); return; }
+    if (a === "sys-open") return openPort(b, { port: b.dataset.port, proto: b.dataset.proto, note: b.dataset.note });
+    if (a === "ufw") {
+      const enable = b.dataset.act === "enable";
+      if (!(await confirmBox({ message: t(enable ? "df_sys_enable_confirm" : "df_sys_disable_confirm"), label: t(enable ? "df_sys_enable" : "df_sys_disable"), danger: !enable }))) return;
+      const r = await act(b, () => post("/api/defender/sysfw/ufw", { action: b.dataset.act }), t("saved"));
+      if (r) { D.ports = r.rows; D.sysfw = r.sysfw; repaintFw(); }
+      return;
+    }
+    if (a === "ufw-del") {
+      if (!(await confirmBox({ message: t("df_sys_del_confirm", { rule: b.dataset.text }), label: t("df_remove") }))) return;
+      const r = await act(b, () => post("/api/defender/sysfw/ufw", { action: "delete", text: b.dataset.text }), t("saved"));
+      if (r) { D.ports = r.rows; D.sysfw = r.sysfw; repaintFw(); }
+      return;
+    }
+    if (a === "ban-allow") {   // a false positive: lift the ban and never limit this address again
+      const ip = b.dataset.ip, jail = b.dataset.jail;
+      const ok = await act(b, async () => {
+        await post("/api/defender/allow", { ip, note: t("df_ban_trusted_note") });
+        return jail ? post("/api/defender/f2b/unban", { ip, jail }) : post("/api/defender/unban", { ip });
+      }, t("df_ban_trusted", { ip }));
+      if (ok) rerender();
+      return;
+    }
     if (a === "unban") { if (await act(b, () => post("/api/defender/unban", { ip: b.dataset.ip }), `${b.dataset.ip} ✓`)) rerender(); return; }
     if (a === "unblock" || a === "unallow") { if (await act(b, () => post(`/api/defender/${a}`, { ip: b.dataset.ip }), `${b.dataset.ip} ✓`)) rerender(); return; }
     if (a === "fw-mode") {
@@ -5533,6 +5678,14 @@ __MONITORING_EOF__
     if (f === "sv-key") {
       const r = await act(btn, () => post("/api/defender/sshd/key/add", { key: el.key.value }), t("saved"));
       if (r) { D.sv.keys = r.keys; svFormToDraft(); repaintSv(); }
+      return;
+    }
+    if (f === "port-open") {
+      const port = el.port.value.trim().replace(":", "-");
+      if (await openPort(btn, { port, proto: el.proto.value, from: el.from.value.trim(), note: el.note.value.trim() })) {
+        const ff = D.root.querySelector('form[data-f="port-open"]');
+        if (ff) ff.reset();
+      }
       return;
     }
     if (f === "th-set") {
@@ -6113,6 +6266,7 @@ import hostinfo  # noqa: E402
 import nftlib  # noqa: E402
 import nftrules  # noqa: E402
 import sshmgr  # noqa: E402
+import sysfw  # noqa: E402
 import threat  # noqa: E402
 
 VERSION = "1.0"
@@ -6248,26 +6402,44 @@ def table_exists():
         return False
 
 
-def current_bans():
-    """Elements of the ban sets with their remaining time, so a rebuild of the table keeps them."""
-    out = {"ban4": [], "ban6": []}
+def current_bans(cfg=None):
+    """Elements of every ban set: {set name: [(ip, whole ban seconds, seconds left)]}, so a rebuild of
+    the table keeps them (with their real ban time) and the panel can show when and why."""
+    out = {}
     if not table_exists():
         return out
-    for name in out:
+    names = [f"{k}{v}" for k in nftrules.ban_sets(cfg or CFG) for v in ("4", "6")]
+    names += [f"{k}{v}" for k in nftrules.ban_sets(CFG) for v in ("4", "6") if f"{k}{v}" not in names]
+    for name in names:
         try:
             data = json.loads(nft(["-j", "list", "set", "inet", "defender", name]))
         except (RuntimeError, ValueError):
             continue
+        rows = out.setdefault(name, [])
         for item in data.get("nftables", []):
+            default = (item.get("set") or {}).get("timeout", 900)
             for el in (item.get("set") or {}).get("elem", []) or []:
                 if isinstance(el, dict) and "elem" in el:
                     e = el["elem"]
-                    left = e.get("expires", e.get("timeout", 0))
+                    total = e.get("timeout", default)
+                    left = e.get("expires", total)
                     if isinstance(e.get("val"), str) and left and left > 1:
-                        out[name].append((e["val"], left))
+                        rows.append((e["val"], max(total, left), left))
                 elif isinstance(el, str):
-                    out[name].append((el, 900))
+                    rows.append((el, default, default))
     return out
+
+
+BAN_REASON = {"ban": None, "fban": "syn_flood", "cban": "conn_flood", "sban": "ssh_rate"}
+
+
+def ban_kind(set_name):
+    """("syn_flood" | "conn_flood" | "ssh_rate" | "rule" | None, rule) for a ban set name."""
+    base = set_name[:-1]
+    if base.startswith("rb_"):
+        rule = next((r for r in CFG["rules"] if r.get("id") == base[3:]), None)
+        return "rule", rule
+    return BAN_REASON.get(base), None
 
 
 def effective_limits():
@@ -6284,7 +6456,7 @@ def ruleset(cfg=None):
         if rule.get("enabled", True) and rule.get("countries"):
             z4, z6, _ = geo.build(DATA, rule["countries"], download=False)
             zones[rule["id"]] = (z4, z6)
-    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones,
+    return nftrules.build(view, effective_limits(), current_bans(cfg), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones,
                           threat_lists(cfg), hostinfo.public_iface())
 
 
@@ -6590,7 +6762,7 @@ def seed_recent_logins():
 
 # ------------------------------------------------------------------ bans
 
-def ban(ip, minutes, reason, source):
+def ban(ip, minutes, reason, source, detail=""):
     net = parse_net(ip)
     if net.num_addresses > 1:
         raise ValueError("Temporary bans are for single addresses; use the blocklist for networks")
@@ -6602,16 +6774,17 @@ def ban(ip, minutes, reason, source):
     name = "ban4" if net.version == 4 else "ban6"
     nft(["add", "element", "inet", "defender", name, f"{{ {addr} timeout {int(minutes)}m }}"])
     with LOCK:
-        BANS[addr] = {"until": time.time() + minutes * 60, "reason": reason, "source": source}
+        BANS[addr] = {"at": time.time(), "until": time.time() + minutes * 60, "reason": reason, "source": source, "detail": detail}
         save_json("bans.json", BANS)
     return addr
 
 
 def unban(ip):
     addr = str(parse_net(ip).network_address)
-    if table_exists():
-        name = "ban4" if ":" not in addr else "ban6"
-        nft(["delete", "element", "inet", "defender", name, f"{{ {addr} }}"], check=False)
+    if table_exists():        # whatever banned it: every ban set of its family
+        v = "6" if ":" in addr else "4"
+        for kind in nftrules.ban_sets(CFG):
+            nft(["delete", "element", "inet", "defender", f"{kind}{v}", f"{{ {addr} }}"], check=False)
     with LOCK:
         BANS.pop(addr, None)
         save_json("bans.json", BANS)
@@ -6622,9 +6795,13 @@ def ban_list():
     now = time.time()
     rows = []
     for name, items in current_bans().items():
-        for ip, left in items:
-            meta = BANS.get(ip, {})
-            rows.append({"ip": ip, "left": int(left), "source": meta.get("source", "auto"), "reason": meta.get("reason", "rate")})
+        kind, rule = ban_kind(name)
+        for ip, total, left in items:
+            meta = BANS.get(ip, {}) if kind is None else {}
+            rows.append({"ip": ip, "left": int(left), "total": int(total), "at": round(now - (total - left)), "detail": meta.get("detail", ""),
+                         "source": meta.get("source", "auto") if kind is None else "auto",
+                         "reason": meta.get("reason", "rate") if kind is None else kind,
+                         **({"rule": rule["name"] if rule else "?"} if kind == "rule" else {})})
     with LOCK:   # forget metadata of bans that ended
         live = {r["ip"] for r in rows}
         ended = [k for k, v in BANS.items() if v["until"] < now or (STATE["applied"] and k not in live and v["until"] - now < 5)]
@@ -6635,7 +6812,8 @@ def ban_list():
     try:
         f2b_rows = f2b.all_bans()
         for r in f2b_rows:
-            rows.append({"ip": r["ip"], "left": int(r["until"] - now) if r["until"] else None, "source": "fail2ban", "reason": r["jail"], "jail": r["jail"]})
+            rows.append({"ip": r["ip"], "left": int(r["until"] - now) if r["until"] else None, "at": r.get("at"),
+                         "source": "fail2ban", "reason": r["jail"], "jail": r["jail"]})
     except Exception:
         f2b_rows = None
     if f2b_rows is None:
@@ -6712,7 +6890,7 @@ def ssh_line(line):
     if len(q) >= g["failures"]:
         GUARD["failures"].pop(ip, None)
         try:
-            ban(ip, g["ban"], "ssh", "ssh")
+            ban(ip, g["ban"], "ssh", "ssh", detail=f"{len(q)}/{g['window']}")
             event("ssh_ban", ip=ip, failures=len(q), minutes=g["ban"])
         except Exception as e:
             log("ssh guard: cannot ban", ip, e)
@@ -6899,7 +7077,23 @@ def status():
         }
 
 
+_sysfw_cache = {"at": 0, "st": None}
+
+
+def sysfw_status(fresh=False):
+    """The server's own firewall (ufw / firewalld / iptables), cached for 15 s (it runs host commands)."""
+    if fresh or not _sysfw_cache["st"] or time.time() - _sysfw_cache["at"] > 15:
+        try:
+            _sysfw_cache.update(st=sysfw.status(), at=time.time())
+        except Exception as e:  # nsenter or a tool missing: show no system firewall rather than failing the page
+            log("system firewall:", e)
+            _sysfw_cache.update(st={"active": None, "ufw": {"installed": False}, "firewalld": {"installed": False},
+                                    "iptables_policy": None, "_input": ""}, at=time.time())
+    return _sysfw_cache["st"]
+
+
 def ports_view():
+    sys_st = sysfw_status()
     published = hostinfo.docker_published()
     fw = CFG["firewall"]
     rows = []
@@ -6911,13 +7105,73 @@ def ports_view():
         r["always"] = r["proto"] == "tcp" and (r["port"] in hostinfo.ssh_ports() or r["port"] in PANEL_PORTS)
         r["allowed"] = r["always"] or any(_port_match(p, r) for p in fw["ports"])
         r["restricted"] = not r["allowed"] and any(_port_match(dict(p, **{"from": ""}), r) for p in fw["ports"] if p.get("from"))
+        # published Docker ports go around ufw/firewalld (Docker adds its own rules before them)
+        r["sys"] = None if r["docker"] else sysfw.port_open(sys_st, r["proto"], r["port"])
         rows.append(r)
     for proto, port in sorted(published):
         if not any(r["proto"] == proto and r["port"] == port for r in rows):
             rows.append({"proto": proto, "port": port, "addrs": [], "public": True, "process": "docker", "docker": True,
                          "always": port in PANEL_PORTS and proto == "tcp",
-                         "allowed": any(_port_match(p, {"proto": proto, "port": port}) for p in fw["ports"])})
-    return {"rows": rows}
+                         "allowed": any(_port_match(p, {"proto": proto, "port": port}) for p in fw["ports"]), "sys": None})
+    return {"rows": rows, "sysfw": {k: v for k, v in sys_st.items() if not k.startswith("_")}}
+
+
+def api_open_port(b):
+    """Opens a port everywhere it can be closed: our firewall (strict mode) and the server's own firewall
+    (ufw / firewalld / iptables) - what `ufw allow 8080/tcp` does by hand."""
+    port, src = sysfw._check(b.get("port"), b.get("proto", "tcp"), b.get("from", ""))
+    src = net_str(parse_net(src, allow_any=True)) if src else ""     # the same spelling the config uses
+    proto = b.get("proto", "tcp")
+    note = str(b.get("note", ""))[:80]
+    done = sysfw.allow(port, proto, src) if b.get("system", True) else {"done": [], "firewall": None}
+    _sysfw_cache["at"] = 0
+
+    def mut(c):
+        ports = [p for p in c["firewall"]["ports"] if not (str(p["port"]) == port and p["proto"] == proto and p.get("from", "") == src)]
+        c["firewall"]["ports"] = ports + [{"port": port, "proto": proto, "from": src, "note": note}]
+    if CFG["firewall"]["mode"] == "strict" or src or b.get("ours"):
+        change(mut, rollback=False, what=f"open port {port}")
+    event("port_opened", port=port, proto=proto, src=src, system=done["firewall"])
+    listening = any(r["public"] and (r["proto"] == proto or proto == "both") and _port_match({"proto": r["proto"], "port": port}, r)
+                    for r in hostinfo.listening(max_age=0))
+    return {**ports_view(), "done": done["done"], "firewall": done["firewall"], "listening": listening}
+
+
+def api_close_port(b):
+    port, src = sysfw._check(b.get("port"), b.get("proto", "tcp"), b.get("from", ""))
+    src = net_str(parse_net(src, allow_any=True)) if src else ""     # the same spelling the config uses
+    proto = b.get("proto", "tcp")
+    done = sysfw.remove(port, proto, src)
+    _sysfw_cache["at"] = 0
+
+    def mut(c):
+        c["firewall"]["ports"] = [p for p in c["firewall"]["ports"] if not (str(p["port"]) == port and p["proto"] == proto and p.get("from", "") == src)]
+    if any(str(p["port"]) == port and p["proto"] == proto and p.get("from", "") == src for p in CFG["firewall"]["ports"]):
+        change(mut, rollback=False, what=f"close port {port}")
+    event("port_closed", port=port, proto=proto, src=src, system=done["firewall"])
+    return {**ports_view(), "done": done["done"], "firewall": done["firewall"]}
+
+
+def api_ufw(b):
+    action = b.get("action")
+    if action == "delete":
+        sysfw.ufw_delete(str(b.get("text", "")))
+    elif action == "enable":
+        # everything that is reachable now stays reachable: SSH, the panel and every public port in use
+        keep = set(hostinfo.ssh_ports()) | set(PANEL_PORTS)
+        rows = [r for r in hostinfo.listening(max_age=0) if r["public"]]
+        keep |= {r["port"] for r in rows if r["proto"] == "tcp"}
+        sysfw.ufw_enable(sorted(keep))
+        for r in rows:
+            if r["proto"] == "udp":
+                sysfw.allow(str(r["port"]), "udp")
+    elif action == "disable":
+        sysfw.ufw_disable()
+    else:
+        raise ValueError("Unknown action")
+    _sysfw_cache["at"] = 0
+    event("ufw", action=action)
+    return ports_view()
 
 
 def _port_match(p, r):
@@ -7703,6 +7957,9 @@ POST = {
     "/sshd/key/add": api_sshd_key_add,
     "/sshd/key/remove": api_sshd_key_remove,
     "/threat/refresh": api_threat_refresh,
+    "/port/open": api_open_port,
+    "/port/close": api_close_port,
+    "/sysfw/ufw": api_ufw,
     "/threat/custom/add": api_threat_custom_add,
     "/threat/custom/remove": api_threat_custom_remove,
     "/test": api_test,
@@ -7949,11 +8206,26 @@ def rule_parts(rule, zones):
             L = rule["limit"]
             tail.append(f"update @r_{rid}_m{v} {{ {fam} saddr limit rate over {L['rate']}/second burst {L['burst']} packets }}")
             if L.get("ban"):
-                tail.append(f"add @ban{v} {{ {fam} saddr timeout {L['ban']}m }}")
+                tail.append(f"add @rb_{rid}{v} {{ {fam} saddr timeout {L['ban']}m }}")
             tail.append("drop")
         for when in schedule_parts(rule.get("schedule")):
             lines.append("        " + " ".join(parts + when + tail))
     return sets, lines
+
+
+# Bans live in one set per reason, so the panel can say why an address is banned:
+#   ban   by the agent (manual, SSH login guard)   fban  SYN flood   cban  connection flood
+#   sban  too many new SSH connections             rb_<rule id>  a firewall rule with "ban"
+BAN_KINDS = ("ban", "fban", "cban", "sban")
+
+
+def ban_sets(cfg):
+    """Names (without the 4/6) of every ban set the ruleset declares."""
+    out = list(BAN_KINDS)
+    for rule in cfg.get("rules") or []:
+        if rule.get("enabled", True) and rule.get("action") == "limit" and (rule.get("limit") or {}).get("ban"):
+            out.append(f"rb_{rule['id']}")
+    return out
 
 
 def threat_parts(threat_lists, outbound):
@@ -7990,7 +8262,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     allow4, allow6 = split_ips(a["ip"] for a in cfg["allow"])
     pallow4, pallow6 = split_ips(adv.get("panel_allow") or [])
     block4, block6 = split_ips(b["ip"] for b in cfg["block"] if not b.get("until"))
-    ban_elements = ban_elements or {"ban4": [], "ban6": []}
+    ban_elements = ban_elements or {}
     ban_t = f"{int(limits['ban'])}m"
     lines = ["table inet defender", "delete table inet defender", "table inet defender {"]
     lines += [f"    counter c_{c} {{ }}" for c in COUNTERS]
@@ -8002,10 +8274,13 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
               set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6)]
     t_decl, t_pre, t_out = threat_parts(threat_lists, (cfg.get("threat") or {}).get("outbound", False))
     lines += t_decl
-    for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
-        els = ban_elements.get(name) or []
-        body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
-        lines.append(f"    set {name} {{ type {fam}_addr; flags timeout; timeout {ban_t}; size 262144;{body} }}")
+    kinds = ban_sets(cfg)
+    for kind in kinds:
+        for fam, v in (("ipv4", "4"), ("ipv6", "6")):
+            # elements keep their whole ban time and what is left of it, so "banned at" survives a rebuild
+            els = ban_elements.get(f"{kind}{v}") or []
+            body = f" elements = {{ {', '.join(f'{ip} timeout {int(total)}s expires {int(left)}s' for ip, total, left in els)} }};" if els else ""
+            lines.append(f"    set {kind}{v} {{ type {fam}_addr; flags timeout; timeout {ban_t}; size 262144;{body} }}")
     for meter in ("syn", "synb", "conn", "connb", "udp", "udpb", "icmp", "icmpb", "ssh"):
         for fam, suffix in (("ipv4", "4"), ("ipv6", "6")):
             lines.append(f"    set m_{meter}{suffix} {{ type {fam}_addr; flags dynamic, timeout; timeout 2m; size 262144; }}")
@@ -8024,8 +8299,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
           "        ip6 saddr @allow6 counter name c_allow accept",
           "        ip saddr @block4 counter name c_block drop",
           "        ip6 saddr @block6 counter name c_block drop",
-          "        ip saddr @ban4 counter name c_ban drop",
-          "        ip6 saddr @ban6 counter name c_ban drop",
+          *[f"        {fam} saddr @{kind}{v} counter name c_ban drop" for kind in kinds for fam, v in (("ip", "4"), ("ip6", "6"))],
           *([f"        meta nfproto ipv4 tcp dport {ports_expr([str(p) for p in panel_ports])} ip saddr != @pallow4 counter name c_panel drop",
              f"        meta nfproto ipv6 tcp dport {ports_expr([str(p) for p in panel_ports])} ip6 saddr != @pallow6 counter name c_panel drop"]
             if adv.get("panel_allow") and panel_ports else []),   # panel only for listed addresses (admins pass above)
@@ -8059,7 +8333,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     if cfg["ssh_guard"].get("l4", True) and ssh_rate > 0:
         for fam, suffix in (("ip", "4"), ("ip6", "6")):
             r.append(f"        tcp dport {ports_expr(ssh)} tcp flags syn update @m_ssh{suffix} {{ {fam} saddr limit rate over {ssh_rate}/minute burst {ssh_rate} packets }} "
-                     f"add @ban{suffix} {{ {fam} saddr timeout {int(adv.get('ssh_ban_minutes', 60))}m }} counter name c_ssh drop")
+                     f"add @sban{suffix} {{ {fam} saddr timeout {int(adv.get('ssh_ban_minutes', 60))}m }} counter name c_ssh drop")
     # Ports with a source restriction ("only from 1.2.3.0/24") are accepted for that source only.
     for p in fw["ports"]:
         if p.get("from"):
@@ -8075,9 +8349,9 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     for fam, suffix, icmp in (("ip", "4", "icmp type echo-request"), ("ip6", "6", "icmpv6 type echo-request")):
         nfp = "ipv4" if suffix == "4" else "ipv6"
         r += [
-            *([f"        tcp flags & (syn|ack) == syn update @m_synb{suffix} {{ {fam} saddr limit rate over {L['syn'] * F}/second burst {L['syn'] * F * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
+            *([f"        tcp flags & (syn|ack) == syn update @m_synb{suffix} {{ {fam} saddr limit rate over {L['syn'] * F}/second burst {L['syn'] * F * 2} packets }} add @fban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
             f"        tcp flags & (syn|ack) == syn update @m_syn{suffix} {{ {fam} saddr limit rate over {L['syn']}/second burst {L['syn'] * 2} packets }} counter name c_syn drop",
-            *([f"        meta nfproto {nfp} ct state new update @m_connb{suffix} {{ {fam} saddr limit rate over {L['conn'] * F}/second burst {L['conn'] * F * 2} packets }} add @ban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
+            *([f"        meta nfproto {nfp} ct state new update @m_connb{suffix} {{ {fam} saddr limit rate over {L['conn'] * F}/second burst {L['conn'] * F * 2} packets }} add @cban{suffix} {{ {fam} saddr }} counter name c_autoban drop"] if F else []),
             f"        meta nfproto {'ipv4' if suffix == '4' else 'ipv6'} ct state new update @m_conn{suffix} {{ {fam} saddr limit rate over {L['conn']}/second burst {L['conn'] * 2} packets }} counter name c_conn drop",
             f"        meta l4proto tcp add @m_conc{suffix} {{ {fam} saddr ct count over {L['conc']} }} counter name c_conc drop",
             f"        meta l4proto udp update @m_udp{suffix} {{ {fam} saddr limit rate over {L['udp']}/second burst {L['udp'] * 2} packets }} counter name c_udp drop",
@@ -8665,7 +8939,11 @@ def jail_bans(name):
             m = re.match(r"(\S+)\s+(\S+ \S+) \+ (-?\d+) = (\S+ \S+)", str(line))
             if m:
                 until = time.mktime(time.strptime(m.group(4), "%Y-%m-%d %H:%M:%S")) if m.group(3) != "-1" else None
-                rows.append({"ip": m.group(1), "until": until})
+                try:
+                    at = time.mktime(time.strptime(m.group(2), "%Y-%m-%d %H:%M:%S"))
+                except ValueError:
+                    at = None
+                rows.append({"ip": m.group(1), "until": until, "at": at})
             else:
                 rows.append({"ip": str(line).split()[0], "until": None})
     except Exception:
@@ -9362,6 +9640,8 @@ def effective():
     """`sshd -T`: what sshd really uses after every file and default."""
     rc, out = _sshd(["-T"])
     if rc != 0:
+        if "No such file" in out and "sshd" in out:
+            raise ValueError("The OpenSSH server (sshd) is not installed on this server")
         raise ValueError(f"sshd -T failed: {out[-300:]}")
     conf = {}
     for line in out.splitlines():
@@ -9906,6 +10186,259 @@ def run(cmd, json_out=False):
         out = (lib.nft_ctx_get_output_buffer(ctx) or b"").decode("utf-8", "replace")
         err = (lib.nft_ctx_get_error_buffer(ctx) or b"").decode("utf-8", "replace")
         return rc == 0, out, err
+__MONITORING_EOF__
+  write_file defender/sysfw.py 644 <<'__MONITORING_EOF__'
+"""The server's own firewall: ufw, firewalld or a plain iptables INPUT policy.
+
+Our rules (table inet defender) only ever drop; they cannot open what another firewall on the server
+closes. When a service does not load although it listens, the usual fix is `ufw allow 8080/tcp` (or the
+firewalld equivalent). This module finds out which of them is active, whether a port is open in it, and
+opens or closes ports there, so that can be done from the panel.
+
+Commands run on the host through nsenter (see sshmgr.host). Nothing here changes a firewall that is off,
+except turning ufw on, which always opens the SSH and panel ports first.
+"""
+import os
+import re
+
+import hostinfo
+from sshmgr import host
+
+UFW_RULE = re.compile(r"^\[\s*(\d+)\]\s+(.+?)\s+(ALLOW|DENY|REJECT|LIMIT)(?:\s+(IN|OUT|FWD))?\s+(.+?)\s*$")
+# a few well-known ufw application profiles, so their ports count as open
+UFW_APPS = {"openssh": [("tcp", 22, 22)], "nginx full": [("tcp", 80, 80), ("tcp", 443, 443)], "nginx http": [("tcp", 80, 80)],
+            "nginx https": [("tcp", 443, 443)], "apache full": [("tcp", 80, 80), ("tcp", 443, 443)], "apache": [("tcp", 80, 80)],
+            "apache secure": [("tcp", 443, 443)], "www": [("tcp", 80, 80)], "www secure": [("tcp", 443, 443)],
+            "www full": [("tcp", 80, 80), ("tcp", 443, 443)]}
+PORT_RE = re.compile(r"^(\d{1,5})(?:[-:](\d{1,5}))?$")
+SRC_RE = re.compile(r"^[0-9a-fA-F:.]+(?:/\d{1,3})?$")
+
+
+def _exists(*paths):
+    return any(os.path.exists(hostinfo.host_path(p)) for p in paths)
+
+
+def _ufw_ports(to):
+    """[(proto, first, last)] a ufw "To" column opens, or None when it means every port."""
+    to = re.sub(r"\s*\(v6\)$", "", to).strip()
+    if to.lower().startswith("anywhere"):
+        return None
+    if to.lower() in UFW_APPS:
+        return UFW_APPS[to.lower()]
+    out = []
+    spec, _, proto = to.partition("/")
+    for part in spec.split(","):
+        m = PORT_RE.match(part.strip())
+        if m:
+            a, b = int(m.group(1)), int(m.group(2) or m.group(1))
+            for pr in ((proto,) if proto in ("tcp", "udp") else ("tcp", "udp")):
+                out.append((pr, a, b))
+    return out
+
+
+def ufw_status():
+    if not _exists("/usr/sbin/ufw", "/sbin/ufw", "/usr/bin/ufw"):
+        return {"installed": False}
+    rc, out = host(["ufw", "status", "verbose"], timeout=20)
+    active = "Status: active" in out
+    m = re.search(r"Default:\s*(\w+)\s*\(incoming\)", out)
+    rules = []
+    if active:
+        _, numbered = host(["ufw", "status", "numbered"], timeout=20)
+        for line in numbered.splitlines():
+            r = UFW_RULE.match(line.strip())
+            if r:
+                rules.append({"n": int(r.group(1)), "to": r.group(2).strip(), "action": r.group(3), "dir": r.group(4) or "IN",
+                              "from": r.group(5).strip(), "v6": "(v6)" in line, "text": line.split("]", 1)[1].strip()})
+    return {"installed": True, "active": active, "incoming": (m.group(1).lower() if m else "deny"), "rules": rules,
+            "error": out if rc and not active and "inactive" not in out else ""}
+
+
+def firewalld_status():
+    if not _exists("/usr/bin/firewall-cmd", "/bin/firewall-cmd"):
+        return {"installed": False}
+    rc, out = host(["firewall-cmd", "--state"], timeout=20)
+    running = out.strip() == "running"
+    ports, services = [], []
+    if running:
+        ports = host(["firewall-cmd", "--list-ports"], timeout=20)[1].split()
+        services = host(["firewall-cmd", "--list-services"], timeout=20)[1].split()
+    return {"installed": True, "active": running, "ports": ports, "services": services}
+
+
+def iptables_policy():
+    rc, out = host(["iptables", "-S", "INPUT"], timeout=20)
+    m = re.search(r"^-P INPUT (\w+)", out, re.M)
+    return m.group(1) if rc == 0 and m else None
+
+
+def status():
+    ufw, fwd = ufw_status(), firewalld_status()
+    policy = iptables_policy()
+    # which one decides: ufw or firewalld when on, else a DROP policy on iptables INPUT
+    active = "ufw" if ufw.get("active") else "firewalld" if fwd.get("active") else "iptables" if policy in ("DROP", "REJECT") else None
+    rules = host(["iptables", "-S", "INPUT"], timeout=20)[1] if active == "iptables" else ""
+    return {"ufw": ufw, "firewalld": fwd, "iptables_policy": policy, "active": active, "_input": rules}
+
+
+def port_open(st, proto, port):
+    """True / False when the server's firewall lets this port in, None when there is none that filters."""
+    if st["active"] == "ufw":
+        u = st["ufw"]
+        allowed = denied = False
+        for r in u["rules"]:
+            if r["dir"] != "IN":
+                continue
+            ports = _ufw_ports(r["to"])
+            hit = ports is None or any(p == proto and a <= port <= b for p, a, b in ports)
+            if hit and r["from"].lower().startswith("anywhere"):
+                if r["action"] in ("ALLOW", "LIMIT"):
+                    allowed = True
+                else:
+                    denied = True
+            elif hit and r["action"] in ("ALLOW", "LIMIT"):
+                allowed = allowed or "partly"
+            if allowed is True or denied:
+                break      # ufw uses the first matching rule
+        if allowed is True:
+            return True
+        if denied:
+            return False
+        return u["incoming"] == "allow" or ("partly" if allowed else False)
+    if st["active"] == "firewalld":
+        f = st["firewalld"]
+        for spec in f["ports"]:
+            m = re.match(r"^(\d+)(?:-(\d+))?/(\w+)$", spec)
+            if m and m.group(3) == proto and int(m.group(1)) <= port <= int(m.group(2) or m.group(1)):
+                return True
+        return ("ssh" in f["services"] and proto == "tcp" and port == 22) or \
+               ("http" in f["services"] and proto == "tcp" and port == 80) or \
+               ("https" in f["services"] and proto == "tcp" and port == 443)
+    if st["active"] == "iptables":
+        for m in re.finditer(r"-p (\w+)\b.*?--dport (\d+)(?::(\d+))?\b.*-j ACCEPT", st.get("_input", "")):
+            if m.group(1) == proto and int(m.group(2)) <= port <= int(m.group(3) or m.group(2)):
+                return True
+        return False
+    return None
+
+
+def _check(port, proto, src):
+    port = str(port).strip().replace(":", "-")
+    m = PORT_RE.match(port)
+    if not m or not (1 <= int(m.group(1)) <= 65535) or (m.group(2) and not int(m.group(1)) < int(m.group(2)) <= 65535):
+        raise ValueError("Port must be 1-65535 or a range like 8000-8100")
+    if proto not in ("tcp", "udp", "both"):
+        raise ValueError("Protocol must be tcp, udp or both")
+    src = str(src or "").strip()
+    if src and not SRC_RE.match(src):
+        raise ValueError("Source must be an IP address or network")
+    return port, src
+
+
+def _run(args):
+    rc, out = host(args, timeout=60)
+    if rc != 0:
+        raise ValueError(f"{' '.join(args[:2])}: {out.strip()[-300:] or 'failed'}")
+    return out
+
+
+def allow(port, proto, src=""):
+    """Opens a port in whichever firewall of the server is active. Returns what was done."""
+    port, src = _check(port, proto, src)
+    st = status()
+    protos = ("tcp", "udp") if proto == "both" else (proto,)
+    done = []
+    if st["active"] == "ufw":
+        for pr in protos:
+            spec = port.replace("-", ":")
+            args = ["ufw", "allow", "from", src, "to", "any", "port", spec, "proto", pr] if src else ["ufw", "allow", f"{spec}/{pr}"]
+            _run(args)
+            done.append(" ".join(args))
+    elif st["active"] == "firewalld":
+        for pr in protos:
+            if src:
+                rule = f'rule family="{"ipv6" if ":" in src else "ipv4"}" source address="{src}" port port="{port}" protocol="{pr}" accept'
+                _run(["firewall-cmd", "--permanent", f"--add-rich-rule={rule}"])
+            else:
+                _run(["firewall-cmd", "--permanent", f"--add-port={port}/{pr}"])
+            done.append(f"firewall-cmd --permanent --add-port={port}/{pr}")
+        _run(["firewall-cmd", "--reload"])
+    elif st["active"] == "iptables":
+        for pr in protos:
+            for tool in ("iptables", "ip6tables"):
+                if src and (":" in src) != (tool == "ip6tables"):
+                    continue
+                args = [tool, "-I", "INPUT", "-p", pr, "--dport", port.replace("-", ":"), "-j", "ACCEPT"]
+                if src:
+                    args[3:3] = ["-s", src]
+                rc, out = host(args, timeout=30)
+                if rc == 0:
+                    done.append(" ".join(args))
+    return {"done": done, "firewall": st["active"]}
+
+
+def remove(port, proto, src=""):
+    """Closes a port opened by allow() again (only in the firewall that is active)."""
+    port, src = _check(port, proto, src)
+    st = status()
+    protos = ("tcp", "udp") if proto == "both" else (proto,)
+    done = []
+    if st["active"] == "ufw":
+        for pr in protos:
+            spec = port.replace("-", ":")
+            args = ["ufw", "delete", "allow", "from", src, "to", "any", "port", spec, "proto", pr] if src else ["ufw", "delete", "allow", f"{spec}/{pr}"]
+            rc, out = host(args, timeout=60)
+            if rc == 0:
+                done.append(" ".join(args))
+    elif st["active"] == "firewalld":
+        for pr in protos:
+            rc, _ = host(["firewall-cmd", "--permanent", f"--remove-port={port}/{pr}"], timeout=60)
+            if rc == 0:
+                done.append(f"firewall-cmd --permanent --remove-port={port}/{pr}")
+        host(["firewall-cmd", "--reload"], timeout=60)
+    elif st["active"] == "iptables":
+        for pr in protos:
+            for tool in ("iptables", "ip6tables"):
+                args = [tool, "-D", "INPUT", "-p", pr, "--dport", port.replace("-", ":"), "-j", "ACCEPT"]
+                if src:
+                    args[3:3] = ["-s", src]
+                if host(args, timeout=30)[0] == 0:
+                    done.append(" ".join(args))
+    return {"done": done, "firewall": st["active"]}
+
+
+def ufw_delete(text):
+    """Deletes the ufw rule shown as `text` (numbers shift after each delete, so they are looked up now)."""
+    st = ufw_status()
+    if not st.get("active"):
+        raise ValueError("ufw is not active")
+    rule = next((r for r in st["rules"] if r["text"] == text), None)
+    if not rule:
+        raise ValueError("That ufw rule no longer exists")
+    _run(["ufw", "--force", "delete", str(rule["n"])])
+    # ufw keeps an IPv4 and an IPv6 copy of most rules: remove the twin too, as `ufw delete allow X` would
+    bare = lambda v: re.sub(r"\s*\(v6\)", "", v).strip()   # noqa: E731
+    twin = next((r for r in ufw_status()["rules"] if r["v6"] != rule["v6"] and bare(r["to"]) == bare(rule["to"])
+                 and bare(r["from"]) == bare(rule["from"]) and r["action"] == rule["action"] and r["dir"] == rule["dir"]), None)
+    if twin:
+        _run(["ufw", "--force", "delete", str(twin["n"])])
+    return ufw_status()
+
+
+def ufw_enable(keep_tcp):
+    """Turns ufw on, after opening the SSH and panel ports (and anything else in keep_tcp) in it."""
+    st = ufw_status()
+    if not st.get("installed"):
+        raise ValueError("ufw is not installed")
+    for port in sorted(set(keep_tcp)):
+        _run(["ufw", "allow", f"{int(port)}/tcp"])
+    _run(["ufw", "--force", "enable"])
+    return ufw_status()
+
+
+def ufw_disable():
+    _run(["ufw", "disable"])
+    return ufw_status()
 __MONITORING_EOF__
   write_file panel/static/index.html 644 <<'__MONITORING_EOF__'
 <!doctype html>
@@ -11223,6 +11756,9 @@ __MONITORING_EOF__
   const hhmm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 
   function drawChart(box, cfg, series, uid, win) {
+    // With a fixed time window only the points inside it count (older samples would be drawn left of the
+    // axis, outside the card, and would also stretch the scale); the plot area is clipped as well.
+    if (win) series = series.map((s) => ({ ...s, points: s.points.filter((p) => p[0] >= win[0] && p[0] <= win[1]) }));
     const all = series.flatMap((s) => s.points.filter((p) => p[1] != null));
     // A line needs at least two samples at different times; right after startup there is only one.
     if (new Set(all.map((p) => p[0])).size < 2) { box.innerHTML = `<div class="empty">${esc(t(win ? "live_waiting" : "no_data"))}</div>`; return; }
@@ -11265,7 +11801,8 @@ __MONITORING_EOF__
       const lp = lastOf[i];
       dots += `<circle r="4.5" fill="${colors[i]}" cx="${X(lp[0]).toFixed(1)}" cy="${Y(lp[1]).toFixed(1)}"/>`;
     });
-    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(t(cfg.title))}"><defs>${defs}</defs><g class="grid">${grid}</g>${paths}<line class="cross" y1="${TOP}" y2="${H - B}" opacity="0"/><g class="dots">${dots}</g><rect class="hit" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg><div class="tip" hidden></div>`;
+    defs += `<clipPath id="c${uid}"><rect x="${L}" y="0" width="${W - L - R}" height="${H - B + 6}"/></clipPath>`;
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(t(cfg.title))}"><defs>${defs}</defs><g class="grid">${grid}</g><g clip-path="url(#c${uid})">${paths}</g><line class="cross" y1="${TOP}" y2="${H - B}" opacity="0"/><g class="dots">${dots}</g><rect class="hit" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg><div class="tip" hidden></div>`;
 
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), cross = box.querySelector(".cross");
     const dotEls = [...box.querySelectorAll(".dots circle")];
@@ -12440,6 +12977,7 @@ pre.logs.short { height: auto; max-height: 220px; }
 .df-seg button[data-p="attack"].on { color: var(--s-bad); }
 .df-tiles { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 .df-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: start; }
+.df-grid2 > .sec + .sec { margin-top: 0; }   /* side by side: no gap above the second one */
 .df-head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .df-head-row h3 { display: flex; align-items: center; gap: 8px; }
 .df-bars { display: grid; gap: 9px; }
@@ -12675,6 +13213,14 @@ label.btn input[type="file"] { display: none; }
   .live { position: relative; }
   .live select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; font-size: 16px; }
 }
+
+/* bans: when and how long */
+.df-when, .df-left { display: grid; gap: 2px; min-width: 0; }
+.df-when small, .df-left small { font-size: 11.5px; }
+.df-left i { display: block; height: 4px; border-radius: 4px; background: var(--line); position: relative; overflow: hidden; margin-top: 3px; min-width: 70px; }
+.df-left i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--s-warn); border-radius: 4px; }
+[dir="rtl"] .df-left i::after { inset: 0 0 0 auto; }
+.df-rowbtns { display: inline-flex; gap: 6px; align-items: center; }
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'
 /* Vazirmatn (SIL Open Font License 1.1) - Latin + Persian/Arabic subset, embedded so the panel needs no external font host. */

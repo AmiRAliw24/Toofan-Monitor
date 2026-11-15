@@ -50,6 +50,22 @@
     df_fw_mode: "Firewall mode", df_fw_mode_sub: "Open blocks only abuse. Strict also closes every port that is not on the list below.",
     df_mode_open_d: "Every port stays reachable; floods, scans and banned IPs are blocked.", df_mode_strict_d: "Only the ports you allow are reachable (TCP and UDP). Tunnels and other protocols keep working.",
     df_always: "Always open:", df_ssh: "SSH", df_panel: "Panel",
+    df_po_title: "Open a port", df_po_sub: "Like running ufw allow: the port is opened in the server's own firewall (ufw, firewalld or iptables, whichever is on) and in this firewall's strict mode. Use it when a panel or service listens but does not load.",
+    df_po_port: "Port or range", df_po_proto: "Protocol", df_po_from: "Only from (optional)", df_po_from_ph: "any address", df_po_btn: "Open port",
+    df_po_done: "Port {port}/{proto} is open", df_po_done_sys: "Port {port}/{proto} is open (also in {fw})", df_po_none: "No other firewall is filtering on this server, so the port was already open there.",
+    df_po_nolisten: "Nothing is listening on port {port} yet: start the program first, or check the port it uses.",
+    df_po_provider: "Still not loading? Check your hosting provider's firewall (for example the Hetzner Cloud Firewall): it sits in front of the server.",
+    df_po_closed: "Port {port}/{proto} is closed again",
+    df_sys_title: "Server firewall", df_sys_sub: "The firewall of the operating system. This firewall only blocks; it cannot open what the server's own firewall closes.",
+    df_sys_none: "No other firewall is filtering incoming traffic on this server (ufw is off or missing, iptables lets everything in). Every listening port is reachable unless this firewall blocks it.",
+    df_sys_ufw_on: "ufw is on", df_sys_ufw_off: "ufw is installed but off", df_sys_ufw_missing: "ufw is not installed", df_sys_incoming: "Incoming by default: {p}",
+    df_sys_fwd_on: "firewalld is on", df_sys_ipt: "iptables drops incoming traffic by default (policy {p})",
+    df_sys_enable: "Turn ufw on", df_sys_disable: "Turn ufw off",
+    df_sys_enable_confirm: "Turn ufw on? Every port that is in use now (SSH, the panel and all listening services) is opened in ufw first, so nothing that works now stops working.",
+    df_sys_disable_confirm: "Turn ufw off? Its rules are kept and come back when it is turned on again.",
+    df_sys_rules: "ufw rules", df_sys_to: "To", df_sys_action: "Action", df_sys_from: "From", df_sys_del_confirm: "Delete the ufw rule \"{rule}\"?",
+    df_sys_col: "Server firewall", df_sys_open: "open", df_sys_blocked: "blocked", df_sys_partly: "some addresses", df_sys_docker: "Docker (passes)", df_sys_open_btn: "Open",
+    df_sys_fwd_ports: "Open in firewalld: {ports}",
     df_services: "Services reachable from the internet", df_services_sub: "Programs listening on a public address right now.",
     df_port: "Port", df_proto: "Protocol", df_process: "Program", df_state: "In strict mode", df_open: "Open", df_closed: "Closed", df_only_from: "Only from listed IPs", df_locked: "Always open",
     df_open_it: "Allow", df_close_it: "Close", df_rules: "Port rules", df_rules_sub: "Ports that stay open in strict mode. A source limits a port to one IP or network.", df_add_rule: "Add rule",
@@ -69,7 +85,7 @@
     // lists
     df_add_ip: "Add an address", df_ip: "IP or network", df_action: "Action", df_a_block: "Block permanently", df_a_ban1h: "Ban for 1 hour", df_a_ban24h: "Ban for 24 hours", df_a_ban7d: "Ban for 7 days", df_a_allow: "Allow (never blocked)",
     df_admins: "Trusted because they logged in over SSH (now or in the last 7 days), so they are never limited or banned: {ips}",
-    df_cdn: "Trust Cloudflare's addresses", df_cdn_sub: "For sites and proxies behind Cloudflare: all their visitors arrive from Cloudflare's IPs, so per-IP limits would hit everyone at once. The blocklist still applies.", df_bans: "Banned now", df_filter: "Filter…", df_source: "Banned by", df_left: "Ends in",
+    df_cdn: "Trust Cloudflare's addresses", df_cdn_sub: "For sites and proxies behind Cloudflare: all their visitors arrive from Cloudflare's IPs, so per-IP limits would hit everyone at once. The blocklist still applies.", df_bans: "Banned now", df_filter: "Filter…", df_source: "Banned by", df_left: "Time left",
     df_s_auto: "Flood", df_s_ssh: "SSH guard", df_s_manual: "Manual", df_s_fail2ban: "fail2ban", df_blocklist: "Blocklist", df_allowlist: "Allowlist", df_added: "Added",
     df_f2b_note: "fail2ban's bans are shown for reference; manage them with fail2ban-client.",
     // ssh
@@ -133,6 +149,22 @@
     df_fw_mode: "حالت فایروال", df_fw_mode_sub: "حالت باز فقط ترافیک مخرب را می‌بندد. حالت سخت‌گیر هر پورتی که در لیست پایین نیست را هم می‌بندد.",
     df_mode_open_d: "همه‌ی پورت‌ها در دسترس می‌مانند؛ فلاد، اسکن و آی‌پی‌های مسدود بسته می‌شوند.", df_mode_strict_d: "فقط پورت‌هایی که اجازه می‌دهید در دسترس‌اند (TCP و UDP). تانل‌ها و پروتکل‌های دیگر کار می‌کنند.",
     df_always: "همیشه باز:", df_ssh: "SSH", df_panel: "پنل",
+    df_po_title: "باز کردن پورت", df_po_sub: "مثل زدن ufw allow: پورت در فایروال خود سرور (ufw، firewalld یا iptables، هر کدام روشن باشد) و در حالت سخت‌گیر این فایروال باز می‌شود. وقتی یک پنل یا سرویس گوش می‌دهد ولی لود نمی‌شود از این استفاده کنید.",
+    df_po_port: "پورت یا بازه", df_po_proto: "پروتکل", df_po_from: "فقط از (اختیاری)", df_po_from_ph: "هر آدرسی", df_po_btn: "باز کردن پورت",
+    df_po_done: "پورت {port}/{proto} باز است", df_po_done_sys: "پورت {port}/{proto} باز است (در {fw} هم)", df_po_none: "فایروال دیگری روی این سرور ترافیک را فیلتر نمی‌کند، پس پورت آن‌جا از قبل باز بود.",
+    df_po_nolisten: "هنوز برنامه‌ای روی پورت {port} گوش نمی‌دهد: اول برنامه را اجرا کنید یا پورتش را بررسی کنید.",
+    df_po_provider: "باز هم لود نمی‌شود؟ فایروال شرکت سرور را بررسی کنید (مثلاً Hetzner Cloud Firewall): آن جلوتر از سرور است.",
+    df_po_closed: "پورت {port}/{proto} دوباره بسته شد",
+    df_sys_title: "فایروال خود سرور", df_sys_sub: "فایروال سیستم‌عامل. این فایروال فقط مسدود می‌کند و نمی‌تواند چیزی را که فایروال خود سرور بسته باز کند.",
+    df_sys_none: "فایروال دیگری روی این سرور ترافیک ورودی را فیلتر نمی‌کند (ufw خاموش یا نصب‌نشده است و iptables همه را راه می‌دهد). هر پورتی که برنامه‌ای رویش گوش دهد در دسترس است، مگر این فایروال مسدودش کند.",
+    df_sys_ufw_on: "ufw روشن است", df_sys_ufw_off: "ufw نصب است ولی خاموش", df_sys_ufw_missing: "ufw نصب نیست", df_sys_incoming: "ورودی به طور پیش‌فرض: {p}",
+    df_sys_fwd_on: "firewalld روشن است", df_sys_ipt: "iptables ترافیک ورودی را به طور پیش‌فرض دور می‌ریزد (سیاست {p})",
+    df_sys_enable: "روشن کردن ufw", df_sys_disable: "خاموش کردن ufw",
+    df_sys_enable_confirm: "ufw روشن شود؟ همه‌ی پورت‌هایی که الان استفاده می‌شوند (SSH، پنل و همه‌ی سرویس‌های در حال گوش دادن) اول در ufw باز می‌شوند تا چیزی که الان کار می‌کند قطع نشود.",
+    df_sys_disable_confirm: "ufw خاموش شود؟ قوانینش می‌مانند و با روشن شدن دوباره برمی‌گردند.",
+    df_sys_rules: "قوانین ufw", df_sys_to: "به", df_sys_action: "عمل", df_sys_from: "از", df_sys_del_confirm: "قانون ufw «{rule}» حذف شود؟",
+    df_sys_col: "فایروال سرور", df_sys_open: "باز", df_sys_blocked: "بسته", df_sys_partly: "برای بعضی آدرس‌ها", df_sys_docker: "داکر (رد می‌شود)", df_sys_open_btn: "باز کن",
+    df_sys_fwd_ports: "باز در firewalld: {ports}",
     df_services: "سرویس‌هایی که از اینترنت در دسترس‌اند", df_services_sub: "برنامه‌هایی که همین الان روی آدرس عمومی گوش می‌دهند.",
     df_port: "پورت", df_proto: "پروتکل", df_process: "برنامه", df_state: "در حالت سخت‌گیر", df_open: "باز", df_closed: "بسته", df_only_from: "فقط از آی‌پی‌های مشخص", df_locked: "همیشه باز",
     df_open_it: "اجازه", df_close_it: "بستن", df_rules: "قوانین پورت", df_rules_sub: "پورت‌هایی که در حالت سخت‌گیر باز می‌مانند. منبع، پورت را به یک آی‌پی یا شبکه محدود می‌کند.", df_add_rule: "افزودن قانون",
@@ -150,7 +182,7 @@
     df_cv_scan: "اسکن پورت با فلگ‌های جعلی و بسته‌های نامعتبر", df_cv_ssh: "حمله‌ی رمز به SSH (اتصال‌ها و ورودهای ناموفق)", df_cv_l7: "پوشش داده نمی‌شود: فلاد درخواست‌های HTTP معتبر (برای آن از CDN یا ریورس‌پروکسی با محدودیت نرخ استفاده کنید).",
     df_add_ip: "افزودن آدرس", df_ip: "آی‌پی یا شبکه", df_action: "کار", df_a_block: "مسدود همیشگی", df_a_ban1h: "مسدود ۱ ساعت", df_a_ban24h: "مسدود ۲۴ ساعت", df_a_ban7d: "مسدود ۷ روز", df_a_allow: "مجاز (هرگز مسدود نشود)",
     df_admins: "این آدرس‌ها چون با SSH وارد شده‌اند (الان یا در ۷ روز اخیر) مورد اعتمادند و هرگز محدود یا مسدود نمی‌شوند: {ips}",
-    df_cdn: "اعتماد به آدرس‌های Cloudflare", df_cdn_sub: "برای سایت‌ها و پروکسی‌های پشت Cloudflare: همه‌ی کاربرانشان از آی‌پی‌های Cloudflare می‌آیند، پس محدودیت هر آی‌پی همه را با هم می‌بندد. لیست سیاه همچنان اعمال می‌شود.", df_bans: "مسدودهای فعلی", df_filter: "جستجو…", df_source: "مسدودکننده", df_left: "پایان تا",
+    df_cdn: "اعتماد به آدرس‌های Cloudflare", df_cdn_sub: "برای سایت‌ها و پروکسی‌های پشت Cloudflare: همه‌ی کاربرانشان از آی‌پی‌های Cloudflare می‌آیند، پس محدودیت هر آی‌پی همه را با هم می‌بندد. لیست سیاه همچنان اعمال می‌شود.", df_bans: "مسدودهای فعلی", df_filter: "جستجو…", df_source: "مسدودکننده", df_left: "زمان باقی‌مانده",
     df_s_auto: "فلاد", df_s_ssh: "محافظ SSH", df_s_manual: "دستی", df_s_fail2ban: "fail2ban", df_blocklist: "لیست سیاه", df_allowlist: "لیست سفید", df_added: "افزوده‌شده",
     df_f2b_note: "مسدودی‌های fail2ban فقط برای اطلاع نمایش داده می‌شوند؛ با fail2ban-client مدیریتشان کنید.",
     df_ssh_title: "محافظ حمله‌ی رمز SSH", df_ssh_sub: "لاگ ورود SSH را می‌خواند و آدرس‌هایی که مدام ورود ناموفق دارند را مسدود می‌کند. کاربرهای واردشده و آدرس‌هایی که امروز موفق وارد شده‌اند هرگز مسدود نمی‌شوند.",
@@ -422,6 +454,7 @@
     if (!D.fw) D.fw = clone(D.st.config.firewall);
     const ports = await api("/api/defender/ports");
     D.ports = ports.rows;
+    D.sysfw = ports.sysfw;
     return firewallHTML();
   }
   const portLabel = (p) => `${p.port}/${p.proto === "both" ? "tcp+udp" : p.proto}`;
@@ -435,6 +468,7 @@
     const services = table([
       { h: "df_port", cls: "strong", cell: (r) => `${num(esc(`${r.port}/${r.proto}`))}${r.docker ? '<span class="tag">docker</span>' : ""}` },
       { h: "df_process", cell: (r) => esc(r.process || "–") },
+      { h: "df_sys_col", cell: sysCell },
       { h: "df_state", cell: (r) => r.always ? pill("ok", t("df_locked")) : ruleFor(r) >= 0 ? pill("ok", t("df_open")) : r.restricted ? pill("warn", t("df_only_from")) : strict ? pill("bad", t("df_closed")) : pill("", t("df_open")) },
       { h: "actions", cell: (r) => r.always ? "–" : ruleFor(r) >= 0
         ? `<button type="button" class="btn small" data-a="fw-close" data-proto="${r.proto}" data-port="${r.port}">${esc(t("df_close_it"))}</button>`
@@ -448,10 +482,11 @@
     ], fw.ports);
     const ifaces = fw.trusted_ifaces.map((n, i) => `<span class="chip">${num(esc(n))}<button type="button" class="chip-x" data-a="if-del" data-i="${i}" aria-label="${esc(t("df_remove"))} ${esc(n)}">${icon("x")}</button></span>`).join("");
     const known = (st.interfaces || []).map((n) => `<option value="${esc(n)}">`).join("");
-    return `<section class="sec"><div class="sec-head"><h3>${icon("lock")}${esc(t("df_fw_mode"))}</h3><p class="muted">${esc(t("df_fw_mode_sub"))}</p></div>
+    return `${openPortHTML()}<section class="sec"><div class="sec-head"><h3>${icon("lock")}${esc(t("df_fw_mode"))}</h3><p class="muted">${esc(t("df_fw_mode_sub"))}</p></div>
         <div class="df-choice">${opt("open")}${opt("strict")}</div><div class="chips df-always"><span class="muted">${esc(t("df_always"))}</span>${always}</div>
         ${D.prefilled ? `<div class="notice warn">${icon("bell")}<span>${esc(t("df_strict_prefill"))}</span></div>` : ""}</section>
       <section class="sec"><div class="sec-head"><h3>${icon("globe")}${esc(t("df_services"))}</h3><p class="muted">${esc(t("df_services_sub"))}</p></div>${services}</section>
+      ${sysHTML()}
       <section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("list")}${esc(t("df_rules"))}</h3><p class="muted">${esc(t("df_rules_sub"))}</p></div>
         <button type="button" class="btn small primary" data-a="fw-add">${icon("plus")}<span>${esc(t("df_add_rule"))}</span></button></div>${rules}</section>
       <section class="sec"><div class="sec-head"><h3>${icon("network")}${esc(t("df_ifaces"))}</h3><p class="muted">${esc(t("df_ifaces_sub"))}</p></div>
@@ -461,6 +496,60 @@
         <button type="button" class="btn" data-a="rules">${icon("eye")}<span>${esc(t("df_review"))}</span></button>
         <button type="button" class="btn" data-a="fw-reset" ${dirty ? "" : "disabled"}>${esc(t("df_discard"))}</button>
         <button type="button" class="btn primary" data-a="fw-apply" ${dirty ? "" : "disabled"}>${icon("check")}<span>${esc(t("df_apply"))}</span></button></div>`;
+  }
+  function sysCell(r) {
+    if (r.docker) return `<span class="muted">${esc(t("df_sys_docker"))}</span>`;
+    if (r.sys == null) return `<span class="muted">–</span>`;
+    if (r.sys === true) return pill("ok", t("df_sys_open"), false);
+    const btn = `<button type="button" class="btn small" data-a="sys-open" data-port="${r.port}" data-proto="${r.proto}" data-note="${esc(r.process || "")}">${esc(t("df_sys_open_btn"))}</button>`;
+    return `<span class="df-rowbtns">${pill(r.sys === "partly" ? "warn" : "bad", t(r.sys === "partly" ? "df_sys_partly" : "df_sys_blocked"), false)}${btn}</span>`;
+  }
+  function openPortHTML() {
+    return `<section class="sec"><div class="sec-head"><h3>${icon("unlock")}${esc(t("df_po_title"))}</h3><p class="muted">${esc(t("df_po_sub"))}</p></div>
+      <form class="subcard" data-f="port-open"><div class="df-form-grid">${field(t("df_po_port"), '<input name="port" dir="ltr" required placeholder="8080 / 8000-8100" inputmode="numeric" autocomplete="off" maxlength="11">')}
+        ${field(t("df_po_proto"), '<select name="proto"><option value="tcp">TCP</option><option value="udp">UDP</option><option value="both">TCP + UDP</option></select>')}
+        ${field(t("df_po_from"), `<input name="from" dir="ltr" placeholder="${esc(t("df_po_from_ph"))}" autocomplete="off">`)}
+        ${field(t("df_note"), '<input name="note" maxlength="80" autocomplete="off">')}</div>
+        <div class="actions-row"><button type="submit" class="btn primary">${icon("unlock")}<span>${esc(t("df_po_btn"))}</span></button></div><div id="df-po-out"></div></form></section>`;
+  }
+  function sysHTML() {
+    const s = D.sysfw || {}, u = s.ufw || {}, f = s.firewalld || {};
+    const lines = [];
+    if (u.installed) lines.push(`<span class="chip">${pill(u.active ? "ok" : "", t(u.active ? "df_sys_ufw_on" : "df_sys_ufw_off"), true)}${u.active ? `<span class="muted">${esc(t("df_sys_incoming", { p: u.incoming }))}</span>` : ""}</span>`);
+    else lines.push(`<span class="chip"><span class="muted">${esc(t("df_sys_ufw_missing"))}</span></span>`);
+    if (f.active) lines.push(`<span class="chip">${pill("ok", t("df_sys_fwd_on"), true)}<span class="muted" dir="ltr">${esc(f.ports.join(", ") || "–")}</span></span>`);
+    if (s.active === "iptables") lines.push(`<span class="chip">${pill("warn", t("df_sys_ipt", { p: s.iptables_policy }), true)}</span>`);
+    const btn = u.installed ? (u.active
+      ? `<button type="button" class="btn small" data-a="ufw" data-act="disable">${icon("power")}<span>${esc(t("df_sys_disable"))}</span></button>`
+      : `<button type="button" class="btn small" data-a="ufw" data-act="enable">${icon("power")}<span>${esc(t("df_sys_enable"))}</span></button>`) : "";
+    const rules = u.active && u.rules.length ? `<h4 class="fw-h">${esc(t("df_sys_rules"))}</h4>${table([
+      { h: "df_sys_to", cls: "strong", cell: (r) => `<code dir="ltr">${esc(r.to)}</code>` },
+      { h: "df_sys_action", cell: (r) => pill(r.action === "ALLOW" ? "ok" : r.action === "LIMIT" ? "warn" : "bad", `${r.action} ${r.dir}`, false) },
+      { h: "df_sys_from", cell: (r) => `<span dir="ltr">${esc(r.from)}</span>` },
+      { h: "actions", cell: (r) => btnIcon("trash", t("df_remove"), `data-a="ufw-del" data-text="${esc(r.text)}"`, "danger") },
+    ], u.rules)}` : "";
+    return `<section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("shield")}${esc(t("df_sys_title"))}</h3><p class="muted">${esc(t("df_sys_sub"))}</p></div>${btn}</div>
+      <div class="chips">${lines.join("")}</div>${s.active ? "" : `<p class="muted">${esc(t("df_sys_none"))}</p>`}${rules}</section>`;
+  }
+  async function openPort(btn, body) {
+    const r = await act(btn, () => post("/api/defender/port/open", body));
+    if (!r) return false;
+    const label = { port: body.port, proto: body.proto === "both" ? "tcp+udp" : body.proto };
+    toast(r.firewall ? t("df_po_done_sys", { ...label, fw: r.firewall }) : t("df_po_done", label));
+    const out = D.root.querySelector("#df-po-out");
+    if (out) {
+      out.innerHTML = [r.firewall ? "" : `<div class="notice">${icon("check")}<span>${esc(t("df_po_none"))}</span></div>`,
+        r.listening ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_po_nolisten", { port: body.port }))}</span></div>`,
+        `<div class="notice">${icon("globe")}<span>${esc(t("df_po_provider"))}</span></div>`].join("");
+    }
+    D.ports = r.rows; D.sysfw = r.sysfw;
+    D.st = await api("/api/defender/status").catch(() => D.st);
+    D.fw = clone(D.st.config.firewall);
+    const keep = out ? out.innerHTML : "";
+    repaintFw();
+    const again = D.root.querySelector("#df-po-out");
+    if (again) again.innerHTML = keep;
+    return true;
   }
   const repaintFw = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "firewall") b.innerHTML = firewallHTML(); };
 
@@ -519,14 +608,15 @@
     const b = await api("/api/defender/bans");
     D.bans = b;
     const admins = b.admin_ips.length ? `<div class="notice ok">${icon("check")}<span>${esc(t("df_admins", { ips: b.admin_ips.join("، ") }))}</span></div>` : "";
-    const left = (s) => (s == null ? "–" : s > 86400 ? `${nf(s / 86400, 1)}d` : s > 3600 ? `${nf(s / 3600, 1)}h` : `${nf(s / 60, 0)}m`);
     const bans = table([
-      { h: "df_ip", cls: "strong", cell: (r) => num(esc(r.ip)) },
-      { h: "df_source", cell: (r) => pill(r.source === "manual" || r.source === "fail2ban" ? "" : "warn", r.jail ? t("df_s_fail2ban_jail", { jail: r.jail }) : t(`df_s_${r.source}`)) },
-      { h: "df_left", cell: (r) => num(esc(left(r.left))) },
-      { h: "actions", cell: (r) => (r.source === "fail2ban" ? (r.jail ? `<button type="button" class="btn small" data-a="f2b-unban" data-ip="${esc(r.ip)}" data-jail="${esc(r.jail)}">${esc(t("df_unban"))}</button>` : "–")
-        : `<button type="button" class="btn small" data-a="unban" data-ip="${esc(r.ip)}">${esc(t("df_unban"))}</button>`) },
-    ], b.rows, (r) => `data-ip="${esc(r.ip)}"`);
+      { h: "df_ip", cls: "strong", cell: (r) => `<code dir="ltr">${esc(r.ip)}</code>` },
+      { h: "df_ban_reason", cell: banReason },
+      { h: "df_ban_at", cell: (r) => (r.at ? `<span class="df-when"><b>${esc(clock(r.at))}</b><small class="muted">${esc(ago(r.at))}</small></span>` : "–") },
+      { h: "df_left", cell: banLeft },
+      { h: "actions", cell: (r) => `<span class="df-rowbtns">${r.source === "fail2ban"
+        ? (r.jail ? `<button type="button" class="btn small" data-a="f2b-unban" data-ip="${esc(r.ip)}" data-jail="${esc(r.jail)}">${esc(t("df_unban"))}</button>` : "")
+        : `<button type="button" class="btn small" data-a="unban" data-ip="${esc(r.ip)}">${esc(t("df_unban"))}</button>`}${btnIcon("check", t("df_ban_trust", { ip: r.ip }), `data-a="ban-allow" data-ip="${esc(r.ip)}" data-jail="${esc(r.jail || "")}"`)}</span>` },
+    ], [...b.rows].sort((x, y) => (y.at || 0) - (x.at || 0)), (r) => `data-ip="${esc(r.ip)}"`);
     const listTable = (rows, kind) => table([
       { h: "df_ip", cls: "strong", cell: (r) => num(esc(r.ip)) },
       { h: "df_note", cell: (r) => esc(r.note || "") },
@@ -544,6 +634,28 @@
         <input type="search" id="df-ban-filter" class="df-filter" placeholder="${esc(t("df_filter"))}" aria-label="${esc(t("df_filter"))}" dir="ltr"></div><div id="df-bans">${bans}</div>${f2b}</section>
       <div class="df-grid2"><section class="sec"><div class="sec-head"><h3>${icon("ban")}${esc(t("df_blocklist"))}</h3></div>${listTable(b.block, "block")}</section>
       <section class="sec"><div class="sec-head"><h3>${icon("check")}${esc(t("df_allowlist"))}</h3></div>${listTable(b.allow, "allow")}</section></div>`;
+  }
+  const clock = (ts) => new Date(ts * 1000).toLocaleString(P.state.lang === "fa" ? "fa-IR" : "en-GB", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  const dur = (s) => (s == null ? "–" : s >= 86400 ? t("df_d", { n: nf(s / 86400, s >= 864000 ? 0 : 1) }) : s >= 3600 ? t("df_h", { n: nf(s / 3600, s >= 36000 ? 0 : 1) }) : t("df_m", { n: nf(Math.max(1, s / 60), 0) }));
+  function banReason(r) {   // why this address is banned, in words
+    let kind = "", text;
+    if (r.source === "fail2ban") text = t("df_br_f2b", { jail: r.jail || "fail2ban" });
+    else if (r.reason === "syn_flood") { kind = "bad"; text = t("df_br_syn"); }
+    else if (r.reason === "conn_flood") { kind = "bad"; text = t("df_br_conn"); }
+    else if (r.reason === "ssh_rate") { kind = "warn"; text = t("df_br_sshrate"); }
+    else if (r.reason === "rule") { kind = "warn"; text = t("df_br_rule", { name: r.rule || "?" }); }
+    else if (r.source === "ssh") {
+      kind = "warn";
+      const [n, w] = String(r.detail || "").split("/");
+      text = n && w ? t("df_br_ssh_n", { n, w }) : t("df_br_ssh");
+    } else if (r.source === "manual") text = r.reason && r.reason !== "manual" ? t("df_br_manual_note", { note: r.reason }) : t("df_br_manual");
+    else { kind = "bad"; text = t("df_br_flood"); }
+    return pill(kind, text, false);
+  }
+  function banLeft(r) {
+    if (r.left == null) return `<span class="muted">${esc(t("df_ban_forever"))}</span>`;
+    const pct = r.total ? Math.max(2, Math.min(100, (r.left / r.total) * 100)) : null;
+    return `<span class="df-left"><b>${num(esc(dur(r.left)))}</b>${r.total ? `<small class="muted">${esc(t("df_ban_of", { n: dur(r.total) }))}</small><i style="--w:${pct.toFixed(1)}%"></i>` : ""}</span>`;
   }
   function filterBans(q) {
     q = q.trim().toLowerCase();
@@ -647,6 +759,11 @@
     "f2bj_mysqld-auth": "MySQL logins", "f2bd_mysqld-auth": "Bans addresses that guess database passwords.",
     df_e_f2b_ban: "fail2ban [{jail}] banned {ip}", df_e_f2b_unban: "fail2ban: {ip} unbanned", df_e_f2b_config: "fail2ban settings changed ({what})", df_e_f2b_service: "fail2ban: {action}",
     df_s_fail2ban_jail: "fail2ban · {jail}",
+    df_ban_reason: "Why", df_ban_at: "Banned at", df_ban_forever: "until removed", df_ban_of: "of {n}", df_d: "{n} d", df_h: "{n} h", df_m: "{n} min",
+    df_br_f2b: "fail2ban · {jail}", df_br_syn: "SYN flood", df_br_conn: "Too many new connections", df_br_sshrate: "Too many SSH connections",
+    df_br_rule: "Rule «{name}»", df_br_ssh: "Wrong SSH passwords", df_br_ssh_n: "{n} wrong SSH passwords in {w} min", df_br_manual: "Manual",
+    df_br_manual_note: "Manual · {note}", df_br_flood: "Flood",
+    df_ban_trust: "Unban {ip} and add it to the allowlist", df_ban_trusted: "{ip} is unbanned and on the allowlist", df_ban_trusted_note: "trusted after a ban",
     df_c_fail2ban_stopped: ["fail2ban is installed but not running", "fail2ban is running"], df_f_fail2ban_stopped: "Start it in the fail2ban tab.",
     // backup
     df_backup: "Backup and restore", df_backup_sub: "Download every firewall setting (rules, lists, limits, countries, fail2ban) as a file, or load one from another server.",
@@ -695,6 +812,11 @@
     "f2bj_mysqld-auth": "ورود MySQL", "f2bd_mysqld-auth": "آدرس‌هایی که رمز دیتابیس را حدس می‌زنند مسدود می‌کند.",
     df_e_f2b_ban: "fail2ban [{jail}] آدرس {ip} را مسدود کرد", df_e_f2b_unban: "fail2ban: مسدودی {ip} برداشته شد", df_e_f2b_config: "تنظیمات fail2ban تغییر کرد ({what})", df_e_f2b_service: "fail2ban: {action}",
     df_s_fail2ban_jail: "fail2ban · {jail}",
+    df_ban_reason: "علت", df_ban_at: "زمان مسدودی", df_ban_forever: "تا وقتی برداشته شود", df_ban_of: "از {n}", df_d: "{n} روز", df_h: "{n} ساعت", df_m: "{n} دقیقه",
+    df_br_f2b: "fail2ban · {jail}", df_br_syn: "فلاد SYN", df_br_conn: "اتصال جدید بیش از حد", df_br_sshrate: "اتصال SSH بیش از حد",
+    df_br_rule: "قانون «{name}»", df_br_ssh: "رمز اشتباه SSH", df_br_ssh_n: "{n} رمز اشتباه SSH در {w} دقیقه", df_br_manual: "دستی",
+    df_br_manual_note: "دستی · {note}", df_br_flood: "فلاد",
+    df_ban_trust: "{ip} از مسدودی دربیاید و به لیست سفید برود", df_ban_trusted: "{ip} از مسدودی درآمد و در لیست سفید است", df_ban_trusted_note: "مورد اعتماد پس از مسدودی",
     df_c_fail2ban_stopped: ["fail2ban نصب است ولی اجرا نمی‌شود", "fail2ban در حال اجراست"], df_f_fail2ban_stopped: "از تب fail2ban روشنش کنید.",
     df_backup: "پشتیبان‌گیری و بازگردانی", df_backup_sub: "همه‌ی تنظیمات فایروال (قوانین، لیست‌ها، محدودیت‌ها، کشورها، fail2ban) را به‌صورت فایل دانلود کنید، یا فایل یک سرور دیگر را بارگذاری کنید.",
     df_export: "دانلود پشتیبان", df_import: "بازگردانی از فایل", df_import_confirm: "تنظیمات فایروال با تنظیمات {name} جایگزین شود؟ قوانین مثل هر تغییر دیگری ۶۰ ثانیه آزمایش می‌شوند.",
@@ -1614,6 +1736,29 @@
     if (a === "profile") { if (await apply(b, "config", { profile: b.dataset.p, _what: "profile" })) rerender(); return; }
     if (a === "ban") { if (await act(b, () => post("/api/defender/block", { ip: b.dataset.ip, minutes: +b.dataset.min }), `${b.dataset.ip} ✓`)) { D.st.bans++; if (D.tab !== "overview") rerender(); else refreshOverviewSlow(); } return; }
     if (a === "allow") { if (await act(b, () => post("/api/defender/allow", { ip: b.dataset.ip }), `${b.dataset.ip} ✓`)) refreshOverviewSlow(); return; }
+    if (a === "sys-open") return openPort(b, { port: b.dataset.port, proto: b.dataset.proto, note: b.dataset.note });
+    if (a === "ufw") {
+      const enable = b.dataset.act === "enable";
+      if (!(await confirmBox({ message: t(enable ? "df_sys_enable_confirm" : "df_sys_disable_confirm"), label: t(enable ? "df_sys_enable" : "df_sys_disable"), danger: !enable }))) return;
+      const r = await act(b, () => post("/api/defender/sysfw/ufw", { action: b.dataset.act }), t("saved"));
+      if (r) { D.ports = r.rows; D.sysfw = r.sysfw; repaintFw(); }
+      return;
+    }
+    if (a === "ufw-del") {
+      if (!(await confirmBox({ message: t("df_sys_del_confirm", { rule: b.dataset.text }), label: t("df_remove") }))) return;
+      const r = await act(b, () => post("/api/defender/sysfw/ufw", { action: "delete", text: b.dataset.text }), t("saved"));
+      if (r) { D.ports = r.rows; D.sysfw = r.sysfw; repaintFw(); }
+      return;
+    }
+    if (a === "ban-allow") {   // a false positive: lift the ban and never limit this address again
+      const ip = b.dataset.ip, jail = b.dataset.jail;
+      const ok = await act(b, async () => {
+        await post("/api/defender/allow", { ip, note: t("df_ban_trusted_note") });
+        return jail ? post("/api/defender/f2b/unban", { ip, jail }) : post("/api/defender/unban", { ip });
+      }, t("df_ban_trusted", { ip }));
+      if (ok) rerender();
+      return;
+    }
     if (a === "unban") { if (await act(b, () => post("/api/defender/unban", { ip: b.dataset.ip }), `${b.dataset.ip} ✓`)) rerender(); return; }
     if (a === "unblock" || a === "unallow") { if (await act(b, () => post(`/api/defender/${a}`, { ip: b.dataset.ip }), `${b.dataset.ip} ✓`)) rerender(); return; }
     if (a === "fw-mode") {
@@ -1798,6 +1943,14 @@
     if (f === "sv-key") {
       const r = await act(btn, () => post("/api/defender/sshd/key/add", { key: el.key.value }), t("saved"));
       if (r) { D.sv.keys = r.keys; svFormToDraft(); repaintSv(); }
+      return;
+    }
+    if (f === "port-open") {
+      const port = el.port.value.trim().replace(":", "-");
+      if (await openPort(btn, { port, proto: el.proto.value, from: el.from.value.trim(), note: el.note.value.trim() })) {
+        const ff = D.root.querySelector('form[data-f="port-open"]');
+        if (ff) ff.reset();
+      }
       return;
     }
     if (f === "th-set") {

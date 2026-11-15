@@ -136,7 +136,11 @@ def jail_bans(name):
             m = re.match(r"(\S+)\s+(\S+ \S+) \+ (-?\d+) = (\S+ \S+)", str(line))
             if m:
                 until = time.mktime(time.strptime(m.group(4), "%Y-%m-%d %H:%M:%S")) if m.group(3) != "-1" else None
-                rows.append({"ip": m.group(1), "until": until})
+                try:
+                    at = time.mktime(time.strptime(m.group(2), "%Y-%m-%d %H:%M:%S"))
+                except ValueError:
+                    at = None
+                rows.append({"ip": m.group(1), "until": until, "at": at})
             else:
                 rows.append({"ip": str(line).split()[0], "until": None})
     except Exception:
