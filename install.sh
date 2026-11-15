@@ -4997,6 +4997,10 @@ def listening(max_age=20):
     if time.time() - _ports_cache["at"] < max_age:
         return _ports_cache["rows"]
     owners = _inode_owners()
+    try:   # UDP sockets on ports the kernel hands out to clients are outgoing (e.g. VPN/proxy uplinks), not services
+        lo, hi = (int(x) for x in open("/proc/sys/net/ipv4/ip_local_port_range").read().split())
+    except (OSError, ValueError):
+        lo, hi = 32768, 60999
     seen = {}
     for proto, files in (("tcp", ("/proc/net/tcp", "/proc/net/tcp6")), ("udp", ("/proc/net/udp", "/proc/net/udp6"))):
         for path in files:
@@ -5015,6 +5019,8 @@ def listening(max_age=20):
                     continue
                 host_hex, port_hex = local.split(":")
                 addr, port = _hex_addr(host_hex), int(port_hex, 16)
+                if proto == "udp" and lo <= port <= hi:
+                    continue
                 ip = ipaddress.ip_address(addr)
                 public = not (ip.is_loopback or (ip.version == 6 and ip.ipv4_mapped and ip.ipv4_mapped.is_loopback))
                 key = (proto, port)
