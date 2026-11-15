@@ -350,7 +350,7 @@ __MONITORING_EOF__
 <td width="50%" valign="top">
 
 ### 🩺 هوشمند
-- 🛡️ **دیفندر**: فایروال، ضد DDoS، محافظ SSH و سخت‌سازی سرور با تشخیص خودکار حمله
+- 🛡️ **فایروال**: ضد DDoS، مسدود کردن کشورها، مدیریت کامل fail2ban، محافظ SSH و سخت‌سازی سرور با تشخیص خودکار حمله
 - 🔍 **«چرا این سایت خراب است؟»** با توضیح ساده
 - 🪄 **رفع خودکار** سایتی که چک استاندارد را رد می‌کند
 - ⏳ هشدار **انقضای SSL**
@@ -455,7 +455,7 @@ ssh root@SERVER 'bash install.sh'
 | 📡 | **شبکه** | کارت‌های شبکه و مصرف کامل آپلود/دانلود |
 | 🎯 | **تارگت‌ها** | وضعیت منابعی که Prometheus از آن‌ها داده می‌گیرد |
 | 🚨 | **هشدارها** | هشدارهای فعال و در انتظار |
-| 🛡️ | **دیفندر** | فایروال، ضد DDoS، لیست آی‌پی‌ها، محافظ SSH و امتیاز امنیت (پایین‌تر کامل توضیح داده شده) |
+| 🛡️ | **فایروال** | ضد DDoS، کشورها، لیست آی‌پی‌ها، محافظ SSH، fail2ban و امتیاز امنیت (پایین‌تر کامل توضیح داده شده) |
 | 🖥️ | **سرورها** | افزودن و حذف سرورهای دیگر |
 | 🔔 | **اعلان‌ها** | اتصال و تست تلگرام |
 | 🎚️ | **قوانین هشدار** | روشن/خاموش و تغییر آستانه‌ها |
@@ -553,32 +553,35 @@ ssh root@SERVER 'bash install.sh'
 
 <br>
 
-## 🛡️ دیفندر (فایروال و ضد DDoS)
+## 🛡️ فایروال (ضد DDoS، کشورها، fail2ban)
 
-صفحه‌ی **دیفندر** در پنل، فایروال، محافظت در برابر DDoS، محافظ حمله‌ی رمز SSH و سخت‌سازی سرور را یک جا جمع می‌کند. کار سطح پایین را یک سرویس جدا به نام `defender` انجام می‌دهد (nftables روی خود سرور) و پنل فقط از طریق یک سوکت با آن حرف می‌زند.
+صفحه‌ی **فایروال** در پنل، قوانین پورت، محافظت در برابر DDoS، مسدود کردن کشورها، مدیریت fail2ban، محافظ حمله‌ی رمز SSH و سخت‌سازی سرور را یک جا جمع می‌کند. کار سطح پایین را یک سرویس جدا به نام `defender` انجام می‌دهد (nftables روی خود سرور) و پنل فقط از طریق یک سوکت با آن حرف می‌زند.
 
-> 🟢 **بعد از نصب، محافظت خاموش است** و دیفندر فقط نگاه می‌کند (آمار، بررسی امنیتی). از تب «نمای کلی» دیفندر روشنش کنید.
+> 🟢 **بعد از نصب، محافظت خاموش است** و فایروال فقط نگاه می‌کند (آمار، بررسی امنیتی). از تب «نمای کلی» صفحه‌ی فایروال روشنش کنید.
 
 ### چه می‌کند
 
 | | بخش | کار |
 |:-:|---|---|
 | 📊 | **نمای کلی** | وضعیت محافظت، بسته‌ها و ترافیک ورودی، اتصال‌های جدید، مسدودشده‌ها (هر ۲ ثانیه)، نمودار ۵ دقیقه‌ی اخیر، دلیل مسدودی‌ها، پرترافیک‌ترین آی‌پی‌ها با دکمه‌ی مسدود/مجاز، رویدادها |
-| 🔥 | **فایروال** | حالت **باز** (فقط ترافیک مخرب بسته می‌شود) یا **سخت‌گیر** (فقط پورت‌های مجاز)، لیست سرویس‌هایی که از اینترنت باز هستند، قانون پورت با محدودیت منبع («این پورت فقط از این آی‌پی»)، اینترفیس‌های مورد اعتماد (VPN و تانل)، دیدن قوانین nftables قبل از اعمال |
+| 🔥 | **پورت‌ها و قوانین** | حالت **باز** (فقط ترافیک مخرب بسته می‌شود) یا **سخت‌گیر** (فقط پورت‌های مجاز)، لیست سرویس‌هایی که از اینترنت باز هستند، قانون پورت با محدودیت منبع («این پورت فقط از این آی‌پی»)، اینترفیس‌های مورد اعتماد (VPN و تانل)، دیدن قوانین nftables قبل از اعمال |
 | ⚡ | **ضد DDoS** | سه سطح آماده (عادی، سخت‌گیر، زیر حمله) و تنظیم دستی؛ برای هر آی‌پی: SYN فلاد، فلاد اتصال، اتصال هم‌زمان بیش از حد، UDP فلاد، پینگ فلاد، بسته‌های نامعتبر و اسکن پورت. هر کس ۳ برابر حد برود خودکار مسدود می‌شود |
 | 🚨 | **تشخیص حمله** | با دیدن حمله، خودکار به حالت «زیر حمله» می‌رود و ۱۰ دقیقه بعد از پایان برمی‌گردد؛ پیام تلگرام شروع و پایان حمله |
-| 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول مسدودهای فعلی (فلاد، محافظ SSH، دستی، fail2ban) |
+| 🌍 | **کشورها** | مسدود کردن کشورها با جستجو (نام فارسی و انگلیسی)؛ لیست آی‌پی هر کشور از ipdeny.com، با بروزرسانی هفتگی. ادمین‌ها، لیست سفید و Cloudflare مسدود نمی‌شوند |
+| 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول همه‌ی مسدودها (فلاد، محافظ SSH، دستی و fail2ban با نام جیل) و رفع مسدودی از همان‌جا |
 | 🔑 | **محافظ SSH** | خواندن لاگ ورود و مسدود کردن آی‌پی‌هایی که مدام رمز اشتباه می‌زنند، به‌علاوه‌ی محدودیت اتصال جدید به SSH |
-| 🧱 | **سخت‌سازی** | امتیاز امنیت و بررسی‌ها (ورود root با رمز، دیتابیس باز به اینترنت، آپدیت خودکار، ری‌بوت لازم، …) با راه رفع؛ تنظیمات شبکه‌ی کرنل با یک کلیک (و بازگشت به مقدار اصلی) |
+| 🚔 | **fail2ban** | نصب و حذف با یک کلیک، شروع/توقف/ری‌استارت و اجرا هنگام بوت؛ هر جیل یک کارت با کلید روشن/خاموش، آمار مسدودها و تنظیمات ساده («۳ خطا در ۳۰ دقیقه ← ۱ ساعت مسدودی»)؛ محافظت‌های آماده (Nginx، Apache، ایمیل، FTP، MySQL، متخلفان تکراری) فقط وقتی آن سرویس هست؛ مسدودی تکراری طولانی‌تر، لیست «هرگز مسدود نشود»، مسدود/رفع مسدودی دستی و لاگ |
+| 🧱 | **سخت‌سازی** | امتیاز امنیت و بررسی‌ها (ورود root با رمز، دیتابیس باز به اینترنت، آپدیت خودکار، ری‌بوت لازم، fail2ban متوقف، …) با راه رفع؛ تنظیمات شبکه‌ی کرنل با یک کلیک (و بازگشت به مقدار اصلی)؛ **پشتیبان‌گیری و بازگردانی** همه‌ی تنظیمات فایروال و fail2ban در یک فایل |
 
 ### ایمنی (تا هرگز خودتان را بیرون نیندازید)
 
 - پورت **SSH** و پورت **پنل** همیشه باز می‌مانند؛ لوپ‌بک، داکر و تانل‌ها (`wg*`، `gre*`، `tun*`، …) هرگز فیلتر نمی‌شوند.
 - آی‌پی کسانی که با SSH وارد شده‌اند (الان یا در ۷ روز اخیر، از جمله اسکریپت‌ها و ابزارهایی که با SSH فرمان می‌زنند) خودکار مجاز است و آدرس خود سرور هرگز مسدود نمی‌شود.
-- آی‌پی‌های **Cloudflare** از محدودیت هر آی‌پی معاف‌اند (قابل خاموش کردن در تب فایروال)، چون همه‌ی کاربران سایت یا پروکسی پشت Cloudflare از همین آی‌پی‌ها می‌آیند.
+- آی‌پی‌های **Cloudflare** از محدودیت هر آی‌پی معاف‌اند (قابل خاموش کردن در تب «پورت‌ها و قوانین»)، چون همه‌ی کاربران سایت یا پروکسی پشت Cloudflare از همین آی‌پی‌ها می‌آیند.
 - هر تغییر فایروال **۶۰ ثانیه آزمایش** می‌شود؛ مرورگر بلافاصله تأیید می‌کند و اگر پنل دیگر در دسترس نباشد، تغییر خودش برمی‌گردد.
 - همه‌ی قوانین در یک جدول جدا (`inet defender`) هستند و فقط می‌توانند **محدود کنند**؛ قوانین داکر، fail2ban و ufw دست نمی‌خورند.
 - رفتن به حالت سخت‌گیر، همه‌ی پورت‌هایی که الان استفاده می‌شوند را از قبل در لیست مجاز می‌گذارد.
+- تنظیمات fail2ban که از پنل عوض می‌شوند فقط در فایل جدای `/etc/fail2ban/jail.d/zzz-panel.local` نوشته می‌شوند (فایل‌های خودتان دست نمی‌خورند)؛ هر تغییر اول با `fail2ban-client -t` بررسی می‌شود و اگر رد شود فایل قبلی برمی‌گردد.
 
 **کلید اضطراری** (اگر هر اتفاقی افتاد، از کنسول سرور):
 
@@ -586,7 +589,7 @@ ssh root@SERVER 'bash install.sh'
 nft delete table inet defender
 ```
 
-> ℹ️ دیفندر فلاد شبکه (L3/L4) را دفع می‌کند. فلاد درخواست‌های معتبر HTTP (L7) و حمله‌هایی که از ظرفیت خود لینک شبکه بزرگ‌ترند را باید CDN یا سرویس ضد DDoS دیتاسنتر بگیرد.
+> ℹ️ فایروال فلاد شبکه (L3/L4) را دفع می‌کند. فلاد درخواست‌های معتبر HTTP (L7) و حمله‌هایی که از ظرفیت خود لینک شبکه بزرگ‌ترند را باید CDN یا سرویس ضد DDoS دیتاسنتر بگیرد.
 
 ## 🔐 امنیت
 
@@ -777,9 +780,9 @@ docker compose restart panel
 │   ├── monitor.py            #   کوئری‌های فقط‌خواندنی Prometheus
 │   ├── hostip.py             #   پیدا کردن آی‌پی عمومی
 │   ├── live.py               #   آمار زنده‌ی هر ثانیه
-│   ├── defender.py           #   رابط پنل با دیفندر و اعلان تلگرام
+│   ├── defender.py           #   رابط پنل با فایروال و اعلان تلگرام
 │   └── static/               #   رابط کاربری
-├── defender/                 # سرویس دیفندر (nftables، ضد DDoS، محافظ SSH، بررسی امنیتی)
+├── defender/                 # سرویس فایروال (nftables، ضد DDoS، کشورها، fail2ban، محافظ SSH، بررسی امنیتی)
 ├── prometheus/ blackbox/     # تنظیمات
 ├── scripts/                  # ساخت نصب‌کننده و ابزارها
 └── docs/screenshots/         # تصاویر این صفحه
@@ -4000,6 +4003,8 @@ __MONITORING_EOF__
       return regionNames.of(cc.toUpperCase()) || cc.toUpperCase();
     } catch (e) { return cc.toUpperCase(); }
   };
+  let enNames = null;
+  const ccEnglish = (cc) => { try { enNames = enNames || new Intl.DisplayNames(["en"], { type: "region" }); return enNames.of(cc.toUpperCase()) || ""; } catch (e) { return ""; } };
   const flag = (cc) => String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e6 - 65 + c.charCodeAt(0)));
 
   async function renderCountries() {
@@ -4014,7 +4019,7 @@ __MONITORING_EOF__
     const chips = D.geo.length ? D.geo.map((cc) => `<span class="chip">${flag(cc)} <b>${esc(ccName(cc))}</b>${D.geoInfo[cc] ? `<small class="muted">${esc(t("df_geo_ranges", { n: nf(D.geoInfo[cc].ranges, 0) }))}</small>` : ""}<button type="button" class="chip-x" data-a="geo-del" data-cc="${cc}" aria-label="${esc(t("df_remove"))} ${esc(ccName(cc))}">${icon("x")}</button></span>`).join("")
       : `<span class="muted">${esc(t("df_geo_none"))}</span>`;
     const q = (D.geoQ || "").trim().toLowerCase();
-    const list = COUNTRIES.map((cc) => [cc, ccName(cc)]).filter(([cc, n]) => !q || cc.includes(q) || n.toLowerCase().includes(q)).sort((a, b) => a[1].localeCompare(b[1], P.state.lang))
+    const list = COUNTRIES.map((cc) => [cc, ccName(cc)]).filter(([cc, n]) => !q || cc.includes(q) || n.toLowerCase().includes(q) || ccEnglish(cc).toLowerCase().includes(q)).sort((a, b) => a[1].localeCompare(b[1], P.state.lang))
       .map(([cc, n]) => `<label class="geo-item${sel.has(cc) ? " on" : ""}"><input type="checkbox" data-geo="${cc}" ${sel.has(cc) ? "checked" : ""}><span class="geo-flag">${flag(cc)}</span><span>${esc(n)}</span><code>${cc.toUpperCase()}</code></label>`).join("");
     return `<section class="sec"><div class="sec-head"><h3>${icon("globe")}${esc(t("df_geo_title"))}</h3><p class="muted">${esc(t("df_geo_sub"))}</p></div>
         <div class="notice warn">${icon("alert")}<span>${esc(t("df_geo_warn"))}</span></div>
@@ -4023,9 +4028,9 @@ __MONITORING_EOF__
       <section class="sec"><div class="sec-head df-head-row"><h3>${icon("list")}${esc(t("df_geo_all"))}</h3>
         <input type="search" class="df-filter" id="df-geo-q" value="${esc(D.geoQ || "")}" placeholder="${esc(t("df_geo_search"))}" aria-label="${esc(t("df_geo_search"))}"></div>
         <div class="geo-grid" id="df-geo-list">${list}</div></section>
-      <div class="df-actions${dirty ? " dirty" : ""}"><span class="muted">${dirty ? esc(t("df_dirty")) : ""}</span>
-        <button type="button" class="btn" data-a="geo-reset" ${dirty ? "" : "disabled"}>${esc(t("df_discard"))}</button>
-        <button type="button" class="btn primary" data-a="geo-apply" ${dirty ? "" : "disabled"}>${icon("check")}<span>${esc(t("df_apply"))}</span></button></div>`;
+      ${dirty ? `<div class="df-actions dirty"><span class="muted">${esc(t("df_dirty"))}</span>
+        <button type="button" class="btn" data-a="geo-reset">${esc(t("df_discard"))}</button>
+        <button type="button" class="btn primary" data-a="geo-apply">${icon("check")}<span>${esc(t("df_apply"))}</span></button></div>` : ""}`;
   }
   const repaintGeo = (keepFocus) => {
     const b = D.root.querySelector("#df-body");
@@ -6183,9 +6188,18 @@ def _run_job(action, steps):
                 ok = False
                 break
         JOB.update(running=False, ok=ok, ended=time.time())
+        _cache["at"] = 0   # installed / running changed: the next overview reads them again
 
     threading.Thread(target=work, daemon=True).start()
     return dict(JOB)
+
+
+def has_systemd():
+    return any(os.path.exists(hostinfo.host_path(p)) for p in ("/usr/bin/systemctl", "/bin/systemctl")) and         os.path.isdir(hostinfo.host_path("/run/systemd/system"))
+
+
+def _start_step():
+    return ["systemctl", "enable", "--now", "fail2ban"] if has_systemd() else ["fail2ban-client", "start"]
 
 
 def install():
@@ -6193,10 +6207,9 @@ def install():
     if installed():
         raise ValueError("fail2ban is already installed")
     if pm == "apt":
-        steps = [["apt-get", "update", "-q"], ["apt-get", "install", "-y", "-q", "fail2ban"],
-                 ["systemctl", "enable", "--now", "fail2ban"]]
+        steps = [["apt-get", "update", "-q"], ["apt-get", "install", "-y", "-q", "fail2ban"], _start_step()]
     elif pm in ("dnf", "yum"):
-        steps = [[pm, "install", "-y", "epel-release"], [pm, "install", "-y", "fail2ban"], ["systemctl", "enable", "--now", "fail2ban"]]
+        steps = [[pm, "install", "-y", "epel-release"], [pm, "install", "-y", "fail2ban"], _start_step()]
     else:
         raise ValueError("No supported package manager (apt, dnf, yum) on this server")
     return _run_job("install", steps)
@@ -6206,7 +6219,7 @@ def uninstall(purge=False):
     pm = package_manager()
     if not installed():
         raise ValueError("fail2ban is not installed")
-    stop = ["systemctl", "disable", "--now", "fail2ban"]
+    stop = ["systemctl", "disable", "--now", "fail2ban"] if has_systemd() else ["sh", "-c", "fail2ban-client stop || true"]
     if pm == "apt":
         steps = [stop, ["apt-get", "purge" if purge else "remove", "-y", "-q", "fail2ban"]]
     elif pm in ("dnf", "yum"):
@@ -6225,16 +6238,31 @@ def service(action):
     if action == "reload":
         if not running():
             raise ValueError("fail2ban is not running")
-        call("reload", timeout=60)
+        reload()
         return
     if action not in SERVICE_ACTIONS:
         raise ValueError("unknown action")
-    rc, out = host(SERVICE_ACTIONS[action], timeout=90)
+    cmd = SERVICE_ACTIONS[action]
+    if not has_systemd():   # containers and old init systems: drive the server directly
+        if action in ("enable", "disable"):
+            raise ValueError("Starting at boot needs systemd, which this server does not use")
+        cmd = {"start": ["fail2ban-client", "start"], "stop": ["fail2ban-client", "stop"], "restart": ["fail2ban-client", "restart"]}[action]
+    rc, out = host(cmd, timeout=90)
     if rc != 0:
         raise ValueError(out[-600:] or f"systemctl failed ({rc})")
 
 
+def reload():
+    """fail2ban-client reads the configuration itself and hands it to the server, so a reload has to go
+    through it (the raw socket command needs the parsed configuration)."""
+    rc, out = host(["fail2ban-client", "reload"], timeout=120)
+    if rc != 0:
+        raise ValueError(f"fail2ban could not reload: {out[-600:]}")
+
+
 def unit_state():
+    if not has_systemd():
+        return ("active" if running() else "inactive"), "n/a"
     rc, active = host(["systemctl", "is-active", "fail2ban"], timeout=15)
     rc2, boot = host(["systemctl", "is-enabled", "fail2ban"], timeout=15)
     return active.splitlines()[-1] if active else "", boot.splitlines()[-1] if boot else ""
@@ -6334,7 +6362,7 @@ def write_settings(managed):
         lines = [ln for ln in out.splitlines() if "ERROR" in ln or "rror" in ln] or out.splitlines()
         raise ValueError("fail2ban rejected the settings, nothing changed: " + " / ".join(lines[-3:])[-600:])
     if running():
-        call("reload", timeout=90)
+        reload()
 
 
 # ------------------------------------------------------------------ overview for the panel

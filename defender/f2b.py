@@ -187,9 +187,18 @@ def _run_job(action, steps):
                 ok = False
                 break
         JOB.update(running=False, ok=ok, ended=time.time())
+        _cache["at"] = 0   # installed / running changed: the next overview reads them again
 
     threading.Thread(target=work, daemon=True).start()
     return dict(JOB)
+
+
+def has_systemd():
+    return any(os.path.exists(hostinfo.host_path(p)) for p in ("/usr/bin/systemctl", "/bin/systemctl")) and         os.path.isdir(hostinfo.host_path("/run/systemd/system"))
+
+
+def _start_step():
+    return ["systemctl", "enable", "--now", "fail2ban"] if has_systemd() else ["fail2ban-client", "start"]
 
 
 def install():
@@ -197,10 +206,9 @@ def install():
     if installed():
         raise ValueError("fail2ban is already installed")
     if pm == "apt":
-        steps = [["apt-get", "update", "-q"], ["apt-get", "install", "-y", "-q", "fail2ban"],
-                 ["systemctl", "enable", "--now", "fail2ban"]]
+        steps = [["apt-get", "update", "-q"], ["apt-get", "install", "-y", "-q", "fail2ban"], _start_step()]
     elif pm in ("dnf", "yum"):
-        steps = [[pm, "install", "-y", "epel-release"], [pm, "install", "-y", "fail2ban"], ["systemctl", "enable", "--now", "fail2ban"]]
+        steps = [[pm, "install", "-y", "epel-release"], [pm, "install", "-y", "fail2ban"], _start_step()]
     else:
         raise ValueError("No supported package manager (apt, dnf, yum) on this server")
     return _run_job("install", steps)
@@ -210,7 +218,7 @@ def uninstall(purge=False):
     pm = package_manager()
     if not installed():
         raise ValueError("fail2ban is not installed")
-    stop = ["systemctl", "disable", "--now", "fail2ban"]
+    stop = ["systemctl", "disable", "--now", "fail2ban"] if has_systemd() else ["sh", "-c", "fail2ban-client stop || true"]
     if pm == "apt":
         steps = [stop, ["apt-get", "purge" if purge else "remove", "-y", "-q", "fail2ban"]]
     elif pm in ("dnf", "yum"):
@@ -229,16 +237,31 @@ def service(action):
     if action == "reload":
         if not running():
             raise ValueError("fail2ban is not running")
-        call("reload", timeout=60)
+        reload()
         return
     if action not in SERVICE_ACTIONS:
         raise ValueError("unknown action")
-    rc, out = host(SERVICE_ACTIONS[action], timeout=90)
+    cmd = SERVICE_ACTIONS[action]
+    if not has_systemd():   # containers and old init systems: drive the server directly
+        if action in ("enable", "disable"):
+            raise ValueError("Starting at boot needs systemd, which this server does not use")
+        cmd = {"start": ["fail2ban-client", "start"], "stop": ["fail2ban-client", "stop"], "restart": ["fail2ban-client", "restart"]}[action]
+    rc, out = host(cmd, timeout=90)
     if rc != 0:
         raise ValueError(out[-600:] or f"systemctl failed ({rc})")
 
 
+def reload():
+    """fail2ban-client reads the configuration itself and hands it to the server, so a reload has to go
+    through it (the raw socket command needs the parsed configuration)."""
+    rc, out = host(["fail2ban-client", "reload"], timeout=120)
+    if rc != 0:
+        raise ValueError(f"fail2ban could not reload: {out[-600:]}")
+
+
 def unit_state():
+    if not has_systemd():
+        return ("active" if running() else "inactive"), "n/a"
     rc, active = host(["systemctl", "is-active", "fail2ban"], timeout=15)
     rc2, boot = host(["systemctl", "is-enabled", "fail2ban"], timeout=15)
     return active.splitlines()[-1] if active else "", boot.splitlines()[-1] if boot else ""
@@ -338,7 +361,7 @@ def write_settings(managed):
         lines = [ln for ln in out.splitlines() if "ERROR" in ln or "rror" in ln] or out.splitlines()
         raise ValueError("fail2ban rejected the settings, nothing changed: " + " / ".join(lines[-3:])[-600:])
     if running():
-        call("reload", timeout=90)
+        reload()
 
 
 # ------------------------------------------------------------------ overview for the panel

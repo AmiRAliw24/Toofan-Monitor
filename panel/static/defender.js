@@ -694,6 +694,8 @@
       return regionNames.of(cc.toUpperCase()) || cc.toUpperCase();
     } catch (e) { return cc.toUpperCase(); }
   };
+  let enNames = null;
+  const ccEnglish = (cc) => { try { enNames = enNames || new Intl.DisplayNames(["en"], { type: "region" }); return enNames.of(cc.toUpperCase()) || ""; } catch (e) { return ""; } };
   const flag = (cc) => String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e6 - 65 + c.charCodeAt(0)));
 
   async function renderCountries() {
@@ -708,7 +710,7 @@
     const chips = D.geo.length ? D.geo.map((cc) => `<span class="chip">${flag(cc)} <b>${esc(ccName(cc))}</b>${D.geoInfo[cc] ? `<small class="muted">${esc(t("df_geo_ranges", { n: nf(D.geoInfo[cc].ranges, 0) }))}</small>` : ""}<button type="button" class="chip-x" data-a="geo-del" data-cc="${cc}" aria-label="${esc(t("df_remove"))} ${esc(ccName(cc))}">${icon("x")}</button></span>`).join("")
       : `<span class="muted">${esc(t("df_geo_none"))}</span>`;
     const q = (D.geoQ || "").trim().toLowerCase();
-    const list = COUNTRIES.map((cc) => [cc, ccName(cc)]).filter(([cc, n]) => !q || cc.includes(q) || n.toLowerCase().includes(q)).sort((a, b) => a[1].localeCompare(b[1], P.state.lang))
+    const list = COUNTRIES.map((cc) => [cc, ccName(cc)]).filter(([cc, n]) => !q || cc.includes(q) || n.toLowerCase().includes(q) || ccEnglish(cc).toLowerCase().includes(q)).sort((a, b) => a[1].localeCompare(b[1], P.state.lang))
       .map(([cc, n]) => `<label class="geo-item${sel.has(cc) ? " on" : ""}"><input type="checkbox" data-geo="${cc}" ${sel.has(cc) ? "checked" : ""}><span class="geo-flag">${flag(cc)}</span><span>${esc(n)}</span><code>${cc.toUpperCase()}</code></label>`).join("");
     return `<section class="sec"><div class="sec-head"><h3>${icon("globe")}${esc(t("df_geo_title"))}</h3><p class="muted">${esc(t("df_geo_sub"))}</p></div>
         <div class="notice warn">${icon("alert")}<span>${esc(t("df_geo_warn"))}</span></div>
@@ -717,9 +719,9 @@
       <section class="sec"><div class="sec-head df-head-row"><h3>${icon("list")}${esc(t("df_geo_all"))}</h3>
         <input type="search" class="df-filter" id="df-geo-q" value="${esc(D.geoQ || "")}" placeholder="${esc(t("df_geo_search"))}" aria-label="${esc(t("df_geo_search"))}"></div>
         <div class="geo-grid" id="df-geo-list">${list}</div></section>
-      <div class="df-actions${dirty ? " dirty" : ""}"><span class="muted">${dirty ? esc(t("df_dirty")) : ""}</span>
-        <button type="button" class="btn" data-a="geo-reset" ${dirty ? "" : "disabled"}>${esc(t("df_discard"))}</button>
-        <button type="button" class="btn primary" data-a="geo-apply" ${dirty ? "" : "disabled"}>${icon("check")}<span>${esc(t("df_apply"))}</span></button></div>`;
+      ${dirty ? `<div class="df-actions dirty"><span class="muted">${esc(t("df_dirty"))}</span>
+        <button type="button" class="btn" data-a="geo-reset">${esc(t("df_discard"))}</button>
+        <button type="button" class="btn primary" data-a="geo-apply">${icon("check")}<span>${esc(t("df_apply"))}</span></button></div>` : ""}`;
   }
   const repaintGeo = (keepFocus) => {
     const b = D.root.querySelector("#df-body");
