@@ -279,7 +279,7 @@ __MONITORING_EOF__
 
 # 🛰️ مانیتورینگ کامل سرور
 
-**یک پنل وب شیک و فارسی برای دیدن حال سرور، سایت‌ها و کانتینرها و مدیریت همه‌چیز، بدون حتی یک بار رفتن به خط فرمان.**
+**یک پنل وب شیک و فارسی برای دیدن حال سرور و سایت‌ها و مدیریت همه‌چیز، بدون حتی یک بار رفتن به خط فرمان.**
 
 ![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![Prometheus](https://img.shields.io/badge/Prometheus-2.55-E6522C?logo=prometheus&logoColor=white)
@@ -307,7 +307,6 @@ __MONITORING_EOF__
 - **نمودارهای تعاملی** با خط راهنما، تولتیپ و نمای جدولی
 - **ترافیک شبکه** کامل: دانلود و آپلود امروز، ۷ و ۳۰ روز
 - **آی‌پی عمومی** IPv4 و IPv6 سرور (با یک کلیک کپی)
-- **کانتینرهای Docker** با مصرف CPU و رم
 
 </td>
 <td width="50%" valign="top">
@@ -315,7 +314,6 @@ __MONITORING_EOF__
 ### 🧰 مدیریت از پنل
 - 🌐 افزودن و حذف **سایت** و **پورت TCP**
 - 🖥️ افزودن **سرورهای دیگر**
-- 📦 شروع، توقف، لاگ و **ساخت کانتینر**
 - 🔔 اتصال **ربات تلگرام** و تست هشدار
 - 🎚️ تغییر **آستانه‌ی هشدارها**
 - 🔑 تغییر نام کاربری و رمز
@@ -425,7 +423,6 @@ ssh root@SERVER 'bash install.sh'
 | | صفحه | چه چیزی نشان می‌دهد |
 |:-:|---|---|
 | 🏠 | **نمای کلی** | وضعیت کلی، گیج‌ها، کارت‌های آماری، نمودارهای CPU، رم، شبکه و load |
-| 📦 | **کانتینرها** | همه‌ی کانتینرها با وضعیت، CPU، رم، پورت و دکمه‌های مدیریت |
 | 🌐 | **سایت‌ها** | آپتایم، زمان پاسخ، کد HTTP و انقضای SSL سایت‌ها و پورت‌ها |
 | 💽 | **دیسک‌ها** | مصرف هر پارتیشن |
 | 📡 | **شبکه** | کارت‌های شبکه و مصرف کامل آپلود/دانلود |
@@ -489,10 +486,9 @@ ssh root@SERVER 'bash install.sh'
 | | بخش | کارها |
 |:-:|---|---|
 | 🖥️ | **سرورها** | افزودن و حذف سرورهای دیگر (با `node_exporter`)؛ دستور نصب روی سرور مقصد را همان‌جا می‌دهد |
-| 📦 | **کانتینرها** | شروع، توقف، ری‌استارت، دیدن لاگ، حذف و **ساخت کانتینر جدید** (ایمیج، پورت، متغیر محیطی، ولیوم، سیاست ری‌استارت) |
 | 🔔 | **اعلان‌ها** | اتصال ربات تلگرام (با دکمه‌ی «پیدا کردن Chat ID»)، پیام آزمایشی و هشدار آزمایشی |
 | 🎚️ | **قوانین هشدار** | روشن/خاموش کردن هر قانون و تغییر آستانه و مدت پایداری (مثلاً CPU بالای ۷۰٪ به‌جای ۸۵٪)، با دکمه‌ی بازگشت به پیش‌فرض |
-| ⚙️ | **تنظیمات** | تغییر نام کاربری و رمز، وضعیت کنترل داکر، رفع خودکار |
+| ⚙️ | **تنظیمات** | تغییر نام کاربری و رمز، وضعیت دسترسی داکر، رفع خودکار |
 
 ### 📱 روی گوشی و تبلت
 
@@ -531,13 +527,13 @@ ssh root@SERVER 'bash install.sh'
 
 ## 🔐 امنیت
 
-> ⚠️ **مهم:** کنترل داکر یعنی دسترسی به `/var/run/docker.sock` و **هر کسی که وارد پنل شود در عمل روی کل سرور مدیر (root) است.** رمز قوی بگذارید و جلوی پنل HTTPS (مثلاً Caddy یا Nginx) قرار دهید؛ پنل روی HTTP ساده رمز را رمزنگاری نمی‌کند.
+> ⚠️ **مهم:** پنل به `/var/run/docker.sock` دسترسی دارد (فقط برای دیدن وضعیت کانتینرهای خود استک و ری‌استارت سرویس متوقف از صفحه‌ی «پیدا کردن دلیل»)، و **هر کسی که به این سوکت برسد روی کل سرور root است.** رمز قوی بگذارید و جلوی پنل HTTPS (مثلاً Caddy یا Nginx) قرار دهید؛ پنل روی HTTP ساده رمز را رمزنگاری نمی‌کند.
 
-- 🔒 برای **فقط‌خواندنی** کردن لیست کانتینرها در `.env` بنویسید `PANEL_DOCKER_CONTROL=0` و `docker compose up -d` را بزنید.
+- 🔒 برای قطع کامل دسترسی پنل به داکر در `.env` بنویسید `PANEL_DOCKER_CONTROL=0` و `docker compose up -d` را بزنید (صفحه‌ی «پیدا کردن دلیل» آن‌وقت وضعیت کانتینرها را نشان نمی‌دهد).
 - ⏱️ ورود اشتباه با **تأخیر یک‌ثانیه‌ای** رد می‌شود؛ کوکی نشست `HttpOnly` و `SameSite=Strict` است.
 - 🛡️ همه‌ی عملیات تغییر (POST) هدر `X-Panel` و Origin درست می‌خواهند (محافظت CSRF).
 - 👁️ داده‌ها را فقط‌خواندنی از Prometheus می‌گیرد؛ کوئری دلخواه از بیرون پذیرفته نمی‌شود.
-- ✅ ورودی‌های ساخت کانتینر (ایمیج، پورت، env، ولیوم) سخت‌گیرانه اعتبارسنجی می‌شوند و پنل نمی‌تواند کانتینر خودش را متوقف یا حذف کند.
+- ✅ پنل فقط می‌تواند سرویس‌های همین استک را شروع یا ری‌استارت کند؛ ساختن، متوقف کردن یا حذف کانتینر از پنل ممکن نیست.
 - 🧱 پورت پنل باید در فایروال سرور و پنل هاستینگ باز باشد. Prometheus و Alertmanager فقط روی `127.0.0.1` باز می‌شوند.
 - 🔗 اگر پنل را روی `127.0.0.1` گذاشتید، از کامپیوتر خودتان با `ssh -L 3000:127.0.0.1:3000 root@SERVER` وصل شوید.
 
@@ -566,7 +562,7 @@ rm data/panel/auth.json && docker compose restart panel
 | `PANEL_USER` / `PANEL_PASSWORD` | `admin` / (الزامی) | ورود به پنل |
 | `PANEL_PORT` | `3000` | پورت پنل (اگر اشغال باشد نصب‌کننده پورت آزاد پیدا می‌کند) |
 | `PANEL_BIND` | `0.0.0.0` | آدرس listen؛ برای فقط‌محلی `127.0.0.1` |
-| `PANEL_DOCKER_CONTROL` | `1` | `0` یعنی کانتینرها فقط‌خواندنی |
+| `PANEL_DOCKER_CONTROL` | `1` | `0` یعنی پنل اصلاً به داکر دسترسی ندارد |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | خالی | اتصال اولیه‌ی تلگرام (بعداً از صفحه‌ی اعلان‌ها هم می‌شود) |
 | `PROMETHEUS_RETENTION` | `30d` | مدت نگهداری داده‌ها |
 | `PUBLIC_IP_LOOKUP` | `1` | `0` یعنی نمایش آی‌پی عمومی خاموش |
@@ -939,24 +935,6 @@ class BadRequest(ValueError):
 
 # ------------------------------------------------------------------ read API
 
-def api_containers(_q):
-    metrics = monitor.container_metrics()          # keyed by short container id
-    by_name = {m["name"]: m for m in metrics.values() if m["name"]}
-    now = time.time()
-    if dockerapi.available():
-        rows = []
-        for c in dockerapi.list_containers():
-            m = metrics.get(c["id"]) or by_name.get(c["name"]) or {}
-            running = c["state"] == "running"
-            rows.append({**c, "cpu": m.get("cpu") if running else None, "mem": m.get("mem") if running else None,
-                         "uptime": (now - m["started"]) if running and m.get("started") else None})
-        return {"docker": True, "rows": rows}
-    return {"docker": False, "rows": [
-        {"id": "", "name": m["name"] or cid, "image": "", "state": "running", "status": "", "ports": [], "stack": False,
-         "self": False, "cpu": m["cpu"], "mem": m["mem"], "uptime": (now - m["started"]) if m.get("started") else None}
-        for cid, m in sorted(metrics.items(), key=lambda kv: kv[1]["name"] or kv[0])]}
-
-
 def api_checks(_q):
     return {**{k: store.list_targets(k) for k in store.KINDS}, "auto": {"enabled": store.auto_enabled(), "events": store.auto_events()}}
 
@@ -975,12 +953,8 @@ def api_health(_q):
     return health.diagnose()
 
 
-def api_docker_logs(q):
-    return dockerapi.logs(q.get("id", ""), q.get("tail", 200))
-
-
-GET_API = {**monitor.READ_API, "/api/containers": api_containers, "/api/checks": api_checks, "/api/rules": api_rules,
-           "/api/settings": api_settings, "/api/docker/logs": api_docker_logs, "/api/health": api_health}
+GET_API = {**monitor.READ_API, "/api/checks": api_checks, "/api/rules": api_rules,
+           "/api/settings": api_settings, "/api/health": api_health}
 
 
 # ------------------------------------------------------------------ management API (POST)
@@ -1055,11 +1029,8 @@ def post_rules_reset(_b, _h):
 
 
 def post_docker_action(b, _h):
-    return dockerapi.act(str(b.get("id", "")), str(b.get("action", "")))
-
-
-def post_docker_run(b, _h):
-    return dockerapi.run(b)
+    # Only used by the self-diagnosis page: bring a stopped service of the monitoring stack back.
+    return dockerapi.revive(str(b.get("id", "")), str(b.get("action", "")))
 
 
 def post_password(b, h):
@@ -1074,7 +1045,7 @@ POST_API = {
     "/api/telegram/save": post_telegram_save, "/api/telegram/test": post_telegram_test,
     "/api/telegram/chats": post_telegram_chats, "/api/telegram/remove": post_telegram_remove,
     "/api/alerts/test": post_alert_test, "/api/rules/set": post_rules_set, "/api/rules/reset": post_rules_reset,
-    "/api/docker/action": post_docker_action, "/api/docker/run": post_docker_run, "/api/password": post_password,
+    "/api/docker/action": post_docker_action, "/api/password": post_password,
 }
 
 # ------------------------------------------------------------------ http
@@ -1707,7 +1678,7 @@ def migrate_legacy():
 # ------------------------------------------------------------------ alert rules
 
 HOST_FS = 'fstype!~"tmpfs|overlay|squashfs"'
-DOCKER_CG = r'id=~".*docker[-/][a-f0-9]{64}(\\.scope)?"'   # see monitor.CG_DOCKER: match containers by id
+DOCKER_CG = r'id=~".*docker[-/][a-f0-9]{64}(\\.scope)?"'   # cAdvisor's name label is often missing; match containers by id
 CONTAINER = "{{ if $labels.name }}{{ $labels.name }}{{ else }}{{ $labels.id }}{{ end }}"
 RULES = [
     {"name": "InstanceDown", "group": "host", "severity": "critical", "for": 2, "expr": "up == 0",
@@ -2106,14 +2077,15 @@ __MONITORING_EOF__
 """Minimal Docker Engine API client over the unix socket (standard library only).
 
 Mounting the Docker socket gives whoever controls it root on the host, so everything that reaches the
-daemon is validated here: ids, names, image references, ports, env vars and volume paths.
+daemon is validated here. The panel only reads the state and logs of its own stack and can start or
+restart a stopped service of that stack (from the self-diagnosis page); nothing else.
 """
 import http.client
 import json
 import os
 import re
 import socket
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 SOCKET = os.environ.get("DOCKER_SOCKET_PATH", "/var/run/docker.sock")
 ENABLED = os.environ.get("PANEL_DOCKER_CONTROL", "1") != "0"
@@ -2121,13 +2093,7 @@ STACK_PROJECT = os.environ.get("COMPOSE_PROJECT_NAME", "server-monitoring")
 SELF_ID = os.environ.get("PANEL_CONTAINER_ID") or socket.gethostname()  # a container's hostname is its short id by default
 
 ID_RE = re.compile(r"^[a-f0-9]{12,64}$")
-NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
-IMAGE_RE = re.compile(r"^[a-z0-9][A-Za-z0-9._/:-]{0,200}(@sha256:[a-f0-9]{64})?$")
-PORT_RE = re.compile(r"^(?:(\d{1,3}(?:\.\d{1,3}){3}):)?(\d{1,5}):(\d{1,5})(?:/(tcp|udp))?$")
-ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}=[^\x00\n\r]{0,4096}$")
-VOLUME_RE = re.compile(r"^(/[A-Za-z0-9._@%+=,~/-]*|[A-Za-z0-9][A-Za-z0-9_.-]{0,63}):(/[A-Za-z0-9._@%+=,~/-]*)(:(ro|rw))?$")
-RESTART = {"no", "unless-stopped", "always", "on-failure"}
-ACTIONS = {"start", "stop", "restart", "remove"}
+ACTIONS = {"start", "restart"}
 
 
 class DockerError(Exception):
@@ -2223,20 +2189,17 @@ def _find(cid):
     raise DockerError("container not found")
 
 
-def act(cid, action):
+def revive(cid, action):
+    """Start or restart a container of the monitoring stack (never the panel itself)."""
     _require()
     if action not in ACTIONS:
         raise ValueError("unknown action")
     row = _find(cid)
+    if not row["stack"]:
+        raise ValueError("only containers of the monitoring stack can be restarted here")
     if row["self"]:
         raise ValueError("the panel cannot control its own container")
-    if action == "remove" and row["stack"]:
-        raise ValueError("containers of the monitoring stack cannot be removed here")
-    full = row["id"]
-    if action == "remove":
-        status, data = _request("DELETE", f"/containers/{full}?force=1", timeout=60)
-    else:
-        status, data = _request("POST", f"/containers/{full}/{action}" + ("?t=10" if action in ("stop", "restart") else ""), timeout=60)
+    status, data = _request("POST", f"/containers/{row['id']}/{action}" + ("?t=10" if action == "restart" else ""), timeout=60)
     if status == 304:  # already in the requested state
         return {"ok": True, "unchanged": True}
     _json(status, data)
@@ -2264,82 +2227,6 @@ def logs(cid, tail=200):
     if status != 200:
         _json(status, data)
     return {"name": row["name"], "text": _demux(data)[-200_000:]}
-
-
-def _image_exists(image):
-    status, _ = _request("GET", f"/images/{quote(image, safe='/:@')}/json", timeout=10)
-    return status == 200
-
-
-def pull(image):
-    repo, tag = image, "latest"
-    if "@" in image:
-        repo, tag = image.split("@", 1)
-    else:
-        last = image.rsplit("/", 1)[-1]
-        if ":" in last:
-            repo, tag = image.rsplit(":", 1)
-    status, data = _request("POST", "/images/create?" + urlencode({"fromImage": repo, "tag": tag}), timeout=900)
-    if status != 200:
-        _json(status, data)
-    # The stream reports a failure as a JSON line with an "error" key and still returns HTTP 200.
-    for line in data.decode("utf-8", "replace").splitlines():
-        try:
-            err = json.loads(line).get("error")
-        except ValueError:
-            continue
-        if err:
-            raise DockerError(err)
-
-
-def run(spec):
-    """Create and start a container. spec: image, name, ports[], env[], volumes[], restart."""
-    _require()
-    image = str(spec.get("image", "")).strip()
-    name = str(spec.get("name", "")).strip()
-    restart = str(spec.get("restart", "unless-stopped"))
-    if not IMAGE_RE.match(image):
-        raise ValueError("invalid image name")
-    if name and not NAME_RE.match(name):
-        raise ValueError("invalid container name (letters, digits, _ . - only)")
-    if restart not in RESTART:
-        raise ValueError("invalid restart policy")
-
-    exposed, bindings = {}, {}
-    for p in spec.get("ports") or []:
-        m = PORT_RE.match(str(p).strip())
-        if not m:
-            raise ValueError(f"invalid port mapping: {p!r} (use HOST:CONTAINER, e.g. 8081:80)")
-        ip, host, cont, proto = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4) or "tcp"
-        if not (1 <= host <= 65535 and 1 <= cont <= 65535):
-            raise ValueError(f"port out of range: {p}")
-        key = f"{cont}/{proto}"
-        exposed[key] = {}
-        bindings.setdefault(key, []).append({"HostIp": ip or "", "HostPort": str(host)})
-    env = [str(e).strip() for e in spec.get("env") or [] if str(e).strip()]
-    for e in env:
-        if not ENV_RE.match(e):
-            raise ValueError(f"invalid environment variable: {e.split('=')[0]!r} (use KEY=value)")
-    binds = [str(v).strip() for v in spec.get("volumes") or [] if str(v).strip()]
-    for v in binds:
-        if not VOLUME_RE.match(v) or ".." in v:
-            raise ValueError(f"invalid volume: {v!r} (use /host/path:/container/path[:ro])")
-    if len(exposed) > 50 or len(env) > 100 or len(binds) > 50:
-        raise ValueError("too many ports, variables or volumes")
-
-    if not _image_exists(image):
-        pull(image)
-    body = {"Image": image, "Env": env, "ExposedPorts": exposed,
-            "Labels": {"managed-by": "server-monitor-panel"},
-            "HostConfig": {"PortBindings": bindings, "Binds": binds, "RestartPolicy": {"Name": restart}}}
-    query = "?" + urlencode({"name": name}) if name else ""
-    created = _json(*_request("POST", f"/containers/create{query}", body, timeout=60))
-    cid = created["Id"]
-    status, data = _request("POST", f"/containers/{cid}/start", timeout=60)
-    if status not in (204, 304):
-        _request("DELETE", f"/containers/{cid}?force=1")  # don't leave a dead container behind
-        _json(status, data)
-    return {"ok": True, "id": cid[:12]}
 
 
 def stack_health():
@@ -2485,7 +2372,6 @@ def api_overview(q):
             "rx": scalar(f"sum(rate(node_network_receive_bytes_total{{{nn},{VIRTUAL_NICS}}}[2m]))"),
             "tx": scalar(f"sum(rate(node_network_transmit_bytes_total{{{nn},{VIRTUAL_NICS}}}[2m]))"),
         },
-        "containers": scalar(f"count(container_memory_working_set_bytes{{{CG_DOCKER}}})") or 0,
         "targets": {"up": scalar("sum(up)") or 0, "total": scalar("count(up)") or 0},
         "checks": {
             "up": scalar('sum(probe_success{job=~"blackbox.*"})') or 0,
@@ -2597,30 +2483,6 @@ def api_traffic(q):
     if len(_traffic_cache) > 50:
         _traffic_cache.clear()
     return out
-
-
-# cAdvisor's `name` label is missing on many Docker setups (containerd image store, cgroup v2), but the
-# `id` label always carries the 64-hex container id inside the cgroup path, so containers are matched by id.
-CG_DOCKER = r'id=~".*docker[-/][a-f0-9]{64}(\\.scope)?"'
-_CONTAINER_ID = re.compile(r"docker[-/]([a-f0-9]{64})")
-
-
-def _per_container(expr):
-    out = {}
-    for m, v in vector(expr):
-        hit = _CONTAINER_ID.search(m.get("id", ""))
-        if hit:
-            out[hit.group(1)[:12]] = (m.get("name", ""), v)
-    return out
-
-
-def container_metrics():
-    """CPU / memory / start time per container, keyed by the short (12 char) container id."""
-    cpu = _per_container(f"sum by (id, name) (rate(container_cpu_usage_seconds_total{{{CG_DOCKER}}}[2m])) * 100")
-    mem = _per_container(f"sum by (id, name) (container_memory_working_set_bytes{{{CG_DOCKER}}})")
-    started = _per_container(f"max by (id, name) (container_start_time_seconds{{{CG_DOCKER}}})")
-    return {cid: {"name": name, "cpu": cpu.get(cid, ("", None))[1], "mem": value, "started": started.get(cid, ("", None))[1]}
-            for cid, (name, value) in mem.items()}
 
 
 def api_websites(_q):
@@ -3031,20 +2893,19 @@ __MONITORING_EOF__
       title: "Server Monitor", monitors: "Monitors", manage: "Manage", refresh: "Refresh", logout: "Logout",
       lang_switch: "فارسی", host: "Host",
       cpu: "CPU", memory: "Memory", disk: "Disk", load: "Load average",
-      net_down: "Network in", net_up: "Network out", containers: "Containers", targets: "Targets up",
+      net_down: "Network in", net_up: "Network out", targets: "Targets up",
       websites: "Checks up", ssl: "SSL expires in", alerts: "Firing alerts", cores: "cores", of: "of", days: "days", running: "running",
-      overview: "Overview", containers_nav: "Containers", websites_nav: "Websites", disks: "Disks", network: "Network",
+      overview: "Overview", websites_nav: "Websites", disks: "Disks", network: "Network",
       targets_nav: "Targets", alerts_nav: "Alerts", servers_nav: "Servers", notifications_nav: "Notifications",
       rules_nav: "Alert rules", settings_nav: "Settings",
       d_overview: "Live resource usage of the selected server. Charts update automatically.",
-      d_containers: "Every Docker container on this server. Start, stop, restart, read logs or create new ones.",
       d_websites: "Websites and TCP ports that are checked for uptime, response time and SSL expiry. Add or remove them here.",
       d_disks: "Mounted filesystems and how full they are.",
       d_network: "Traffic on the physical network interfaces (virtual and Docker interfaces are hidden).",
       d_servers: "The servers whose CPU, memory, disk and network are monitored. Add another server to watch it too.",
       d_notifications: "Where alerts are sent. Connect a Telegram bot to get a message when something goes wrong.",
       d_rules: "When an alert fires. Change the thresholds, switch rules off, or restore the defaults.",
-      d_settings: "Panel password, Docker control and information about this installation.",
+      d_settings: "Panel password, Docker access and information about this installation.",
       nx_nodata: "No network interface data yet. Rates need about 30 seconds of samples; if this stays empty, check the Targets tab.",
       nx_nojob: "The node-net exporter is not in Prometheus. Re-run install.sh, or run: docker compose up -d && docker compose restart panel prometheus",
       nx_down: "The node-net exporter is down, so network cards cannot be read. Error:",
@@ -3079,16 +2940,9 @@ __MONITORING_EOF__
       // generic UI
       add: "Add", cancel: "Cancel", close: "Close", save: "Save", saved: "Saved", remove: "Remove", working: "Working…", copy: "Copy", copied: "Copied",
       confirm: "Please confirm", actions: "Actions", minutes: "min", added: "Added", removed: "Removed", reset_defaults: "Restore defaults",
-      // containers
-      image: "Image", ports: "Ports", a_start: "Start", a_stop: "Stop", a_restart: "Restart", a_logs: "Logs", a_remove: "Remove",
-      c_stack: "stack", c_self: "this panel", c_docker_off: "Container control is off, so this list is read-only (from cAdvisor). Enable it by mounting the Docker socket (see Settings).",
-      c_add: "Add container", c_added: "Container created and started", c_done: "Done",
-      c_confirm_remove: "Remove container \"{n}\"? It is deleted (its data volumes are kept).", c_confirm_stop: "Stop container \"{n}\"?", c_confirm_restart: "Restart container \"{n}\"?",
-      logs_title: "Logs", lines: "lines", f_image: "Image", f_image_hint: "For example nginx:alpine or ghcr.io/org/app:1.2. It is downloaded if missing.",
-      f_cname: "Container name (optional)", f_ports: "Port mappings (one per line)", f_ports_hint: "HOST:CONTAINER, for example 8081:80 (add /udp for UDP).",
-      f_env: "Environment variables (one per line)", f_env_hint: "KEY=value", f_volumes: "Volumes (one per line)", f_volumes_hint: "/host/path:/container/path or /host/path:/container/path:ro",
-      f_restart: "Restart policy", rp_no: "Never", rp_unless: "Unless stopped (recommended)", rp_always: "Always", rp_failure: "On failure",
-      pulling_hint: "Creating… downloading a new image can take a few minutes.",
+      // stack containers (self-diagnosis)
+      a_restart: "Restart", c_done: "Done",
+      c_docker_off: "Docker access is off, so the state of the stack's containers cannot be shown. Enable it by mounting the Docker socket (see Settings).",
       // websites + servers
       add_site: "Add website or port", type_http: "Website (HTTP / HTTPS)", type_tcp: "TCP port", f_target: "Address", f_name_opt: "Name (optional)",
       hint_http: "A full address, for example https://example.com", hint_tcp: "host:port, for example 203.0.113.10:22 (SSH) or db.internal:5432",
@@ -3158,9 +3012,9 @@ __MONITORING_EOF__
       // settings
       st_pw_title: "Change login", st_user: "Username", st_current: "Current password", st_new: "New password (8+ characters)", st_repeat: "Repeat new password",
       st_change: "Change login", st_mismatch: "The two passwords do not match", st_pw_ok: "Login changed. Other devices are signed out.",
-      st_docker_title: "Docker control", st_docker_on: "Enabled", st_docker_off: "Off",
-      st_docker_hint_on: "The panel can start, stop, create and remove containers through the Docker socket. Anyone who signs in here can control the whole server, so keep the password strong and put HTTPS in front of the panel.",
-      st_docker_hint_off: "The panel only reads container metrics. To enable control, make sure the docker.sock mount in docker-compose.yml is present and PANEL_DOCKER_CONTROL is not 0, then run: docker compose up -d",
+      st_docker_title: "Docker access", st_docker_on: "Enabled", st_docker_off: "Off",
+      st_docker_hint_on: "The panel uses the Docker socket only for its own monitoring stack: to show why a service stopped and to restart it from the “Find out why” page. Whoever can reach the socket is root on the server, so keep the password strong and put HTTPS in front of the panel.",
+      st_docker_hint_off: "The panel cannot see the state of its own stack. To enable it, make sure the docker.sock mount in docker-compose.yml is present and PANEL_DOCKER_CONTROL is not 0, then run: docker compose up -d",
       st_docker_unavail: "Enabled in settings, but the Docker socket is not reachable.",
       st_about: "About", st_version: "Panel version",
     },
@@ -3168,20 +3022,19 @@ __MONITORING_EOF__
       title: "مانیتورینگ سرور", monitors: "مانیتورها", manage: "مدیریت", refresh: "بروزرسانی", logout: "خروج",
       lang_switch: "English", host: "سرور",
       cpu: "پردازنده", memory: "حافظه (رم)", disk: "دیسک", load: "میانگین بار",
-      net_down: "دریافت شبکه", net_up: "ارسال شبکه", containers: "کانتینرها", targets: "تارگت‌های فعال",
+      net_down: "دریافت شبکه", net_up: "ارسال شبکه", targets: "تارگت‌های فعال",
       websites: "چک‌های سالم", ssl: "انقضای SSL", alerts: "هشدارهای فعال", cores: "هسته", of: "از", days: "روز", running: "در حال اجرا",
-      overview: "نمای کلی", containers_nav: "کانتینرها", websites_nav: "سایت‌ها", disks: "دیسک‌ها", network: "شبکه",
+      overview: "نمای کلی", websites_nav: "سایت‌ها", disks: "دیسک‌ها", network: "شبکه",
       targets_nav: "تارگت‌ها", alerts_nav: "هشدارها", servers_nav: "سرورها", notifications_nav: "اعلان‌ها",
       rules_nav: "قوانین هشدار", settings_nav: "تنظیمات",
       d_overview: "مصرف زنده‌ی منابع سرور انتخاب‌شده. نمودارها خودکار بروز می‌شوند.",
-      d_containers: "همه‌ی کانتینرهای داکر این سرور. شروع، توقف، ری‌استارت، دیدن لاگ یا ساخت کانتینر جدید.",
       d_websites: "سایت‌ها و پورت‌های TCP که آپتایم، زمان پاسخ و انقضای SSL‌شان چک می‌شود. از اینجا اضافه یا حذف کنید.",
       d_disks: "فایل‌سیستم‌های مونت‌شده و میزان پر بودن هرکدام.",
       d_network: "ترافیک کارت‌شبکه‌های واقعی (کارت‌های مجازی و داکر پنهان هستند).",
       d_servers: "سرورهایی که پردازنده، رم، دیسک و شبکه‌شان مانیتور می‌شود. برای نظارت بر سرور دیگر، آن را اضافه کنید.",
       d_notifications: "هشدارها کجا فرستاده شوند. یک ربات تلگرام وصل کنید تا هر مشکلی پیام بگیرید.",
       d_rules: "هشدار چه زمانی فعال شود. آستانه‌ها را عوض کنید، قانونی را خاموش کنید یا پیش‌فرض‌ها را برگردانید.",
-      d_settings: "رمز پنل، کنترل داکر و اطلاعات این نصب.",
+      d_settings: "رمز پنل، دسترسی داکر و اطلاعات این نصب.",
       nx_nodata: "هنوز داده‌ی کارت شبکه نرسیده. نرخ‌ها حدود ۳۰ ثانیه داده می‌خواهند؛ اگر خالی ماند تب تارگت‌ها را ببینید.",
       nx_nojob: "اکسپورتر node-net در Prometheus نیست. install.sh را دوباره اجرا کنید یا بزنید: docker compose up -d && docker compose restart panel prometheus",
       nx_down: "اکسپورتر node-net قطع است و کارت‌های شبکه خوانده نمی‌شوند. خطا:",
@@ -3215,15 +3068,8 @@ __MONITORING_EOF__
       t_dark: "تم روشن", t_light: "تم تیره",
       add: "افزودن", cancel: "انصراف", close: "بستن", save: "ذخیره", saved: "ذخیره شد", remove: "حذف", working: "در حال انجام…", copy: "کپی", copied: "کپی شد",
       confirm: "لطفاً تأیید کنید", actions: "عملیات", minutes: "دقیقه", added: "اضافه شد", removed: "حذف شد", reset_defaults: "بازگشت به پیش‌فرض",
-      image: "ایمیج", ports: "پورت‌ها", a_start: "شروع", a_stop: "توقف", a_restart: "ری‌استارت", a_logs: "لاگ", a_remove: "حذف",
-      c_stack: "استک", c_self: "همین پنل", c_docker_off: "کنترل کانتینر خاموش است، پس این فهرست فقط‌خواندنی است (از cAdvisor). برای فعال‌سازی سوکت داکر را مونت کنید (تنظیمات را ببینید).",
-      c_add: "افزودن کانتینر", c_added: "کانتینر ساخته و اجرا شد", c_done: "انجام شد",
-      c_confirm_remove: "کانتینر «{n}» حذف شود؟ خود کانتینر پاک می‌شود (ولیوم‌های داده می‌مانند).", c_confirm_stop: "کانتینر «{n}» متوقف شود؟", c_confirm_restart: "کانتینر «{n}» ری‌استارت شود؟",
-      logs_title: "لاگ", lines: "خط", f_image: "ایمیج", f_image_hint: "مثلاً nginx:alpine یا ghcr.io/org/app:1.2. اگر روی سرور نباشد دانلود می‌شود.",
-      f_cname: "نام کانتینر (اختیاری)", f_ports: "پورت‌ها (هر خط یکی)", f_ports_hint: "HOST:CONTAINER مثل 8081:80 (برای UDP بنویسید /udp).",
-      f_env: "متغیرهای محیطی (هر خط یکی)", f_env_hint: "KEY=value", f_volumes: "ولیوم‌ها (هر خط یکی)", f_volumes_hint: "/host/path:/container/path یا /host/path:/container/path:ro",
-      f_restart: "سیاست ری‌استارت", rp_no: "هرگز", rp_unless: "مگر دستی متوقف شود (پیشنهادی)", rp_always: "همیشه", rp_failure: "فقط با خطا",
-      pulling_hint: "در حال ساخت… دانلود ایمیج جدید ممکن است چند دقیقه طول بکشد.",
+      a_restart: "ری‌استارت", c_done: "انجام شد",
+      c_docker_off: "دسترسی داکر خاموش است، پس وضعیت کانتینرهای استک را نمی‌شود نشان داد. برای فعال‌سازی سوکت داکر را مونت کنید (تنظیمات را ببینید).",
       add_site: "افزودن سایت یا پورت", type_http: "سایت (HTTP / HTTPS)", type_tcp: "پورت TCP", f_target: "آدرس", f_name_opt: "نام (اختیاری)",
       hint_http: "آدرس کامل، مثلاً https://example.com", hint_tcp: "host:port مثل 203.0.113.10:22 (SSH) یا db.internal:5432",
       probe: "آزمایش الان / چرا؟", probe_title: "نتیجه‌ی چک", probe_running: "در حال چک کردن…", probe_ok: "این چک همین الان از سرور موفق است.",
@@ -3289,14 +3135,13 @@ __MONITORING_EOF__
       rd_SlowEndpoint: "پاسخ یک سایت بیشتر از این زمان طول می‌کشد.",
       st_pw_title: "تغییر اطلاعات ورود", st_user: "نام کاربری", st_current: "رمز فعلی", st_new: "رمز جدید (حداقل ۸ نویسه)", st_repeat: "تکرار رمز جدید",
       st_change: "تغییر اطلاعات ورود", st_mismatch: "دو رمز یکسان نیستند", st_pw_ok: "اطلاعات ورود عوض شد. دستگاه‌های دیگر خارج شدند.",
-      st_docker_title: "کنترل داکر", st_docker_on: "فعال", st_docker_off: "خاموش",
-      st_docker_hint_on: "پنل می‌تواند از طریق سوکت داکر کانتینر شروع، متوقف، بسازد و حذف کند. هر کسی که اینجا وارد شود کنترل کل سرور را دارد؛ پس رمز قوی بگذارید و جلوی پنل HTTPS قرار دهید.",
-      st_docker_hint_off: "پنل فقط متریک کانتینرها را می‌خواند. برای فعال‌سازی، مطمئن شوید مونت docker.sock در docker-compose.yml هست و PANEL_DOCKER_CONTROL برابر 0 نیست، سپس بزنید: docker compose up -d",
+      st_docker_title: "دسترسی داکر", st_docker_on: "فعال", st_docker_off: "خاموش",
+      st_docker_hint_on: "پنل از سوکت داکر فقط برای استک مانیتورینگ خودش استفاده می‌کند: نشان دادن دلیل متوقف شدن یک سرویس و ری‌استارت آن از صفحه‌ی «پیدا کردن دلیل». هر کسی به این سوکت برسد روی سرور root است؛ پس رمز قوی بگذارید و جلوی پنل HTTPS قرار دهید.",
+      st_docker_hint_off: "پنل وضعیت کانتینرهای استک خودش را نمی‌بیند. برای فعال‌سازی، مطمئن شوید مونت docker.sock در docker-compose.yml هست و PANEL_DOCKER_CONTROL برابر 0 نیست، سپس بزنید: docker compose up -d",
       st_docker_unavail: "در تنظیمات فعال است ولی سوکت داکر در دسترس نیست.",
       st_about: "درباره", st_version: "نسخه‌ی پنل",
     },
   };
-
   // ---------------------------------------------------------------- state
   const store = {
     get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } },
@@ -3489,7 +3334,6 @@ __MONITORING_EOF__
   // ---------------------------------------------------------------- chrome (header, nav)
   const VIEWS = [
     { id: "overview", icon: "grid", label: "overview", desc: "d_overview", group: "monitor" },
-    { id: "containers", icon: "box", label: "containers_nav", desc: "d_containers", group: "monitor" },
     { id: "websites", icon: "globe", label: "websites_nav", desc: "d_websites", group: "monitor" },
     { id: "disks", icon: "disk", label: "disks", desc: "d_disks", group: "monitor" },
     { id: "network", icon: "network", label: "network", desc: "d_network", group: "monitor" },
@@ -3525,13 +3369,12 @@ __MONITORING_EOF__
     if (id === "notifications") return s && !s.telegram.configured ? '<span class="badge bad">!</span>' : "";
     if (id === "servers") return state.instances.length ? `<span class="badge">${state.instances.length}</span>` : "";
     if (!o) return "";
-    if (id === "containers") return `<span class="badge">${o.containers}</span>`;
     if (id === "websites") return o.checks.total ? `<span class="badge${o.checks.up < o.checks.total ? " bad" : ""}">${o.checks.up}/${o.checks.total}</span>` : "";
     if (id === "targets") return `<span class="badge${o.targets.up < o.targets.total ? " bad" : ""}">${o.targets.up}/${o.targets.total}</span>`;
     if (id === "alerts") return o.alerts.firing ? `<span class="badge bad">${o.alerts.firing}</span>` : "";
     return "";
   }
-  const TAB_IDS = ["overview", "containers", "websites", "alerts"];   // the rest live behind "More" on phones
+  const TAB_IDS = ["overview", "websites", "network", "alerts"];   // the rest live behind "More" on phones
   function renderNav() {
     const link = (v) => `<a href="#${v.id}" class="${v.id === state.view ? "active" : ""}" ${v.id === state.view ? 'aria-current="page"' : ""} title="${esc(t(v.label))}">${icon(v.icon)}<span class="name">${esc(t(v.label))}</span>${badgeFor(v.id)}</a>`;
     $("nav").innerHTML = VIEWS.filter((v) => v.group === "monitor").map(link).join("");
@@ -3645,7 +3488,6 @@ __MONITORING_EOF__
       tile({ label: t("net_down"), ic: "down", go: "network", value: num(fmtRate(o.net.rx)), spark: sparkBox("net", 0, "--c1") }),
       tile({ label: t("net_up"), ic: "up", go: "network", value: num(fmtRate(o.net.tx)), spark: sparkBox("net", 1, "--c2") }),
       tile({ label: t("load"), ic: "activity", tight: true, value: num(o.load.map((x) => nf(x, 2)).join(" / ")) }),
-      tile({ label: t("containers"), ic: "box", go: "containers", value: num(o.containers), sub: esc(t("running")) }),
       tile({ label: t("targets"), ic: "check", go: "targets", value: num(`${o.targets.up} / ${o.targets.total}`) }),
       tile({ label: t("websites"), ic: "globe", go: "websites", value: num(`${o.checks.up} / ${o.checks.total}`) }),
       tile({ label: t("ssl"), ic: "lock", go: "websites", value: o.checks.min_ssl_days == null ? "–" : num(`${nf(o.checks.min_ssl_days, 0)} <small>${t("days")}</small>`) }),
@@ -3676,42 +3518,6 @@ __MONITORING_EOF__
   const stateLabel = (st) => { const k = `s_${st}`; const v = t(k); return v === k ? st : v; };
 
   const IMPL = {
-    // ---- containers
-    containers: {
-      async build() {
-        const { docker, rows } = await api("/api/containers");
-        const note = docker ? "" : `<div class="notice">${icon("bell")}<span>${esc(t("c_docker_off"))}</span></div>`;
-        const cols = [
-          { h: "name", cls: "strong", cell: (r) => `${esc(r.name)}${r.stack ? `<span class="tag">${esc(t("c_stack"))}</span>` : ""}${r.self ? `<span class="tag">${esc(t("c_self"))}</span>` : ""}${r.image ? `<div class="sub-line">${esc(r.image)}</div>` : ""}` },
-          { h: "status", cell: (r) => pill(CONTAINER_STATE[r.state] || "", stateLabel(r.state)) },
-          { h: "cpu_h", cell: (r) => num(r.cpu == null ? "–" : `${nf(r.cpu)}%`) },
-          { h: "mem_h", cell: (r) => num(fmtBytes(r.mem)) },
-          { h: "uptime_h", cell: (r) => num(fmtDur(r.uptime)) },
-          { h: "ports", cls: "wrap-cell", cell: (r) => (r.ports && r.ports.length ? `<div class="chips">${r.ports.map((p) => `<code>${esc(p)}</code>`).join("")}</div>` : "–") },
-        ];
-        if (docker) cols.push({ h: "actions", cell: (r) => {
-          if (r.self) return "–";
-          const a = (act, ic, label, extra = "") => btnIcon(ic, label, `data-act="${act}" data-id="${esc(r.id)}" data-name="${esc(r.name)}"`, extra);
-          const running = r.state === "running";
-          return `<div class="row-actions">${running ? a("restart", "refresh", t("a_restart")) + a("stop", "stop", t("a_stop")) : a("start", "play", t("a_start"))}${a("logs", "file", t("a_logs"))}${r.stack ? "" : a("remove", "trash", t("a_remove"), "danger")}</div>`;
-        } });
-        return { html: note + table(cols, rows), tools: docker ? addButton("btn-add-container", t("c_add")) : "" };
-      },
-      bind(root) {
-        $("btn-add-container")?.addEventListener("click", addContainerDialog);
-        root.addEventListener("click", async (e) => {
-          const b = e.target.closest("[data-act]");
-          if (!b) return;
-          const { act: action, id, name } = b.dataset;
-          if (action === "logs") return logsDialog(id, name);
-          if (action === "remove" && !(await confirmBox({ message: t("c_confirm_remove", { n: name }), label: t("a_remove") }))) return;
-          if (action === "stop" && !(await confirmBox({ message: t("c_confirm_stop", { n: name }), label: t("a_stop") }))) return;
-          if (action === "restart" && !(await confirmBox({ message: t("c_confirm_restart", { n: name }), label: t("a_restart"), danger: false }))) return;
-          if (await act(b, () => post("/api/docker/action", { id, action }), t("c_done"))) renderView(false);
-        });
-      },
-    },
-
     // ---- websites + TCP ports
     websites: {
       async build() {
@@ -3978,29 +3784,6 @@ __MONITORING_EOF__
   };
 
   // ---------------------------------------------------------------- dialogs
-  function logsDialog(id, name) {
-    openDialog({
-      title: `${t("logs_title")}: ${name}`, wide: true, hideSubmit: true, cancel: t("close"),
-      body: `<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        <select id="log-tail" aria-label="${esc(t("lines"))}"><option value="100">100 ${esc(t("lines"))}</option><option value="300" selected>300 ${esc(t("lines"))}</option><option value="1000">1000 ${esc(t("lines"))}</option></select>
-        <button type="button" class="btn small" id="log-refresh">${icon("refresh")}<span>${esc(t("refresh"))}</span></button></div>
-        <pre class="logs" id="log-pre">…</pre>`,
-      onOpen: (dlg) => {
-        const pre = dlg.querySelector("#log-pre");
-        const load = async () => {
-          try {
-            const r = await api("/api/docker/logs", { id, tail: dlg.querySelector("#log-tail").value });
-            pre.textContent = r.text || "—";
-            pre.scrollTop = pre.scrollHeight;
-          } catch (e) { pre.textContent = e.message; }
-        };
-        dlg.querySelector("#log-refresh").addEventListener("click", load);
-        dlg.querySelector("#log-tail").addEventListener("change", load);
-        load();
-      },
-    });
-  }
-
   function probeDialog(kind, target) {
     openDialog({
       title: `${t("probe_title")}: ${target}`, wide: true, hideSubmit: true, cancel: t("close"),
@@ -4048,32 +3831,6 @@ __MONITORING_EOF__
             if (await act(b, () => post("/api/checks/mode", { kind, target, mode: b.dataset.mode }), t("diag_applied"))) { dlg.close(); renderView(false); }
           }));
         } catch (e) { out.innerHTML = `<div class="notice bad">${icon("bell")}<span>${esc(e.message)}</span></div>`; }
-      },
-    });
-  }
-
-  const lines = (value) => value.split("\n").map((s) => s.trim()).filter(Boolean);
-
-  function addContainerDialog() {
-    openDialog({
-      title: t("c_add"), submit: t("add"), busy: t("pulling_hint"), wide: true,
-      body: `${field(t("f_image"), `<input name="image" dir="ltr" required placeholder="nginx:alpine" autocomplete="off">`, t("f_image_hint"))}
-        <div class="field-row">
-          ${field(t("f_cname"), `<input name="name" dir="ltr" placeholder="my-app" autocomplete="off">`)}
-          ${field(t("f_restart"), `<select name="restart"><option value="unless-stopped">${esc(t("rp_unless"))}</option><option value="always">${esc(t("rp_always"))}</option><option value="on-failure">${esc(t("rp_failure"))}</option><option value="no">${esc(t("rp_no"))}</option></select>`)}
-        </div>
-        <div class="field-row">
-          ${field(t("f_ports"), `<textarea name="ports" placeholder="8081:80"></textarea>`, t("f_ports_hint"))}
-          ${field(t("f_env"), `<textarea name="env" placeholder="KEY=value"></textarea>`, t("f_env_hint"))}
-        </div>
-        ${field(t("f_volumes"), `<textarea name="volumes" placeholder="/srv/data:/data"></textarea>`, t("f_volumes_hint"))}`,
-      onSubmit: async (form) => {
-        await post("/api/docker/run", {
-          image: val(form, "image").trim(), name: val(form, "name").trim(), restart: val(form, "restart"),
-          ports: lines(val(form, "ports")), env: lines(val(form, "env")), volumes: lines(val(form, "volumes")),
-        });
-        toast(t("c_added"));
-        renderView(false);
       },
     });
   }

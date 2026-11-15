@@ -1,14 +1,15 @@
 """Minimal Docker Engine API client over the unix socket (standard library only).
 
 Mounting the Docker socket gives whoever controls it root on the host, so everything that reaches the
-daemon is validated here: ids, names, image references, ports, env vars and volume paths.
+daemon is validated here. The panel only reads the state and logs of its own stack and can start or
+restart a stopped service of that stack (from the self-diagnosis page); nothing else.
 """
 import http.client
 import json
 import os
 import re
 import socket
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 SOCKET = os.environ.get("DOCKER_SOCKET_PATH", "/var/run/docker.sock")
 ENABLED = os.environ.get("PANEL_DOCKER_CONTROL", "1") != "0"
@@ -16,13 +17,7 @@ STACK_PROJECT = os.environ.get("COMPOSE_PROJECT_NAME", "server-monitoring")
 SELF_ID = os.environ.get("PANEL_CONTAINER_ID") or socket.gethostname()  # a container's hostname is its short id by default
 
 ID_RE = re.compile(r"^[a-f0-9]{12,64}$")
-NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
-IMAGE_RE = re.compile(r"^[a-z0-9][A-Za-z0-9._/:-]{0,200}(@sha256:[a-f0-9]{64})?$")
-PORT_RE = re.compile(r"^(?:(\d{1,3}(?:\.\d{1,3}){3}):)?(\d{1,5}):(\d{1,5})(?:/(tcp|udp))?$")
-ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}=[^\x00\n\r]{0,4096}$")
-VOLUME_RE = re.compile(r"^(/[A-Za-z0-9._@%+=,~/-]*|[A-Za-z0-9][A-Za-z0-9_.-]{0,63}):(/[A-Za-z0-9._@%+=,~/-]*)(:(ro|rw))?$")
-RESTART = {"no", "unless-stopped", "always", "on-failure"}
-ACTIONS = {"start", "stop", "restart", "remove"}
+ACTIONS = {"start", "restart"}
 
 
 class DockerError(Exception):
@@ -118,20 +113,17 @@ def _find(cid):
     raise DockerError("container not found")
 
 
-def act(cid, action):
+def revive(cid, action):
+    """Start or restart a container of the monitoring stack (never the panel itself)."""
     _require()
     if action not in ACTIONS:
         raise ValueError("unknown action")
     row = _find(cid)
+    if not row["stack"]:
+        raise ValueError("only containers of the monitoring stack can be restarted here")
     if row["self"]:
         raise ValueError("the panel cannot control its own container")
-    if action == "remove" and row["stack"]:
-        raise ValueError("containers of the monitoring stack cannot be removed here")
-    full = row["id"]
-    if action == "remove":
-        status, data = _request("DELETE", f"/containers/{full}?force=1", timeout=60)
-    else:
-        status, data = _request("POST", f"/containers/{full}/{action}" + ("?t=10" if action in ("stop", "restart") else ""), timeout=60)
+    status, data = _request("POST", f"/containers/{row['id']}/{action}" + ("?t=10" if action == "restart" else ""), timeout=60)
     if status == 304:  # already in the requested state
         return {"ok": True, "unchanged": True}
     _json(status, data)
@@ -159,82 +151,6 @@ def logs(cid, tail=200):
     if status != 200:
         _json(status, data)
     return {"name": row["name"], "text": _demux(data)[-200_000:]}
-
-
-def _image_exists(image):
-    status, _ = _request("GET", f"/images/{quote(image, safe='/:@')}/json", timeout=10)
-    return status == 200
-
-
-def pull(image):
-    repo, tag = image, "latest"
-    if "@" in image:
-        repo, tag = image.split("@", 1)
-    else:
-        last = image.rsplit("/", 1)[-1]
-        if ":" in last:
-            repo, tag = image.rsplit(":", 1)
-    status, data = _request("POST", "/images/create?" + urlencode({"fromImage": repo, "tag": tag}), timeout=900)
-    if status != 200:
-        _json(status, data)
-    # The stream reports a failure as a JSON line with an "error" key and still returns HTTP 200.
-    for line in data.decode("utf-8", "replace").splitlines():
-        try:
-            err = json.loads(line).get("error")
-        except ValueError:
-            continue
-        if err:
-            raise DockerError(err)
-
-
-def run(spec):
-    """Create and start a container. spec: image, name, ports[], env[], volumes[], restart."""
-    _require()
-    image = str(spec.get("image", "")).strip()
-    name = str(spec.get("name", "")).strip()
-    restart = str(spec.get("restart", "unless-stopped"))
-    if not IMAGE_RE.match(image):
-        raise ValueError("invalid image name")
-    if name and not NAME_RE.match(name):
-        raise ValueError("invalid container name (letters, digits, _ . - only)")
-    if restart not in RESTART:
-        raise ValueError("invalid restart policy")
-
-    exposed, bindings = {}, {}
-    for p in spec.get("ports") or []:
-        m = PORT_RE.match(str(p).strip())
-        if not m:
-            raise ValueError(f"invalid port mapping: {p!r} (use HOST:CONTAINER, e.g. 8081:80)")
-        ip, host, cont, proto = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4) or "tcp"
-        if not (1 <= host <= 65535 and 1 <= cont <= 65535):
-            raise ValueError(f"port out of range: {p}")
-        key = f"{cont}/{proto}"
-        exposed[key] = {}
-        bindings.setdefault(key, []).append({"HostIp": ip or "", "HostPort": str(host)})
-    env = [str(e).strip() for e in spec.get("env") or [] if str(e).strip()]
-    for e in env:
-        if not ENV_RE.match(e):
-            raise ValueError(f"invalid environment variable: {e.split('=')[0]!r} (use KEY=value)")
-    binds = [str(v).strip() for v in spec.get("volumes") or [] if str(v).strip()]
-    for v in binds:
-        if not VOLUME_RE.match(v) or ".." in v:
-            raise ValueError(f"invalid volume: {v!r} (use /host/path:/container/path[:ro])")
-    if len(exposed) > 50 or len(env) > 100 or len(binds) > 50:
-        raise ValueError("too many ports, variables or volumes")
-
-    if not _image_exists(image):
-        pull(image)
-    body = {"Image": image, "Env": env, "ExposedPorts": exposed,
-            "Labels": {"managed-by": "server-monitor-panel"},
-            "HostConfig": {"PortBindings": bindings, "Binds": binds, "RestartPolicy": {"Name": restart}}}
-    query = "?" + urlencode({"name": name}) if name else ""
-    created = _json(*_request("POST", f"/containers/create{query}", body, timeout=60))
-    cid = created["Id"]
-    status, data = _request("POST", f"/containers/{cid}/start", timeout=60)
-    if status not in (204, 304):
-        _request("DELETE", f"/containers/{cid}?force=1")  # don't leave a dead container behind
-        _json(status, data)
-    return {"ok": True, "id": cid[:12]}
 
 
 def stack_health():

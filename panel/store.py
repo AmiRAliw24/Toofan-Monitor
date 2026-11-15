@@ -483,7 +483,7 @@ def migrate_legacy():
 # ------------------------------------------------------------------ alert rules
 
 HOST_FS = 'fstype!~"tmpfs|overlay|squashfs"'
-DOCKER_CG = r'id=~".*docker[-/][a-f0-9]{64}(\\.scope)?"'   # see monitor.CG_DOCKER: match containers by id
+DOCKER_CG = r'id=~".*docker[-/][a-f0-9]{64}(\\.scope)?"'   # cAdvisor's name label is often missing; match containers by id
 CONTAINER = "{{ if $labels.name }}{{ $labels.name }}{{ else }}{{ $labels.id }}{{ end }}"
 RULES = [
     {"name": "InstanceDown", "group": "host", "severity": "critical", "for": 2, "expr": "up == 0",

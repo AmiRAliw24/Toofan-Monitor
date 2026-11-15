@@ -69,24 +69,6 @@ class BadRequest(ValueError):
 
 # ------------------------------------------------------------------ read API
 
-def api_containers(_q):
-    metrics = monitor.container_metrics()          # keyed by short container id
-    by_name = {m["name"]: m for m in metrics.values() if m["name"]}
-    now = time.time()
-    if dockerapi.available():
-        rows = []
-        for c in dockerapi.list_containers():
-            m = metrics.get(c["id"]) or by_name.get(c["name"]) or {}
-            running = c["state"] == "running"
-            rows.append({**c, "cpu": m.get("cpu") if running else None, "mem": m.get("mem") if running else None,
-                         "uptime": (now - m["started"]) if running and m.get("started") else None})
-        return {"docker": True, "rows": rows}
-    return {"docker": False, "rows": [
-        {"id": "", "name": m["name"] or cid, "image": "", "state": "running", "status": "", "ports": [], "stack": False,
-         "self": False, "cpu": m["cpu"], "mem": m["mem"], "uptime": (now - m["started"]) if m.get("started") else None}
-        for cid, m in sorted(metrics.items(), key=lambda kv: kv[1]["name"] or kv[0])]}
-
-
 def api_checks(_q):
     return {**{k: store.list_targets(k) for k in store.KINDS}, "auto": {"enabled": store.auto_enabled(), "events": store.auto_events()}}
 
@@ -105,12 +87,8 @@ def api_health(_q):
     return health.diagnose()
 
 
-def api_docker_logs(q):
-    return dockerapi.logs(q.get("id", ""), q.get("tail", 200))
-
-
-GET_API = {**monitor.READ_API, "/api/containers": api_containers, "/api/checks": api_checks, "/api/rules": api_rules,
-           "/api/settings": api_settings, "/api/docker/logs": api_docker_logs, "/api/health": api_health}
+GET_API = {**monitor.READ_API, "/api/checks": api_checks, "/api/rules": api_rules,
+           "/api/settings": api_settings, "/api/health": api_health}
 
 
 # ------------------------------------------------------------------ management API (POST)
@@ -185,11 +163,8 @@ def post_rules_reset(_b, _h):
 
 
 def post_docker_action(b, _h):
-    return dockerapi.act(str(b.get("id", "")), str(b.get("action", "")))
-
-
-def post_docker_run(b, _h):
-    return dockerapi.run(b)
+    # Only used by the self-diagnosis page: bring a stopped service of the monitoring stack back.
+    return dockerapi.revive(str(b.get("id", "")), str(b.get("action", "")))
 
 
 def post_password(b, h):
@@ -204,7 +179,7 @@ POST_API = {
     "/api/telegram/save": post_telegram_save, "/api/telegram/test": post_telegram_test,
     "/api/telegram/chats": post_telegram_chats, "/api/telegram/remove": post_telegram_remove,
     "/api/alerts/test": post_alert_test, "/api/rules/set": post_rules_set, "/api/rules/reset": post_rules_reset,
-    "/api/docker/action": post_docker_action, "/api/docker/run": post_docker_run, "/api/password": post_password,
+    "/api/docker/action": post_docker_action, "/api/password": post_password,
 }
 
 # ------------------------------------------------------------------ http

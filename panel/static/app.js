@@ -7,20 +7,19 @@
       title: "Server Monitor", monitors: "Monitors", manage: "Manage", refresh: "Refresh", logout: "Logout",
       lang_switch: "فارسی", host: "Host",
       cpu: "CPU", memory: "Memory", disk: "Disk", load: "Load average",
-      net_down: "Network in", net_up: "Network out", containers: "Containers", targets: "Targets up",
+      net_down: "Network in", net_up: "Network out", targets: "Targets up",
       websites: "Checks up", ssl: "SSL expires in", alerts: "Firing alerts", cores: "cores", of: "of", days: "days", running: "running",
-      overview: "Overview", containers_nav: "Containers", websites_nav: "Websites", disks: "Disks", network: "Network",
+      overview: "Overview", websites_nav: "Websites", disks: "Disks", network: "Network",
       targets_nav: "Targets", alerts_nav: "Alerts", servers_nav: "Servers", notifications_nav: "Notifications",
       rules_nav: "Alert rules", settings_nav: "Settings",
       d_overview: "Live resource usage of the selected server. Charts update automatically.",
-      d_containers: "Every Docker container on this server. Start, stop, restart, read logs or create new ones.",
       d_websites: "Websites and TCP ports that are checked for uptime, response time and SSL expiry. Add or remove them here.",
       d_disks: "Mounted filesystems and how full they are.",
       d_network: "Traffic on the physical network interfaces (virtual and Docker interfaces are hidden).",
       d_servers: "The servers whose CPU, memory, disk and network are monitored. Add another server to watch it too.",
       d_notifications: "Where alerts are sent. Connect a Telegram bot to get a message when something goes wrong.",
       d_rules: "When an alert fires. Change the thresholds, switch rules off, or restore the defaults.",
-      d_settings: "Panel password, Docker control and information about this installation.",
+      d_settings: "Panel password, Docker access and information about this installation.",
       nx_nodata: "No network interface data yet. Rates need about 30 seconds of samples; if this stays empty, check the Targets tab.",
       nx_nojob: "The node-net exporter is not in Prometheus. Re-run install.sh, or run: docker compose up -d && docker compose restart panel prometheus",
       nx_down: "The node-net exporter is down, so network cards cannot be read. Error:",
@@ -55,16 +54,9 @@
       // generic UI
       add: "Add", cancel: "Cancel", close: "Close", save: "Save", saved: "Saved", remove: "Remove", working: "Working…", copy: "Copy", copied: "Copied",
       confirm: "Please confirm", actions: "Actions", minutes: "min", added: "Added", removed: "Removed", reset_defaults: "Restore defaults",
-      // containers
-      image: "Image", ports: "Ports", a_start: "Start", a_stop: "Stop", a_restart: "Restart", a_logs: "Logs", a_remove: "Remove",
-      c_stack: "stack", c_self: "this panel", c_docker_off: "Container control is off, so this list is read-only (from cAdvisor). Enable it by mounting the Docker socket (see Settings).",
-      c_add: "Add container", c_added: "Container created and started", c_done: "Done",
-      c_confirm_remove: "Remove container \"{n}\"? It is deleted (its data volumes are kept).", c_confirm_stop: "Stop container \"{n}\"?", c_confirm_restart: "Restart container \"{n}\"?",
-      logs_title: "Logs", lines: "lines", f_image: "Image", f_image_hint: "For example nginx:alpine or ghcr.io/org/app:1.2. It is downloaded if missing.",
-      f_cname: "Container name (optional)", f_ports: "Port mappings (one per line)", f_ports_hint: "HOST:CONTAINER, for example 8081:80 (add /udp for UDP).",
-      f_env: "Environment variables (one per line)", f_env_hint: "KEY=value", f_volumes: "Volumes (one per line)", f_volumes_hint: "/host/path:/container/path or /host/path:/container/path:ro",
-      f_restart: "Restart policy", rp_no: "Never", rp_unless: "Unless stopped (recommended)", rp_always: "Always", rp_failure: "On failure",
-      pulling_hint: "Creating… downloading a new image can take a few minutes.",
+      // stack containers (self-diagnosis)
+      a_restart: "Restart", c_done: "Done",
+      c_docker_off: "Docker access is off, so the state of the stack's containers cannot be shown. Enable it by mounting the Docker socket (see Settings).",
       // websites + servers
       add_site: "Add website or port", type_http: "Website (HTTP / HTTPS)", type_tcp: "TCP port", f_target: "Address", f_name_opt: "Name (optional)",
       hint_http: "A full address, for example https://example.com", hint_tcp: "host:port, for example 203.0.113.10:22 (SSH) or db.internal:5432",
@@ -134,9 +126,9 @@
       // settings
       st_pw_title: "Change login", st_user: "Username", st_current: "Current password", st_new: "New password (8+ characters)", st_repeat: "Repeat new password",
       st_change: "Change login", st_mismatch: "The two passwords do not match", st_pw_ok: "Login changed. Other devices are signed out.",
-      st_docker_title: "Docker control", st_docker_on: "Enabled", st_docker_off: "Off",
-      st_docker_hint_on: "The panel can start, stop, create and remove containers through the Docker socket. Anyone who signs in here can control the whole server, so keep the password strong and put HTTPS in front of the panel.",
-      st_docker_hint_off: "The panel only reads container metrics. To enable control, make sure the docker.sock mount in docker-compose.yml is present and PANEL_DOCKER_CONTROL is not 0, then run: docker compose up -d",
+      st_docker_title: "Docker access", st_docker_on: "Enabled", st_docker_off: "Off",
+      st_docker_hint_on: "The panel uses the Docker socket only for its own monitoring stack: to show why a service stopped and to restart it from the “Find out why” page. Whoever can reach the socket is root on the server, so keep the password strong and put HTTPS in front of the panel.",
+      st_docker_hint_off: "The panel cannot see the state of its own stack. To enable it, make sure the docker.sock mount in docker-compose.yml is present and PANEL_DOCKER_CONTROL is not 0, then run: docker compose up -d",
       st_docker_unavail: "Enabled in settings, but the Docker socket is not reachable.",
       st_about: "About", st_version: "Panel version",
     },
@@ -144,20 +136,19 @@
       title: "مانیتورینگ سرور", monitors: "مانیتورها", manage: "مدیریت", refresh: "بروزرسانی", logout: "خروج",
       lang_switch: "English", host: "سرور",
       cpu: "پردازنده", memory: "حافظه (رم)", disk: "دیسک", load: "میانگین بار",
-      net_down: "دریافت شبکه", net_up: "ارسال شبکه", containers: "کانتینرها", targets: "تارگت‌های فعال",
+      net_down: "دریافت شبکه", net_up: "ارسال شبکه", targets: "تارگت‌های فعال",
       websites: "چک‌های سالم", ssl: "انقضای SSL", alerts: "هشدارهای فعال", cores: "هسته", of: "از", days: "روز", running: "در حال اجرا",
-      overview: "نمای کلی", containers_nav: "کانتینرها", websites_nav: "سایت‌ها", disks: "دیسک‌ها", network: "شبکه",
+      overview: "نمای کلی", websites_nav: "سایت‌ها", disks: "دیسک‌ها", network: "شبکه",
       targets_nav: "تارگت‌ها", alerts_nav: "هشدارها", servers_nav: "سرورها", notifications_nav: "اعلان‌ها",
       rules_nav: "قوانین هشدار", settings_nav: "تنظیمات",
       d_overview: "مصرف زنده‌ی منابع سرور انتخاب‌شده. نمودارها خودکار بروز می‌شوند.",
-      d_containers: "همه‌ی کانتینرهای داکر این سرور. شروع، توقف، ری‌استارت، دیدن لاگ یا ساخت کانتینر جدید.",
       d_websites: "سایت‌ها و پورت‌های TCP که آپتایم، زمان پاسخ و انقضای SSL‌شان چک می‌شود. از اینجا اضافه یا حذف کنید.",
       d_disks: "فایل‌سیستم‌های مونت‌شده و میزان پر بودن هرکدام.",
       d_network: "ترافیک کارت‌شبکه‌های واقعی (کارت‌های مجازی و داکر پنهان هستند).",
       d_servers: "سرورهایی که پردازنده، رم، دیسک و شبکه‌شان مانیتور می‌شود. برای نظارت بر سرور دیگر، آن را اضافه کنید.",
       d_notifications: "هشدارها کجا فرستاده شوند. یک ربات تلگرام وصل کنید تا هر مشکلی پیام بگیرید.",
       d_rules: "هشدار چه زمانی فعال شود. آستانه‌ها را عوض کنید، قانونی را خاموش کنید یا پیش‌فرض‌ها را برگردانید.",
-      d_settings: "رمز پنل، کنترل داکر و اطلاعات این نصب.",
+      d_settings: "رمز پنل، دسترسی داکر و اطلاعات این نصب.",
       nx_nodata: "هنوز داده‌ی کارت شبکه نرسیده. نرخ‌ها حدود ۳۰ ثانیه داده می‌خواهند؛ اگر خالی ماند تب تارگت‌ها را ببینید.",
       nx_nojob: "اکسپورتر node-net در Prometheus نیست. install.sh را دوباره اجرا کنید یا بزنید: docker compose up -d && docker compose restart panel prometheus",
       nx_down: "اکسپورتر node-net قطع است و کارت‌های شبکه خوانده نمی‌شوند. خطا:",
@@ -191,15 +182,8 @@
       t_dark: "تم روشن", t_light: "تم تیره",
       add: "افزودن", cancel: "انصراف", close: "بستن", save: "ذخیره", saved: "ذخیره شد", remove: "حذف", working: "در حال انجام…", copy: "کپی", copied: "کپی شد",
       confirm: "لطفاً تأیید کنید", actions: "عملیات", minutes: "دقیقه", added: "اضافه شد", removed: "حذف شد", reset_defaults: "بازگشت به پیش‌فرض",
-      image: "ایمیج", ports: "پورت‌ها", a_start: "شروع", a_stop: "توقف", a_restart: "ری‌استارت", a_logs: "لاگ", a_remove: "حذف",
-      c_stack: "استک", c_self: "همین پنل", c_docker_off: "کنترل کانتینر خاموش است، پس این فهرست فقط‌خواندنی است (از cAdvisor). برای فعال‌سازی سوکت داکر را مونت کنید (تنظیمات را ببینید).",
-      c_add: "افزودن کانتینر", c_added: "کانتینر ساخته و اجرا شد", c_done: "انجام شد",
-      c_confirm_remove: "کانتینر «{n}» حذف شود؟ خود کانتینر پاک می‌شود (ولیوم‌های داده می‌مانند).", c_confirm_stop: "کانتینر «{n}» متوقف شود؟", c_confirm_restart: "کانتینر «{n}» ری‌استارت شود؟",
-      logs_title: "لاگ", lines: "خط", f_image: "ایمیج", f_image_hint: "مثلاً nginx:alpine یا ghcr.io/org/app:1.2. اگر روی سرور نباشد دانلود می‌شود.",
-      f_cname: "نام کانتینر (اختیاری)", f_ports: "پورت‌ها (هر خط یکی)", f_ports_hint: "HOST:CONTAINER مثل 8081:80 (برای UDP بنویسید /udp).",
-      f_env: "متغیرهای محیطی (هر خط یکی)", f_env_hint: "KEY=value", f_volumes: "ولیوم‌ها (هر خط یکی)", f_volumes_hint: "/host/path:/container/path یا /host/path:/container/path:ro",
-      f_restart: "سیاست ری‌استارت", rp_no: "هرگز", rp_unless: "مگر دستی متوقف شود (پیشنهادی)", rp_always: "همیشه", rp_failure: "فقط با خطا",
-      pulling_hint: "در حال ساخت… دانلود ایمیج جدید ممکن است چند دقیقه طول بکشد.",
+      a_restart: "ری‌استارت", c_done: "انجام شد",
+      c_docker_off: "دسترسی داکر خاموش است، پس وضعیت کانتینرهای استک را نمی‌شود نشان داد. برای فعال‌سازی سوکت داکر را مونت کنید (تنظیمات را ببینید).",
       add_site: "افزودن سایت یا پورت", type_http: "سایت (HTTP / HTTPS)", type_tcp: "پورت TCP", f_target: "آدرس", f_name_opt: "نام (اختیاری)",
       hint_http: "آدرس کامل، مثلاً https://example.com", hint_tcp: "host:port مثل 203.0.113.10:22 (SSH) یا db.internal:5432",
       probe: "آزمایش الان / چرا؟", probe_title: "نتیجه‌ی چک", probe_running: "در حال چک کردن…", probe_ok: "این چک همین الان از سرور موفق است.",
@@ -265,14 +249,13 @@
       rd_SlowEndpoint: "پاسخ یک سایت بیشتر از این زمان طول می‌کشد.",
       st_pw_title: "تغییر اطلاعات ورود", st_user: "نام کاربری", st_current: "رمز فعلی", st_new: "رمز جدید (حداقل ۸ نویسه)", st_repeat: "تکرار رمز جدید",
       st_change: "تغییر اطلاعات ورود", st_mismatch: "دو رمز یکسان نیستند", st_pw_ok: "اطلاعات ورود عوض شد. دستگاه‌های دیگر خارج شدند.",
-      st_docker_title: "کنترل داکر", st_docker_on: "فعال", st_docker_off: "خاموش",
-      st_docker_hint_on: "پنل می‌تواند از طریق سوکت داکر کانتینر شروع، متوقف، بسازد و حذف کند. هر کسی که اینجا وارد شود کنترل کل سرور را دارد؛ پس رمز قوی بگذارید و جلوی پنل HTTPS قرار دهید.",
-      st_docker_hint_off: "پنل فقط متریک کانتینرها را می‌خواند. برای فعال‌سازی، مطمئن شوید مونت docker.sock در docker-compose.yml هست و PANEL_DOCKER_CONTROL برابر 0 نیست، سپس بزنید: docker compose up -d",
+      st_docker_title: "دسترسی داکر", st_docker_on: "فعال", st_docker_off: "خاموش",
+      st_docker_hint_on: "پنل از سوکت داکر فقط برای استک مانیتورینگ خودش استفاده می‌کند: نشان دادن دلیل متوقف شدن یک سرویس و ری‌استارت آن از صفحه‌ی «پیدا کردن دلیل». هر کسی به این سوکت برسد روی سرور root است؛ پس رمز قوی بگذارید و جلوی پنل HTTPS قرار دهید.",
+      st_docker_hint_off: "پنل وضعیت کانتینرهای استک خودش را نمی‌بیند. برای فعال‌سازی، مطمئن شوید مونت docker.sock در docker-compose.yml هست و PANEL_DOCKER_CONTROL برابر 0 نیست، سپس بزنید: docker compose up -d",
       st_docker_unavail: "در تنظیمات فعال است ولی سوکت داکر در دسترس نیست.",
       st_about: "درباره", st_version: "نسخه‌ی پنل",
     },
   };
-
   // ---------------------------------------------------------------- state
   const store = {
     get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } },
@@ -465,7 +448,6 @@
   // ---------------------------------------------------------------- chrome (header, nav)
   const VIEWS = [
     { id: "overview", icon: "grid", label: "overview", desc: "d_overview", group: "monitor" },
-    { id: "containers", icon: "box", label: "containers_nav", desc: "d_containers", group: "monitor" },
     { id: "websites", icon: "globe", label: "websites_nav", desc: "d_websites", group: "monitor" },
     { id: "disks", icon: "disk", label: "disks", desc: "d_disks", group: "monitor" },
     { id: "network", icon: "network", label: "network", desc: "d_network", group: "monitor" },
@@ -501,13 +483,12 @@
     if (id === "notifications") return s && !s.telegram.configured ? '<span class="badge bad">!</span>' : "";
     if (id === "servers") return state.instances.length ? `<span class="badge">${state.instances.length}</span>` : "";
     if (!o) return "";
-    if (id === "containers") return `<span class="badge">${o.containers}</span>`;
     if (id === "websites") return o.checks.total ? `<span class="badge${o.checks.up < o.checks.total ? " bad" : ""}">${o.checks.up}/${o.checks.total}</span>` : "";
     if (id === "targets") return `<span class="badge${o.targets.up < o.targets.total ? " bad" : ""}">${o.targets.up}/${o.targets.total}</span>`;
     if (id === "alerts") return o.alerts.firing ? `<span class="badge bad">${o.alerts.firing}</span>` : "";
     return "";
   }
-  const TAB_IDS = ["overview", "containers", "websites", "alerts"];   // the rest live behind "More" on phones
+  const TAB_IDS = ["overview", "websites", "network", "alerts"];   // the rest live behind "More" on phones
   function renderNav() {
     const link = (v) => `<a href="#${v.id}" class="${v.id === state.view ? "active" : ""}" ${v.id === state.view ? 'aria-current="page"' : ""} title="${esc(t(v.label))}">${icon(v.icon)}<span class="name">${esc(t(v.label))}</span>${badgeFor(v.id)}</a>`;
     $("nav").innerHTML = VIEWS.filter((v) => v.group === "monitor").map(link).join("");
@@ -621,7 +602,6 @@
       tile({ label: t("net_down"), ic: "down", go: "network", value: num(fmtRate(o.net.rx)), spark: sparkBox("net", 0, "--c1") }),
       tile({ label: t("net_up"), ic: "up", go: "network", value: num(fmtRate(o.net.tx)), spark: sparkBox("net", 1, "--c2") }),
       tile({ label: t("load"), ic: "activity", tight: true, value: num(o.load.map((x) => nf(x, 2)).join(" / ")) }),
-      tile({ label: t("containers"), ic: "box", go: "containers", value: num(o.containers), sub: esc(t("running")) }),
       tile({ label: t("targets"), ic: "check", go: "targets", value: num(`${o.targets.up} / ${o.targets.total}`) }),
       tile({ label: t("websites"), ic: "globe", go: "websites", value: num(`${o.checks.up} / ${o.checks.total}`) }),
       tile({ label: t("ssl"), ic: "lock", go: "websites", value: o.checks.min_ssl_days == null ? "–" : num(`${nf(o.checks.min_ssl_days, 0)} <small>${t("days")}</small>`) }),
@@ -652,42 +632,6 @@
   const stateLabel = (st) => { const k = `s_${st}`; const v = t(k); return v === k ? st : v; };
 
   const IMPL = {
-    // ---- containers
-    containers: {
-      async build() {
-        const { docker, rows } = await api("/api/containers");
-        const note = docker ? "" : `<div class="notice">${icon("bell")}<span>${esc(t("c_docker_off"))}</span></div>`;
-        const cols = [
-          { h: "name", cls: "strong", cell: (r) => `${esc(r.name)}${r.stack ? `<span class="tag">${esc(t("c_stack"))}</span>` : ""}${r.self ? `<span class="tag">${esc(t("c_self"))}</span>` : ""}${r.image ? `<div class="sub-line">${esc(r.image)}</div>` : ""}` },
-          { h: "status", cell: (r) => pill(CONTAINER_STATE[r.state] || "", stateLabel(r.state)) },
-          { h: "cpu_h", cell: (r) => num(r.cpu == null ? "–" : `${nf(r.cpu)}%`) },
-          { h: "mem_h", cell: (r) => num(fmtBytes(r.mem)) },
-          { h: "uptime_h", cell: (r) => num(fmtDur(r.uptime)) },
-          { h: "ports", cls: "wrap-cell", cell: (r) => (r.ports && r.ports.length ? `<div class="chips">${r.ports.map((p) => `<code>${esc(p)}</code>`).join("")}</div>` : "–") },
-        ];
-        if (docker) cols.push({ h: "actions", cell: (r) => {
-          if (r.self) return "–";
-          const a = (act, ic, label, extra = "") => btnIcon(ic, label, `data-act="${act}" data-id="${esc(r.id)}" data-name="${esc(r.name)}"`, extra);
-          const running = r.state === "running";
-          return `<div class="row-actions">${running ? a("restart", "refresh", t("a_restart")) + a("stop", "stop", t("a_stop")) : a("start", "play", t("a_start"))}${a("logs", "file", t("a_logs"))}${r.stack ? "" : a("remove", "trash", t("a_remove"), "danger")}</div>`;
-        } });
-        return { html: note + table(cols, rows), tools: docker ? addButton("btn-add-container", t("c_add")) : "" };
-      },
-      bind(root) {
-        $("btn-add-container")?.addEventListener("click", addContainerDialog);
-        root.addEventListener("click", async (e) => {
-          const b = e.target.closest("[data-act]");
-          if (!b) return;
-          const { act: action, id, name } = b.dataset;
-          if (action === "logs") return logsDialog(id, name);
-          if (action === "remove" && !(await confirmBox({ message: t("c_confirm_remove", { n: name }), label: t("a_remove") }))) return;
-          if (action === "stop" && !(await confirmBox({ message: t("c_confirm_stop", { n: name }), label: t("a_stop") }))) return;
-          if (action === "restart" && !(await confirmBox({ message: t("c_confirm_restart", { n: name }), label: t("a_restart"), danger: false }))) return;
-          if (await act(b, () => post("/api/docker/action", { id, action }), t("c_done"))) renderView(false);
-        });
-      },
-    },
-
     // ---- websites + TCP ports
     websites: {
       async build() {
@@ -954,29 +898,6 @@
   };
 
   // ---------------------------------------------------------------- dialogs
-  function logsDialog(id, name) {
-    openDialog({
-      title: `${t("logs_title")}: ${name}`, wide: true, hideSubmit: true, cancel: t("close"),
-      body: `<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        <select id="log-tail" aria-label="${esc(t("lines"))}"><option value="100">100 ${esc(t("lines"))}</option><option value="300" selected>300 ${esc(t("lines"))}</option><option value="1000">1000 ${esc(t("lines"))}</option></select>
-        <button type="button" class="btn small" id="log-refresh">${icon("refresh")}<span>${esc(t("refresh"))}</span></button></div>
-        <pre class="logs" id="log-pre">…</pre>`,
-      onOpen: (dlg) => {
-        const pre = dlg.querySelector("#log-pre");
-        const load = async () => {
-          try {
-            const r = await api("/api/docker/logs", { id, tail: dlg.querySelector("#log-tail").value });
-            pre.textContent = r.text || "—";
-            pre.scrollTop = pre.scrollHeight;
-          } catch (e) { pre.textContent = e.message; }
-        };
-        dlg.querySelector("#log-refresh").addEventListener("click", load);
-        dlg.querySelector("#log-tail").addEventListener("change", load);
-        load();
-      },
-    });
-  }
-
   function probeDialog(kind, target) {
     openDialog({
       title: `${t("probe_title")}: ${target}`, wide: true, hideSubmit: true, cancel: t("close"),
@@ -1024,32 +945,6 @@
             if (await act(b, () => post("/api/checks/mode", { kind, target, mode: b.dataset.mode }), t("diag_applied"))) { dlg.close(); renderView(false); }
           }));
         } catch (e) { out.innerHTML = `<div class="notice bad">${icon("bell")}<span>${esc(e.message)}</span></div>`; }
-      },
-    });
-  }
-
-  const lines = (value) => value.split("\n").map((s) => s.trim()).filter(Boolean);
-
-  function addContainerDialog() {
-    openDialog({
-      title: t("c_add"), submit: t("add"), busy: t("pulling_hint"), wide: true,
-      body: `${field(t("f_image"), `<input name="image" dir="ltr" required placeholder="nginx:alpine" autocomplete="off">`, t("f_image_hint"))}
-        <div class="field-row">
-          ${field(t("f_cname"), `<input name="name" dir="ltr" placeholder="my-app" autocomplete="off">`)}
-          ${field(t("f_restart"), `<select name="restart"><option value="unless-stopped">${esc(t("rp_unless"))}</option><option value="always">${esc(t("rp_always"))}</option><option value="on-failure">${esc(t("rp_failure"))}</option><option value="no">${esc(t("rp_no"))}</option></select>`)}
-        </div>
-        <div class="field-row">
-          ${field(t("f_ports"), `<textarea name="ports" placeholder="8081:80"></textarea>`, t("f_ports_hint"))}
-          ${field(t("f_env"), `<textarea name="env" placeholder="KEY=value"></textarea>`, t("f_env_hint"))}
-        </div>
-        ${field(t("f_volumes"), `<textarea name="volumes" placeholder="/srv/data:/data"></textarea>`, t("f_volumes_hint"))}`,
-      onSubmit: async (form) => {
-        await post("/api/docker/run", {
-          image: val(form, "image").trim(), name: val(form, "name").trim(), restart: val(form, "restart"),
-          ports: lines(val(form, "ports")), env: lines(val(form, "env")), volumes: lines(val(form, "volumes")),
-        });
-        toast(t("c_added"));
-        renderView(false);
       },
     });
   }
