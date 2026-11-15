@@ -157,10 +157,18 @@ services:
       - /sys:/host/sys:ro
     networks: [monitoring]
 
+  # Only CPU and memory per container are used (the container alerts), so cAdvisor collects just
+  # those, for Docker containers only, every 30 s instead of every second (its default).
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     restart: always
     privileged: true
+    command:
+      - --housekeeping_interval=30s
+      - --max_housekeeping_interval=60s
+      - --docker_only=true
+      - --store_container_labels=false
+      - --enable_metrics=cpu,memory
     devices:
       - /dev/kmsg
     volumes:
@@ -254,8 +262,9 @@ services:
     ports:
       - "${PANEL_BIND:-0.0.0.0}:${PANEL_PORT:-3000}:8080"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
-      interval: 30s
+      # busybox wget: starting Python for every check cost more CPU than the panel itself when idle
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 60s
       timeout: 5s
       retries: 3
     depends_on: [prometheus, alertmanager, blackbox]
@@ -568,7 +577,8 @@ ssh root@SERVER 'bash install.sh'
 | ⚡ | **ضد DDoS** | سه سطح آماده (عادی، سخت‌گیر، زیر حمله) و تنظیم دستی؛ برای هر آی‌پی: SYN فلاد، فلاد اتصال، اتصال هم‌زمان بیش از حد، UDP فلاد، پینگ فلاد، بسته‌های نامعتبر و اسکن پورت. هر کس ۳ برابر حد برود خودکار مسدود می‌شود |
 | 🚨 | **تشخیص حمله** | با دیدن حمله، خودکار به حالت «زیر حمله» می‌رود و ۱۰ دقیقه بعد از پایان برمی‌گردد؛ پیام تلگرام شروع و پایان حمله |
 | 🧭 | **قوانین** | قوانین فایروال مثل Cloudflare و ابر آروان: شرط بر اساس **کشور** (از / نه از این کشورها)، **آدرس** یا شبکه، **پروتکل** و **پورت**، و یکی از کارها: **اجازه** (حتی از محدودیت‌های فلاد رد شود)، **مسدود**، **محدود** با حساسیت کم/متوسط/زیاد/خیلی زیاد یا دلخواه و مسدودی خودکار، یا **فقط شمارش**. قوانین از بالا به پایین اجرا می‌شوند، هر قانون تعداد برخوردهایش را نشان می‌دهد و الگوهای آماده دارد (مسدود کردن کشورها، فقط چند کشور، محدودیت سخت برای کشورها، اجازه به یک آدرس، بستن یک پورت). لیست آی‌پی کشورها از ipdeny.com می‌آید و هر هفته بروز می‌شود؛ ادمین‌ها، لیست سفید و Cloudflare تحت تأثیر نیستند. هر قانون می‌تواند **ورودی یا خروجی** باشد (مثلاً بستن پورت‌های ایمیل خروجی یا ارتباط سرور با یک آدرس)، فقط در **روزها و ساعت‌های مشخص** فعال شود و **تاریخ انقضا** داشته باشد (۱ ساعت تا ۷ روز، بعد خودش خاموش می‌شود) |
-| 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول همه‌ی مسدودها (فلاد، محافظ SSH، دستی و fail2ban با نام جیل) و رفع مسدودی از همان‌جا؛ **بررسی آدرس** (این آی‌پی روی این پورت چه سرنوشتی دارد و کدام قانون تصمیم می‌گیرد، قدم به قدم)؛ **لیست‌های تهدید** با یک کلیک (Spamhaus DROP، FireHOL Level 1، blocklist.de، Emerging Threats، CINS Army) که هر ۱۲ ساعت بروز می‌شوند |
+| 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول همه‌ی مسدودها (فلاد، محافظ SSH، دستی و fail2ban با نام جیل) و رفع مسدودی از همان‌جا؛ **بررسی آدرس** (این آی‌پی روی این پورت چه سرنوشتی دارد و کدام قانون تصمیم می‌گیرد، قدم به قدم) |
+| 🛰️ | **لیست‌های تهدید** | ۹ لیست عمومی آدرس‌های مهاجم با یک کلید (Spamhaus DROP، FireHOL Level 1، abuse.ch Feodo Tracker، Emerging Threats، CINS Army، blocklist.de، IPsum، GreenSnow، نودهای خروجی Tor) و **لیست‌های خودتان** با آدرس https؛ برای هر لیست حالت **مسدود** یا **فقط نظارت** (می‌شمارد چه چیزی را مسدود می‌کرد، بدون مسدود کردن)، تعداد برخورد هر لیست، خطای آخرین دانلود و دکمه‌ی بروزرسانی؛ مسدود کردن **اتصال خود سرور** به آدرس‌های لیست (مثلاً سرورهای بات‌نت)؛ جدول **آدرس‌هایی که در یک ساعت اخیر** به لیست‌ها خورده‌اند با دکمه‌ی «مجاز کن»؛ بروزرسانی خودکار هر ۳ تا ۴۸ ساعت فقط وقتی محتوا عوض شده و بدون بازسازی فایروال؛ جواب اتصال‌هایی که خود سرور باز می‌کند هیچ‌وقت مسدود نمی‌شود |
 | 🔑 | **SSH** | **مدیریت سرور SSH**: عوض کردن یا اضافه کردن پورت (تا ۵ پورت)، ورود root (آزاد / فقط با کلید / بسته)، خاموش کردن ورود با رمز، تعداد تلاش، زمان ورود، قطع نشست بی‌کار، فوروارد پورت و X11؛ **مدیریت کلیدهای SSH** کاربر root (افزودن، دیدن اثر انگشت، حذف)؛ و محافظ حمله‌ی رمز که آی‌پی‌هایی که مدام رمز اشتباه می‌زنند را مسدود می‌کند |
 | 🚔 | **fail2ban** | نصب و حذف با یک کلیک، شروع/توقف/ری‌استارت و اجرا هنگام بوت؛ **ساخت، ویرایش کامل (همه‌ی گزینه‌ها: فیلتر، لاگ، پورت، backend، روش مسدودی، …) و حذف جیل‌ها**، و **ویرایشگر همه‌ی فایل‌های /etc/fail2ban** با بررسی و برگشت خودکار؛ هر جیل یک کارت با کلید روشن/خاموش، آمار مسدودها و تنظیمات ساده («۳ خطا در ۳۰ دقیقه ← ۱ ساعت مسدودی»)؛ محافظت‌های آماده (Nginx، Apache، ایمیل، FTP، MySQL، متخلفان تکراری) فقط وقتی آن سرویس هست؛ مسدودی تکراری طولانی‌تر، لیست «هرگز مسدود نشود»، مسدود/رفع مسدودی دستی و لاگ |
 | 🧱 | **سخت‌سازی** | امتیاز امنیت و بررسی‌ها (ورود root با رمز، دیتابیس باز به اینترنت، آپدیت خودکار، ری‌بوت لازم، fail2ban متوقف، …) با راه رفع؛ تنظیمات شبکه‌ی کرنل با یک کلیک (و بازگشت به مقدار اصلی)؛ **پشتیبان‌گیری و بازگردانی** همه‌ی تنظیمات فایروال و fail2ban در یک فایل |
@@ -593,6 +603,14 @@ nft delete table inet defender
 ```
 
 > ℹ️ فایروال فلاد شبکه (L3/L4) را دفع می‌کند. فلاد درخواست‌های معتبر HTTP (L7) و حمله‌هایی که از ظرفیت خود لینک شبکه بزرگ‌ترند را باید CDN یا سرویس ضد DDoS دیتاسنتر بگیرد.
+
+### ⚡ سبک و بهینه
+
+- وقتی کسی پنل را باز نکرده، کل پنل و فایروال روی هم کمتر از **۰٫۳٪ یک هسته** CPU مصرف می‌کنند.
+- فایروال شمارنده‌ها را با کتابخانه‌ی nftables در همان پروسه می‌خواند (نه اجرای برنامه‌ی `nft` در هر ثانیه)، و وقتی صفحه‌ی فایروال باز نیست هر ۲ ثانیه نمونه می‌گیرد (در حمله یا وقتی صفحه باز است هر ثانیه).
+- نمای زنده فقط اطلاعات لازم را از node_exporter می‌خواند (حدود ۱۰ برابر سبک‌تر) و فقط وقتی کسی آن را نگاه می‌کند.
+- فایل‌های پنل یک بار فشرده و در حافظه نگه داشته می‌شوند؛ مرورگر آن‌ها را نگه می‌دارد و فقط تغییرشان را می‌پرسد.
+- cAdvisor فقط CPU و حافظه‌ی کانتینرها را هر ۳۰ ثانیه جمع می‌کند و healthcheck پنل به جای پایتون از `wget` استفاده می‌کند.
 
 ## 🔐 امنیت
 
@@ -840,6 +858,7 @@ scrape_configs:
         replacement: node-exporter:9100
 
   - job_name: cadvisor
+    scrape_interval: 30s      # cAdvisor refreshes every 30 s (see docker-compose.yml)
     static_configs:
       - targets: [cadvisor:8080]
 
@@ -964,6 +983,8 @@ the Defender (firewall / anti-DDoS, proxied to its agent, see defender.py).
 Standard library only. Anything that changes state needs the session cookie, a JSON body and the
 X-Panel header (a cross-site page cannot send that header), and is checked against the Origin.
 """
+import gzip
+import hashlib
 import json
 import os
 import secrets
@@ -992,6 +1013,22 @@ USER = os.environ.get("PANEL_USER", "admin")
 PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PORT = int(os.environ.get("PANEL_LISTEN_PORT", "8080"))
 STATIC = Path(__file__).parent / "static"
+_static_cache = {}
+_static_lock = threading.Lock()
+
+
+def static_file(name):
+    """(version, raw, gzipped or None, etag) of a file in static/, cached in memory by mtime and size."""
+    st = (STATIC / name).stat()
+    version = (st.st_mtime_ns, st.st_size)
+    hit = _static_cache.get(name)
+    if hit and hit[0] == version:
+        return hit
+    with _static_lock:
+        raw = (STATIC / name).read_bytes()
+        packed = gzip.compress(raw, 9, mtime=0) if len(raw) > 1024 else None
+        hit = _static_cache[name] = (version, raw, packed, '"%s"' % hashlib.sha256(raw).hexdigest()[:20])
+        return hit
 COOKIE = "panel_session"
 VERSION = "2.2"
 SESSION_TTL = security.SESSION_MAX
@@ -1251,11 +1288,11 @@ class Handler(BaseHTTPRequestHandler):
         sys.stderr.write("%s %s\n" % (self.address_string(), fmt % args))
 
     # -- helpers
-    def _headers(self, status, ctype, length, extra=()):
+    def _headers(self, status, ctype, length, extra=(), cache="no-store"):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(length))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
@@ -1280,7 +1317,18 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _file(self, name, ctype):
-        self._bytes((STATIC / name).read_bytes(), ctype)
+        """Static files: read and compressed once (until the file changes), then served from memory.
+        The browser keeps them and only asks "changed?" (ETag), which costs a 304 with no body."""
+        _, raw, packed, etag = static_file(name)
+        extra = [("ETag", etag), ("Vary", "Accept-Encoding")]
+        if self.headers.get("If-None-Match") == etag:
+            return self._headers(304, ctype, 0, extra, cache="private, no-cache")
+        body = raw
+        if packed and "gzip" in self.headers.get("Accept-Encoding", ""):
+            body = packed
+            extra.append(("Content-Encoding", "gzip"))
+        self._headers(200, ctype, len(body), extra, cache="private, no-cache")
+        self.wfile.write(body)
 
     def _redirect(self, location):
         self._headers(302, "text/plain", 0, [("Location", location)])
@@ -3113,6 +3161,7 @@ import os
 import re
 import threading
 import time
+from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import monitor
@@ -3134,6 +3183,10 @@ WANTED = (
     "node_filesystem_size_bytes", "node_filesystem_avail_bytes",
     "node_disk_read_bytes_total", "node_disk_written_bytes_total",
 )
+# Only the collectors the live view needs: a full scrape is ~50 KB and runs every collector (tens of
+# ms of CPU in node_exporter); this one is a few KB and ~3 ms. Disk sizes change slowly: every 10 s.
+FAST = ("cpu", "meminfo", "loadavg", "diskstats")
+DISK_EVERY = 10
 LINE = re.compile(r"^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(.*)\})?\s+(\S+)")
 LABEL = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"')
 
@@ -3205,9 +3258,14 @@ def rate(now, before, dt):
 class Sampler:
     def __init__(self, instance):
         self.instance = instance
-        self.urls = [f"http://{instance}/metrics"]
-        if instance == LOCAL_INSTANCE:
-            self.urls.append(LOCAL_NET_URL)
+        local = instance == LOCAL_INSTANCE
+        # (base url, collectors it should run); on this server network counters come from node-net
+        self.sources = [(f"http://{instance}/metrics", FAST if local else FAST + ("netdev",))]
+        if local:
+            self.sources.append((LOCAL_NET_URL, ("netdev",)))
+        self.unfiltered = set()      # exporters too old for collect[] (or with a collector switched off)
+        self.tick = 0
+        self.disk = None
         self.samples = collections.deque(maxlen=KEEP)
         self.error = ""
         self.cond = threading.Condition()
@@ -3217,8 +3275,21 @@ class Sampler:
 
     def _read(self):
         metrics = collections.defaultdict(list)
-        for url in self.urls:
-            for k, v in parse(fetch(url)).items():
+        with_disk = self.tick % DISK_EVERY == 0 or self.disk is None
+        self.tick += 1
+        for base, wanted in self.sources:
+            if base in self.unfiltered:
+                text = fetch(base)
+            else:
+                names = wanted + (("filesystem",) if with_disk and base != LOCAL_NET_URL else ())
+                try:
+                    text = fetch(base + "?" + "&".join(f"collect[]={c}" for c in names))
+                except HTTPError as e:
+                    if e.code != 400:
+                        raise
+                    self.unfiltered.add(base)      # "missing collector": ask for everything from now on
+                    text = fetch(base)
+            for k, v in parse(text).items():
                 metrics[k].extend(v)
         return metrics
 
@@ -3255,8 +3326,13 @@ class Sampler:
             "load": [first(metrics, f"node_load{p}") for p in (1, 5, 15)],
             "rx": total(0), "tx": total(1), "dev": dev,
             "io": [rate(c["io"]["r"], p["io"]["r"], dt), rate(c["io"]["w"], p["io"]["w"], dt)],
-            "disk": root_disk(metrics),
+            "disk": self._disk(metrics),
         }
+
+    def _disk(self, metrics):
+        if metrics.get("node_filesystem_size_bytes"):
+            self.disk = root_disk(metrics)
+        return self.disk
 
     def _loop(self):
         next_at = time.monotonic()
@@ -3338,7 +3414,7 @@ GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "r
 POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unallow", "unban", "sysctl",
               "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
               "f2b/file", "f2b/file/delete", "import", "sshd/apply", "sshd/confirm", "sshd/revert", "sshd/key/add",
-              "sshd/key/remove", "test"}
+              "sshd/key/remove", "test", "threat/refresh", "threat/custom/add", "threat/custom/remove"}
 NOT_RUNNING = ("The firewall service (defender) is not running. On the server run: "
                "cd /opt/server-monitoring && docker compose up -d --build defender")
 JAIL_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
@@ -3672,7 +3748,7 @@ __MONITORING_EOF__
   const tt = (k, i, vars) => { const v = t(k); const s = Array.isArray(v) ? v[i] : v; return vars ? Object.entries(vars).reduce((a, [x, y]) => a.replace(`{${x}}`, y), s) : s; };
 
   // ---------------------------------------------------------------- state
-  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["rules", "rule"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
+  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["rules", "rule"], ["lists", "list"], ["threat", "radar"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
   const store = { get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } } };
   const D = { tab: store.get("df_tab", "overview"), st: null, err: "", samples: [], lastT: 0, timer: null, ticks: 0, fw: null, talkers: [], events: [], root: null, heroKey: "" };
   if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
@@ -3885,7 +3961,10 @@ __MONITORING_EOF__
       } else box.innerHTML = `<div class="empty">${esc(t("live_waiting"))}</div>`;
     }
     const totals = {};
-    for (const s of S) for (const [k, v] of Object.entries(s.drops || {})) totals[k] = (totals[k] || 0) + v;
+    S.forEach((s, i) => {   // rates per second; samples are 1 s apart while watched, 2 s when idle
+      const dt = i ? Math.min(5, Math.max(0.2, s.t - S[i - 1].t)) : 1;
+      for (const [k, v] of Object.entries(s.drops || {})) totals[k] = (totals[k] || 0) + v * dt;
+    });
     const rows = Object.entries(totals).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]);
     const max = rows.length ? rows[0][1] : 1;
     setHTML(root.querySelector("#df-reasons"), rows.length ? rows.map(([k, v]) => `<div class="df-bar"><span>${esc(t(`df_r_${k}`))}</span><b>${num(nf(v, 0))}</b><i style="width:${Math.max(2, (v / max) * 100).toFixed(1)}%"></i></div>`).join("")
@@ -4827,10 +4906,6 @@ __MONITORING_EOF__
     df_tt_banned: "Banned by the firewall, {left} left.", df_tt_fail2ban: "Banned by fail2ban ({jail}).", df_tt_panel_allow: "Only the listed addresses may open the panel.", df_tt_cdn: "A Cloudflare address (trusted).",
     df_tt_threat: "Listed in: {feeds}.", df_tt_rule_allow: "Rule \"{name}\": allow.", df_tt_rule_block: "Rule \"{name}\": block.", df_tt_rule_limit: "Rule \"{name}\": limited to {rate}/s.", df_tt_rule_count: "Rule \"{name}\": counted.",
     df_tt_strict: "Strict mode: port {port} is not open.", df_tt_limits: "Allowed, within the flood limits ({syn} SYN/s, {conc} connections).", df_tt_sched: " (only at its scheduled times)",
-    df_th_title: "Threat blocklists", df_th_sub: "Public lists of attacking, hijacked and spamming addresses, blocked before anything else and refreshed every 12 hours. Private networks are always left out.",
-    df_th_entries: "{n} addresses / networks", df_th_never: "not downloaded yet", df_th_blocked: "{n} packets blocked by these lists since the rules were applied",
-    df_th_spamhaus: "Hijacked networks used by spammers and criminals. Very safe to turn on.", df_th_firehol: "A curated mix of the worst lists (attacks, malware, hijacked networks).",
-    df_th_blocklistde: "Addresses that attacked servers in the last 48 hours (SSH, mail, web).", df_th_et: "Compromised hosts tracked by Emerging Threats.", df_th_cins: "Addresses with a bad reputation from the CINS Army sensors.",
   }, {
     df_sv_title: "سرور SSH", df_sv_sub: "پورت، گزینه‌های ورود و کلیدهای خود سرور SSH. هر تغییر آزمایش می‌شود: اگر SSH روی همه‌ی پورت‌ها جواب ندهد، تنظیمات قبلی فوراً برمی‌گردد؛ وگرنه {m} دقیقه وقت دارید دوباره وارد شوید و آن را نگه دارید، وگرنه خودش برمی‌گردد. نشست‌های باز وصل می‌مانند.",
     df_sv_ports: "پورت‌های SSH", df_sv_ports_hint: "هنگام جابه‌جایی هر دو پورت را نگه دارید: پورت جدید را اضافه کنید، بعد از ورود موفق با آن تغییر را نگه دارید، و بعد پورت قدیمی را حذف کنید.",
@@ -4850,10 +4925,6 @@ __MONITORING_EOF__
     df_tt_banned: "توسط فایروال مسدود است، {left} مانده.", df_tt_fail2ban: "توسط fail2ban مسدود است ({jail}).", df_tt_panel_allow: "فقط آدرس‌های مشخص اجازه‌ی باز کردن پنل دارند.", df_tt_cdn: "آدرس Cloudflare (مورد اعتماد).",
     df_tt_threat: "در این لیست‌ها: {feeds}.", df_tt_rule_allow: "قانون «{name}»: اجازه.", df_tt_rule_block: "قانون «{name}»: مسدود.", df_tt_rule_limit: "قانون «{name}»: محدود به {rate} در ثانیه.", df_tt_rule_count: "قانون «{name}»: شمرده می‌شود.",
     df_tt_strict: "حالت سخت‌گیر: پورت {port} باز نیست.", df_tt_limits: "مجاز، در حد محدودیت‌های فلاد ({syn} SYN در ثانیه، {conc} اتصال).", df_tt_sched: " (فقط در زمان‌بندی‌اش)",
-    df_th_title: "لیست‌های تهدید", df_th_sub: "لیست‌های عمومی آدرس‌های مهاجم، ربوده‌شده و اسپمر؛ قبل از هر چیز مسدود و هر ۱۲ ساعت بروز می‌شوند. شبکه‌های خصوصی همیشه کنار گذاشته می‌شوند.",
-    df_th_entries: "{n} آدرس / شبکه", df_th_never: "هنوز دانلود نشده", df_th_blocked: "{n} بسته از وقتی قوانین اعمال شده توسط این لیست‌ها مسدود شده",
-    df_th_spamhaus: "شبکه‌های ربوده‌شده که اسپمرها و مجرمان استفاده می‌کنند. روشن کردنش خیلی امن است.", df_th_firehol: "ترکیب دست‌چین بدترین لیست‌ها (حمله، بدافزار، شبکه‌های ربوده‌شده).",
-    df_th_blocklistde: "آدرس‌هایی که در ۴۸ ساعت اخیر به سرورها حمله کرده‌اند (SSH، ایمیل، وب).", df_th_et: "میزبان‌های آلوده‌ای که Emerging Threats رصد می‌کند.", df_th_cins: "آدرس‌های بدنام از حسگرهای CINS Army.",
   });
 
   // ---- SSH server
@@ -4920,6 +4991,7 @@ __MONITORING_EOF__
       if (s.kind === "banned") return t("df_tt_banned", { left: s.left ? fmtLeft(s.left) : "–" });
       if (s.kind === "fail2ban") return t("df_tt_fail2ban", { jail: s.jail || "fail2ban" });
       if (s.kind === "threat") return t("df_tt_threat", { feeds: s.feeds.join("، ") });
+      if (s.kind === "threat_log") return t("df_tt_threat_log", { feeds: s.feeds.join("، ") });
       if (s.kind === "limits") return t("df_tt_limits", { syn: s.limits.syn, conc: s.limits.conc });
       return t(`df_tt_${s.kind}`, s);
     };
@@ -4927,22 +4999,126 @@ __MONITORING_EOF__
       <span dir="ltr"><b>${esc(r.ip)}</b>${r.port ? `:${r.port}/${r.proto}` : ""}</span><span class="muted">${esc(r.country ? t("df_tt_country", { c: `${flag(r.country)} ${ccName(r.country)}` }) : t("df_tt_country_unknown"))}</span></div>
       <ol class="tt-steps">${r.steps.map((s) => `<li class="${tone[s.result] || ""}">${pill(tone[s.result] || "", t(`df_tt_${s.result === "count" ? "allow" : s.result}`), false)}<span>${esc(text(s))}</span></li>`).join("")}</ol>`;
   }
-  async function threatHTML() {
-    const th = await api("/api/defender/threat").catch(() => null);
-    if (!th) return "";
-    const on = new Set(th.enabled);
-    const rows = Object.entries(th.feeds).map(([id, f]) => `<label class="th-feed${on.has(id) ? " on" : ""}"><span class="switch"><input type="checkbox" data-feed="${id}" ${on.has(id) ? "checked" : ""}><span></span></span>
-      <span class="th-body"><b>${esc(f.name)}</b><small>${esc(t(`df_th_${id}`))}</small><small class="muted">${esc(f.updated ? `${t("df_th_entries", { n: nf(f.entries, 0) })} · ${ago(f.updated)}` : t("df_th_never"))} · <span dir="ltr">${esc(f.site)}</span></small></span></label>`).join("");
-    return `<section class="sec"><div class="sec-head"><h3>${icon("shield")}${esc(t("df_th_title"))}</h3><p class="muted">${esc(t("df_th_sub"))}</p></div>
-      ${th.protection ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_r_off"))}</span></div>`}
-      <div class="th-grid">${rows}</div>${th.blocked ? `<p class="muted">${esc(t("df_th_blocked", { n: nf(th.blocked, 0) }))}</p>` : ""}</section>`;
-  }
-  async function renderListsAll() {
-    const [lists, th] = await Promise.all([renderLists(), threatHTML()]);
-    return testerHTML() + th + lists;
+  // ---------------------------------------------------------------- threat lists (own tab)
+  P.addIcons({ radar: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18.4 5.6"/>' });
+  P.addStrings({
+    df_t_threat: "Threat lists",
+    df_th_title: "Threat lists", df_th_sub: "Public lists of attacking, hijacked and botnet addresses. Everything a listed address starts is dropped before any other check; replies to connections this server opens itself still pass. Private networks are always left out.",
+    df_th_on: "Lists on", df_th_blocked_n: "Packets blocked", df_th_since: "since the rules were applied", df_th_kernel: "Entries in the firewall", df_th_cover: "IPv4 addresses covered",
+    df_th_out_n: "Outgoing blocked", df_th_next: "Next check", df_th_now: "updating…",
+    df_th_recommended: "Turn on the recommended lists", df_th_update_all: "Update all now", df_th_updated_n: "{n} list(s) had new content", df_th_up_to_date: "All lists are up to date",
+    df_th_settings: "Settings", df_th_outbound: "Also block this server connecting to them", df_th_outbound_sub: "Stops malware or a hacked app on this server (or a VPN client) from reaching botnet servers. Only lists in block mode.",
+    df_th_refresh: "Refresh every", df_th_hours: "{n} h", df_th_save: "Save",
+    df_th_mode_block: "Block", df_th_mode_log: "Watch only", df_th_mode_hint: "Watch only counts what the list would block, without blocking: try a list this way first.",
+    df_th_rec: "Recommended", df_th_risky: "may hit real users", df_th_entries: "{n} entries", df_th_v6: "{n} IPv6", df_th_addrs: "{n} IPv4 addresses",
+    df_th_never: "not downloaded yet", df_th_hits: "{n} packets", df_th_err: "Last update failed: {e}", df_th_update: "Update now", df_th_remove: "Remove",
+    df_th_k_hijacked: "Hijacked networks", df_th_k_mixed: "Mixed", df_th_k_botnet: "Botnet servers", df_th_k_compromised: "Compromised hosts", df_th_k_attackers: "Attackers",
+    df_th_k_anonymizer: "Anonymizer", df_th_k_custom: "Your list",
+    df_th_spamhaus: "Networks stolen by spammers and criminals. Practically never blocks a real user.", df_th_firehol: "A careful mix of the worst lists (attacks, malware, hijacked and unused networks).",
+    df_th_feodo: "Command servers of banking trojans and botnets (abuse.ch). Best together with blocking outgoing connections.", df_th_et: "Compromised hosts tracked by Emerging Threats.",
+    df_th_cins: "Addresses with a bad reputation from the CINS Army sensors.", df_th_blocklistde: "Addresses that attacked servers in the last 48 hours (SSH, mail, web). Large; shared home addresses can be in it.",
+    df_th_ipsum: "Addresses reported by at least 3 different blocklists in the last day.", df_th_greensnow: "Addresses caught scanning and brute-forcing by the GreenSnow sensors.",
+    df_th_tor: "Exit nodes of the Tor network. Not attackers as such: turn on only if you don't want anonymous visitors.", df_th_custom: "Your own list from {site}.",
+    df_th_add: "Add your own list", df_th_add_sub: "Any https address of a plain list (one address, network or range per line; # and ; start comments). It starts in watch-only mode.",
+    df_th_name: "Name", df_th_url: "List address (https)", df_th_add_btn: "Add list", df_th_added: "List added", df_th_removed: "List removed", df_th_remove_confirm: "Remove the list \"{name}\"?",
+    df_th_recent: "Recently matched addresses", df_th_recent_sub: "Addresses that hit a list in the last hour. If a real user is among them, allow the address: the allowlist always wins.",
+    df_th_none_recent: "No address hit the lists in the last hour.", df_th_r_ip: "Address", df_th_r_kind: "Result", df_th_r_lists: "Lists", df_th_r_when: "When",
+    df_th_r_block: "blocked", df_th_r_log: "watched", df_th_allow: "Allow", df_th_allowed: "{ip} is now allowed",
+    df_tt_threat_log: "In a watch-only list (not blocked): {feeds}.",
+  }, {
+    df_t_threat: "لیست‌های تهدید",
+    df_th_title: "لیست‌های تهدید", df_th_sub: "لیست‌های عمومی آدرس‌های مهاجم، ربوده‌شده و بات‌نت. هر چیزی که یک آدرس لیست‌شده شروع کند قبل از هر بررسی دیگری دور ریخته می‌شود؛ جواب اتصال‌هایی که خود این سرور باز می‌کند رد می‌شود. شبکه‌های خصوصی همیشه کنار گذاشته می‌شوند.",
+    df_th_on: "لیست‌های روشن", df_th_blocked_n: "بسته‌های مسدودشده", df_th_since: "از وقتی قوانین اعمال شده", df_th_kernel: "ردیف‌ها در فایروال", df_th_cover: "آدرس IPv4 پوشش داده‌شده",
+    df_th_out_n: "خروجی مسدودشده", df_th_next: "بررسی بعدی", df_th_now: "در حال بروزرسانی…",
+    df_th_recommended: "روشن کردن لیست‌های پیشنهادی", df_th_update_all: "بروزرسانی همه همین حالا", df_th_updated_n: "{n} لیست محتوای جدید داشت", df_th_up_to_date: "همه‌ی لیست‌ها بروز هستند",
+    df_th_settings: "تنظیمات", df_th_outbound: "اتصال این سرور به آن‌ها هم مسدود شود", df_th_outbound_sub: "جلوی رسیدن بدافزار یا برنامه‌ی هک‌شده روی این سرور (یا کاربر VPN) به سرورهای بات‌نت را می‌گیرد. فقط لیست‌های حالت مسدود.",
+    df_th_refresh: "بروزرسانی هر", df_th_hours: "{n} ساعت", df_th_save: "ذخیره",
+    df_th_mode_block: "مسدود", df_th_mode_log: "فقط نظارت", df_th_mode_hint: "«فقط نظارت» چیزی را مسدود نمی‌کند، فقط می‌شمارد که لیست چه چیزهایی را مسدود می‌کرد: اول یک لیست را این‌طور امتحان کنید.",
+    df_th_rec: "پیشنهادی", df_th_risky: "ممکن است کاربر واقعی را بگیرد", df_th_entries: "{n} ردیف", df_th_v6: "{n} IPv6", df_th_addrs: "{n} آدرس IPv4",
+    df_th_never: "هنوز دانلود نشده", df_th_hits: "{n} بسته", df_th_err: "آخرین بروزرسانی ناموفق بود: {e}", df_th_update: "بروزرسانی", df_th_remove: "حذف",
+    df_th_k_hijacked: "شبکه‌های ربوده‌شده", df_th_k_mixed: "ترکیبی", df_th_k_botnet: "سرورهای بات‌نت", df_th_k_compromised: "میزبان‌های آلوده", df_th_k_attackers: "مهاجم‌ها",
+    df_th_k_anonymizer: "ناشناس‌ساز", df_th_k_custom: "لیست شما",
+    df_th_spamhaus: "شبکه‌هایی که اسپمرها و مجرمان دزدیده‌اند. تقریباً هیچ‌وقت کاربر واقعی را نمی‌گیرد.", df_th_firehol: "ترکیب دقیق بدترین لیست‌ها (حمله، بدافزار، شبکه‌های ربوده‌شده و استفاده‌نشده).",
+    df_th_feodo: "سرورهای فرمان تروجان‌های بانکی و بات‌نت‌ها (abuse.ch). بهترین حالت همراه با مسدود کردن اتصال خروجی است.", df_th_et: "میزبان‌های آلوده‌ای که Emerging Threats رصد می‌کند.",
+    df_th_cins: "آدرس‌های بدنام از حسگرهای CINS Army.", df_th_blocklistde: "آدرس‌هایی که در ۴۸ ساعت اخیر به سرورها حمله کرده‌اند (SSH، ایمیل، وب). بزرگ است و ممکن است آدرس‌های مشترک خانگی در آن باشد.",
+    df_th_ipsum: "آدرس‌هایی که در روز گذشته دست‌کم در ۳ لیست سیاه مختلف گزارش شده‌اند.", df_th_greensnow: "آدرس‌هایی که حسگرهای GreenSnow حین اسکن و حدس رمز گرفته‌اند.",
+    df_th_tor: "نودهای خروجی شبکه‌ی Tor. خودشان مهاجم نیستند: فقط اگر بازدیدکننده‌ی ناشناس نمی‌خواهید روشن کنید.", df_th_custom: "لیست خودتان از {site}.",
+    df_th_add: "افزودن لیست خودتان", df_th_add_sub: "هر آدرس https یک لیست ساده (در هر خط یک آدرس، شبکه یا بازه؛ # و ; شروع توضیح). اول در حالت «فقط نظارت» شروع می‌شود.",
+    df_th_name: "نام", df_th_url: "آدرس لیست (https)", df_th_add_btn: "افزودن لیست", df_th_added: "لیست اضافه شد", df_th_removed: "لیست حذف شد", df_th_remove_confirm: "لیست «{name}» حذف شود؟",
+    df_th_recent: "آدرس‌هایی که اخیراً منطبق شدند", df_th_recent_sub: "آدرس‌هایی که در یک ساعت اخیر به یکی از لیست‌ها خورده‌اند. اگر کاربر واقعی بین‌شان است، آن آدرس را مجاز کنید: لیست سفید همیشه مقدم است.",
+    df_th_none_recent: "در یک ساعت اخیر هیچ آدرسی به لیست‌ها نخورده است.", df_th_r_ip: "آدرس", df_th_r_kind: "نتیجه", df_th_r_lists: "لیست‌ها", df_th_r_when: "زمان",
+    df_th_r_block: "مسدود شد", df_th_r_log: "نظارت شد", df_th_allow: "مجاز کن", df_th_allowed: "{ip} حالا مجاز است",
+    df_tt_threat_log: "در لیستی با حالت «فقط نظارت» (مسدود نمی‌شود): {feeds}.",
+  });
+
+  function threatCard(id, f) {
+    const on = f.enabled;
+    const desc = f.custom ? t("df_th_custom", { site: f.site }) : t(`df_th_${id}`);
+    const stats = f.updated
+      ? [t("df_th_entries", { n: nf(f.v4 + f.v6, 0) }), f.addresses ? t("df_th_addrs", { n: nf(f.addresses, 0) }) : "", f.v6 ? t("df_th_v6", { n: nf(f.v6, 0) }) : "", ago(f.updated)].filter(Boolean).join(" · ")
+      : t("df_th_never");
+    const mode = on ? `<div class="df-seg th-mode" role="group" aria-label="${esc(t("df_th_mode_hint"))}">${["block", "log"].map((m) =>
+      `<button type="button" class="${f.mode === m ? "on" : ""}" aria-pressed="${f.mode === m}" data-a="th-mode" data-id="${esc(id)}" data-mode="${m}">${esc(t(`df_th_mode_${m}`))}</button>`).join("")}</div>` : "";
+    return `<article class="th-feed${on ? " on" : ""}${on && f.mode === "log" ? " watch" : ""}">
+      <label class="th-top"><span class="switch"><input type="checkbox" data-feed="${esc(id)}" ${on ? "checked" : ""}><span></span></span>
+        <span class="th-body"><b>${esc(f.name)}</b><span class="th-tags">${pill("", t(`df_th_k_${f.kind}`), false)}${f.safe ? pill("ok", t("df_th_rec"), false) : `<small class="muted">${esc(t("df_th_risky"))}</small>`}</span></span></label>
+      <small class="th-desc">${esc(desc)}</small>
+      <small class="muted">${esc(stats)} · <span dir="ltr">${esc(f.site)}</span></small>
+      ${f.error ? `<small class="th-err">${icon("alert")}<span>${esc(t("df_th_err", { e: f.error }))}</span></small>` : ""}
+      <div class="th-foot">${mode}${on && f.hits ? `<span class="pill ${f.mode === "log" ? "warn" : "bad"}">${esc(t("df_th_hits", { n: nf(f.hits, 0) }))}</span>` : ""}
+        <span class="th-btns">${on ? btnIcon("refresh", t("df_th_update"), `data-a="th-refresh" data-id="${esc(id)}"`) : ""}${f.custom ? btnIcon("trash", t("df_th_remove"), `data-a="th-del" data-id="${esc(id)}" data-name="${esc(f.name)}"`, "danger") : ""}</span></div>
+    </article>`;
   }
 
-  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderListsAll, ssh: renderSshAll, f2b: renderF2b, hardening: renderHardening };
+  async function renderThreat() {
+    const th = await api("/api/defender/threat");
+    D.th = th;
+    const ids = th.order.filter((id) => th.feeds[id]);
+    const on = ids.filter((id) => th.feeds[id].enabled);
+    const stat = (label, value, sub = "") => `<div class="th-stat"><span class="muted">${esc(label)}</span><b>${esc(value)}</b>${sub ? `<small class="muted">${esc(sub)}</small>` : ""}</div>`;
+    const next = th.refreshing ? t("df_th_now") : th.next_check ? new Date(th.next_check * 1000).toLocaleTimeString(P.state.lang === "fa" ? "fa-IR" : "en-GB", { hour: "2-digit", minute: "2-digit" }) : "–";
+    const stats = `<div class="th-stats">${stat(t("df_th_on"), `${nf(on.length, 0)} / ${nf(ids.length, 0)}`)}${stat(t("df_th_blocked_n"), th.blocked == null ? "–" : nf(th.blocked, 0), t("df_th_since"))}
+      ${stat(t("df_th_kernel"), nf(th.entries, 0))}${stat(t("df_th_cover"), nf(th.addresses, 0))}${th.outbound ? stat(t("df_th_out_n"), th.blocked_out == null ? "–" : nf(th.blocked_out, 0)) : ""}${on.length ? stat(t("df_th_next"), next) : ""}</div>`;
+    const recSafe = ids.filter((id) => th.feeds[id].safe && !th.feeds[id].enabled);
+    const tools = `<div class="actions-row">${recSafe.length ? `<button type="button" class="btn primary" data-a="th-recommended">${icon("shield")}<span>${esc(t("df_th_recommended"))}</span></button>` : ""}
+      ${on.length ? `<button type="button" class="btn" data-a="th-refresh">${icon("refresh")}<span>${esc(t("df_th_update_all"))}</span></button>` : ""}</div>`;
+    const hours = [3, 6, 12, 24, 48].includes(th.refresh_hours) ? [3, 6, 12, 24, 48] : [3, 6, 12, 24, 48, th.refresh_hours].sort((a, b) => a - b);
+    const settings = `<form class="subcard th-set" data-f="th-set"><h4>${icon("sliders")}${esc(t("df_th_settings"))}</h4>
+      <label class="df-switch"><span class="switch"><input type="checkbox" name="outbound" ${th.outbound ? "checked" : ""}><span></span></span><span><b>${esc(t("df_th_outbound"))}</b><small>${esc(t("df_th_outbound_sub"))}</small></span></label>
+      <div class="field-row">${field(t("df_th_refresh"), `<select name="hours">${hours.map((h) => `<option value="${h}" ${h === th.refresh_hours ? "selected" : ""}>${esc(t("df_th_hours", { n: nf(h, 0) }))}</option>`).join("")}</select>`)}
+        <div class="field"><label>&nbsp;</label><button type="submit" class="btn">${icon("check")}<span>${esc(t("df_th_save"))}</span></button></div></div>
+      <p class="hint">${esc(t("df_th_mode_hint"))}</p></form>`;
+    const customN = ids.filter((id) => th.feeds[id].custom).length;
+    const add = customN < th.custom_max ? `<form class="subcard" data-f="th-add"><h4>${icon("plus")}${esc(t("df_th_add"))}</h4><p class="muted">${esc(t("df_th_add_sub"))}</p>
+      <div class="df-form-grid">${field(t("df_th_name"), '<input name="name" maxlength="60" required autocomplete="off">')}${field(t("df_th_url"), '<input name="url" type="url" dir="ltr" required placeholder="https://example.com/blocklist.txt" autocomplete="off">')}</div>
+      <div class="actions-row"><button type="submit" class="btn primary">${icon("plus")}<span>${esc(t("df_th_add_btn"))}</span></button></div></form>` : "";
+    const names = Object.fromEntries(ids.map((id) => [id, th.feeds[id].name]));
+    const recent = th.recent.length ? table([
+      { h: "df_th_r_ip", cell: (r) => `<code dir="ltr">${esc(r.ip)}</code>` },
+      { h: "df_th_r_kind", cell: (r) => pill(r.kind === "block" ? "bad" : "warn", t(`df_th_r_${r.kind}`)) },
+      { h: "df_th_r_lists", cell: (r) => esc(r.lists.map((x) => names[x] || x).join("، ") || "–") },
+      { h: "df_th_r_when", cell: (r) => esc(ago(Date.now() / 1000 - r.ago)) },
+      { h: "actions", cell: (r) => `<button type="button" class="btn small" data-a="th-allow" data-ip="${esc(r.ip)}">${icon("check")}<span>${esc(t("df_th_allow"))}</span></button>` },
+    ], th.recent) : `<div class="empty">${esc(t("df_th_none_recent"))}</div>`;
+    return `<section class="sec"><div class="sec-head"><h3>${icon("radar")}${esc(t("df_th_title"))}</h3><p class="muted">${esc(t("df_th_sub"))}</p></div>
+        ${th.protection ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_r_off"))}</span></div>`}
+        ${stats}${tools}</section>
+      <section class="sec"><div class="th-grid">${ids.map((id) => threatCard(id, th.feeds[id])).join("")}</div></section>
+      <section class="sec"><div class="th-two">${settings}${add}</div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("eye")}${esc(t("df_th_recent"))}</h3><p class="muted">${esc(t("df_th_recent_sub"))}</p></div>${recent}</section>`;
+  }
+
+  async function threatSave(el, patch, what) {
+    const ok = await apply(el, "config", { threat: patch, _what: what }, t("df_r_saved"));
+    if (D.tab === "threat") showTab("threat");
+    return ok;
+  }
+
+  async function renderListsAll() {
+    return testerHTML() + await renderLists();
+  }
+
+  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderListsAll, threat: renderThreat, ssh: renderSshAll, f2b: renderF2b, hardening: renderHardening };
   const rerender = () => showTab(D.tab);
 
   // ---------------------------------------------------------------- events
@@ -4951,6 +5127,33 @@ __MONITORING_EOF__
     if (!b || b.disabled) return;
     const a = b.dataset.a;
     if (a === "tab") return showTab(b.dataset.tab);
+    if (a === "th-mode") {
+      if (b.classList.contains("on")) return;
+      return threatSave(b, { mode: { ...D.th.feeds && Object.fromEntries(Object.entries(D.th.feeds).map(([id, f]) => [id, f.mode])), [b.dataset.id]: b.dataset.mode } }, "threat list mode");
+    }
+    if (a === "th-recommended") {
+      const feeds = [...new Set([...D.th.enabled, ...D.th.order.filter((id) => D.th.feeds[id] && D.th.feeds[id].safe)])];
+      return threatSave(b, { feeds }, "threat lists");
+    }
+    if (a === "th-refresh") {
+      const r = await act(b, () => post("/api/defender/threat/refresh", b.dataset.id ? { id: b.dataset.id } : {}));
+      if (r) {
+        const failed = Object.values(r.feeds).filter((f) => f.enabled && f.error && f.error_at > Date.now() / 1000 - 300);
+        if (failed.length) toast(t("df_th_err", { e: failed.map((f) => `${f.name}: ${f.error}`).join(" · ") }), "warn");
+        else toast(r.changed.length ? t("df_th_updated_n", { n: r.changed.length }) : t("df_th_up_to_date"));
+        if (D.tab === "threat") showTab("threat");
+      }
+      return;
+    }
+    if (a === "th-del") {
+      if (!(await confirmBox({ message: t("df_th_remove_confirm", { name: b.dataset.name }), label: t("df_th_remove") }))) return;
+      if (await act(b, () => post("/api/defender/threat/custom/remove", { id: b.dataset.id }), t("df_th_removed"))) showTab("threat");
+      return;
+    }
+    if (a === "th-allow") {
+      if (await act(b, () => post("/api/defender/allow", { ip: b.dataset.ip, note: "threat list" }), t("df_th_allowed", { ip: b.dataset.ip }))) showTab("threat");
+      return;
+    }
     if (a === "keep") { if (await act(b, () => post("/api/defender/confirm", {}), t("df_kept"))) paintPending(null); return; }
     if (a === "undo") { const r = await act(b, () => post("/api/defender/revert", {}), t("df_undone")); if (r) { D.st = r; D.fw = null; paintPending(null); rerender(); } return; }
     if (a === "enable") {
@@ -5091,11 +5294,9 @@ __MONITORING_EOF__
     const el = e.target;
     if (el.dataset.feed) {
       const feeds = [...D.root.querySelectorAll("[data-feed]")].filter((x) => x.checked).map((x) => x.dataset.feed);
-      el.disabled = true;
-      const ok = await apply(el, "config", { threat: { feeds }, _what: "threat lists" }, t("df_r_saved"));
-      if (!ok) el.checked = !el.checked;
-      el.disabled = false;
-      if (ok && D.tab === "lists") showTab("lists");
+      D.root.querySelectorAll("[data-feed]").forEach((x) => { x.disabled = true; });
+      if (!(await threatSave(el, { feeds }, "threat lists"))) el.checked = !el.checked;
+      D.root.querySelectorAll("[data-feed]").forEach((x) => { x.disabled = false; });
       return;
     }
     if (el.dataset.ruleToggle !== undefined) {
@@ -5152,6 +5353,14 @@ __MONITORING_EOF__
     if (f === "sv-key") {
       const r = await act(btn, () => post("/api/defender/sshd/key/add", { key: el.key.value }), t("saved"));
       if (r) { D.sv.keys = r.keys; svFormToDraft(); repaintSv(); }
+      return;
+    }
+    if (f === "th-set") {
+      await threatSave(btn, { outbound: el.outbound.checked, refresh_hours: +el.hours.value }, "threat settings");
+      return;
+    }
+    if (f === "th-add") {
+      if (await act(btn, () => post("/api/defender/threat/custom/add", { name: el.name.value.trim(), url: el.url.value.trim() }), t("df_th_added"))) showTab("threat");
       return;
     }
     if (f === "tt") {
@@ -5702,6 +5911,7 @@ Safety rules, in order of importance:
         nft delete table inet defender
 """
 import collections
+import concurrent.futures
 import copy
 import ipaddress
 import json
@@ -5720,6 +5930,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import f2b  # noqa: E402
 import geo  # noqa: E402
 import hostinfo  # noqa: E402
+import nftlib  # noqa: E402
 import nftrules  # noqa: E402
 import sshmgr  # noqa: E402
 import threat  # noqa: E402
@@ -5750,7 +5961,9 @@ DEFAULT = {
     "trust_cdn": True,
     "geo": {"block": []},     # replaced by "rules" (kept so old backups still import)
     "rules": [],              # user firewall rules, see validate_rule
-    "threat": {"feeds": []},  # threat-intelligence blocklists that are on (see threat.FEEDS)
+    # threat-intelligence blocklists: the ones that are on, per list "block" (default) or "log" (only count),
+    # also block this server connecting to them, the user's own lists, and how often to refresh them
+    "threat": {"feeds": [], "mode": {}, "outbound": False, "custom": [], "refresh_hours": 12},
     # Expert settings (Advanced tab). Everything that used to be fixed can be changed here.
     "advanced": {
         "rollback_seconds": 60,       # 0 = apply changes without the safety test
@@ -5823,7 +6036,7 @@ STATE = {
 def event(kind, **data):
     with LOCK:
         eid = (EVENTS[-1]["id"] + 1) if EVENTS else 1
-        EVENTS.append({"id": eid, "t": round(time.time(), 1), "kind": kind, **data})
+        EVENTS.append({**data, "id": eid, "t": round(time.time(), 1), "kind": kind})   # data can never replace id/t/kind
         save_json("events.json", list(EVENTS))
     log("event", kind, data)
 
@@ -5831,6 +6044,16 @@ def event(kind, **data):
 # ------------------------------------------------------------------ nft
 
 def nft(args, stdin=None, check=True):
+    """Runs an nft command. Simple commands (lists, adding and removing set elements) go through
+    libnftables in this process; loading a whole ruleset (-f, -c) still uses the nft program."""
+    if stdin is None and not any(a.startswith("-") for a in args[1:]) and (not args[0].startswith("-") or args[0] == "-j"):
+        json_out = args[0] == "-j"
+        res = nftlib.run(" ".join(args[1:] if json_out else args), json_out)
+        if res is not None:
+            ok, out, err = res
+            if check and not ok:
+                raise RuntimeError(err.strip()[-800:] or "nft command failed")
+            return out
     p = subprocess.run(["nft"] + args, input=stdin, capture_output=True, text=True, timeout=20)
     if check and p.returncode != 0:
         raise RuntimeError((p.stderr or p.stdout).strip()[-800:] or f"nft exited with {p.returncode}")
@@ -5838,7 +6061,11 @@ def nft(args, stdin=None, check=True):
 
 
 def table_exists():
-    return subprocess.run(["nft", "list", "table", "inet", "defender"], capture_output=True, timeout=10).returncode == 0
+    """Only the table names: listing the table itself would print every element of the big sets."""
+    try:
+        return "table inet defender" in nft(["list", "tables", "inet"])
+    except RuntimeError:
+        return False
 
 
 def current_bans():
@@ -5877,9 +6104,38 @@ def ruleset(cfg=None):
         if rule.get("enabled", True) and rule.get("countries"):
             z4, z6, _ = geo.build(DATA, rule["countries"], download=False)
             zones[rule["id"]] = (z4, z6)
-    t4, t6 = threat.build(DATA, cfg.get("threat", {}).get("feeds", []), download=False)
     return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones,
-                          t4, t6, hostinfo.public_iface())
+                          threat_lists(cfg), hostinfo.public_iface())
+
+
+def threat_feeds(cfg=None):
+    return threat.all_feeds((cfg or CFG)["threat"].get("custom"))
+
+
+def threat_lists(cfg):
+    """[(id, v4, v6, mode)] for the lists that are on and downloaded."""
+    t = cfg.get("threat") or {}
+    out = []
+    for fid, (v4, v6) in threat.lists(DATA, t.get("feeds") or []).items():
+        if v4 or v6:
+            out.append((fid, v4, v6, (t.get("mode") or {}).get(fid, "block")))
+    return out
+
+
+def threat_download(cfg, force=False, only=None):
+    """Downloads the lists that are on (when old, or force); returns the ids whose content changed."""
+    feeds = threat.all_feeds(cfg["threat"].get("custom"))
+    max_age = int(cfg["threat"].get("refresh_hours", 12)) * 3600
+    todo = [f for f in cfg["threat"]["feeds"] if f in feeds and (only is None or f in only)]
+
+    def one(fid):
+        try:
+            return fid if threat.fetch(DATA, fid, feeds[fid], max_age, force=force) else None
+        except ValueError as e:     # one list down must not stop the others; the error shows on its card
+            log("threat list", fid, e)
+            return None
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:    # a slow server does not hold up the rest
+        return [fid for fid in pool.map(one, todo) if fid]
 
 
 def apply(cfg=None):
@@ -5915,7 +6171,7 @@ def change(mutator, rollback=True, what="config"):
             if codes:
                 geo.build(DATA, sorted(codes), download=True)   # raises before anything changes
             if new["threat"]["feeds"]:
-                threat.build(DATA, new["threat"]["feeds"], download=True)
+                threat_download(new)          # only lists that are missing or old; raises if a new one cannot be had
         try:
             apply(new)
         except Exception as e:
@@ -6017,7 +6273,7 @@ def validate(cfg):
             e["note"] = str(e.get("note", ""))[:80]
         if len(cfg[lst]) > 100000:
             raise ValueError("list too long")
-    cfg["threat"]["feeds"] = [f for f in dict.fromkeys(cfg["threat"].get("feeds") or []) if f in threat.FEEDS]
+    validate_threat(cfg["threat"])
     rules = cfg.get("rules") or []
     if not isinstance(rules, list) or len(rules) > 300:
         raise ValueError("At most 300 rules")
@@ -6191,8 +6447,11 @@ def ban_list():
             rows.append({"ip": ip, "left": int(left), "source": meta.get("source", "auto"), "reason": meta.get("reason", "rate")})
     with LOCK:   # forget metadata of bans that ended
         live = {r["ip"] for r in rows}
-        for ip in [k for k, v in BANS.items() if v["until"] < now or (STATE["applied"] and ip not in live and v["until"] - now < 5)]:
-            BANS.pop(ip, None)
+        ended = [k for k, v in BANS.items() if v["until"] < now or (STATE["applied"] and k not in live and v["until"] - now < 5)]
+        for k in ended:
+            BANS.pop(k, None)
+        if ended:
+            save_json("bans.json", BANS)
     try:
         f2b_rows = f2b.all_bans()
         for r in f2b_rows:
@@ -6303,13 +6562,21 @@ def read_counters():
         c = item.get("counter")
         if c and c.get("name", "").startswith("c_"):
             out[c["name"][2:]] = c.get("packets", 0)
+    mode = CFG["threat"]["mode"]
+    out["threat"] = sum(v for k, v in out.items() if k.startswith("t_") and mode.get(k[2:], "block") == "block")
     return out
 
 
+WATCH_SECONDS = 20     # the firewall page asked for live numbers this recently: sample every second
+
+
 def stats_loop():
+    """Samples traffic and the firewall's counters, and detects attacks. Every second while someone
+    watches the firewall page or something looks wrong; every 2 seconds otherwise (half the work)."""
     prev, prev_t = None, None
     calm, hot, base = 0, 0, None
-    last_bans = 0
+    last_bans = last_expire = 0
+    step = 1
     iface = hostinfo.public_iface()
     while True:
         t0 = time.time()
@@ -6332,7 +6599,7 @@ def stats_loop():
                     "ct": round(ct["count"] / ct["max"] * 100, 1) if ct else None,
                     "estab": cur["tcp"]["curr_estab"],
                 }
-                if t0 - last_bans > 5:
+                if t0 - last_bans > (5 if step == 1 else 30):
                     last_bans = t0
                     STATE["bans_count"] = sum(len(v) for v in current_bans().values())
                 s["bans"] = STATE["bans_count"]
@@ -6354,7 +6621,7 @@ def stats_loop():
                 if signals:
                     hot, calm = hot + 1, 0
                 else:
-                    calm, hot = calm + 1, 0
+                    calm, hot = calm + dt, 0
                     base = base * 0.995 + pps * 0.005
                 if att["active"]:
                     for k in ("pps", "drop", "conns", "cookies"):
@@ -6390,11 +6657,14 @@ def stats_loop():
                     ssh_revert("timeout")
                 except Exception as e:
                     log("ssh revert", e)
-            if int(t0) % 30 == 0:
+            if t0 - last_expire >= 30:
+                last_expire = t0
                 expire_rules()
+            busy = hot or STATE["attack"]["active"] or STATE["pending"] or STATE.get("ssh_pending")
+            step = 1 if busy or t0 - STATE.get("watched", 0) < WATCH_SECONDS else 2
         except Exception as e:  # never let the loop die
             log("stats error", type(e).__name__, e)
-        time.sleep(max(0.05, 1 - (time.time() - t0)))
+        time.sleep(max(0.05, step - (time.time() - t0)))
 
 
 def expire_rules():
@@ -6479,6 +6749,26 @@ def _port_match(p, r):
 
 # ------------------------------------------------------------------ API over the unix socket
 
+def validate_threat(t):
+    custom = []
+    for c in (t.get("custom") or [])[:threat.MAX_CUSTOM]:
+        cid, url = str(c.get("id", "")), str(c.get("url", "")).strip()
+        if not threat.ID_RE.match(cid) or cid in threat.FEEDS or any(x["id"] == cid for x in custom):
+            raise ValueError(f"Invalid list id: {cid}")
+        if not url.startswith("https://") or len(url) > 400:
+            raise ValueError("The list address must start with https://")
+        custom.append({"id": cid, "name": str(c.get("name", "")).strip()[:60] or cid, "url": url})
+    t["custom"] = custom
+    known = threat.all_feeds(custom)
+    t["feeds"] = [f for f in dict.fromkeys(t.get("feeds") or []) if f in known]
+    t["mode"] = {k: v for k, v in (t.get("mode") or {}).items() if k in known and v in ("block", "log")}
+    t["outbound"] = bool(t.get("outbound", False))
+    try:
+        t["refresh_hours"] = min(168, max(1, int(t.get("refresh_hours", 12))))
+    except (TypeError, ValueError):
+        raise ValueError("Refresh interval must be a number of hours")
+
+
 def _cfg_patch(body):
     """Only known keys can be changed from the panel."""
     def mut(c):
@@ -6521,6 +6811,13 @@ def _cfg_patch(body):
             c["rules"] = body["rules"]
         if isinstance(body.get("threat"), dict) and isinstance(body["threat"].get("feeds"), list):
             c["threat"]["feeds"] = [str(f) for f in body["threat"]["feeds"]]
+        if isinstance(body.get("threat"), dict):
+            tb = body["threat"]
+            if isinstance(tb.get("mode"), dict):
+                c["threat"]["mode"] = {str(k): str(v) for k, v in tb["mode"].items()}
+            for k in ("outbound", "refresh_hours"):
+                if k in tb:
+                    c["threat"][k] = tb[k]
         if "geo" in body and isinstance(body["geo"], dict) and "block" in body["geo"]:
             c["geo"]["block"] = [str(x) for x in body["geo"]["block"]][:200]
     return mut
@@ -6632,6 +6929,7 @@ def api_audit():
 
 
 def api_live(q):
+    STATE["watched"] = time.time()      # someone has the firewall page open: sample every second
     since = float(q.get("since", 0) or 0)
     return {"samples": [s for s in STATE["samples"] if s["t"] > since], "attack": STATE["attack"],
             "escalated": STATE["escalated"], "applied": STATE["applied"], "bans": STATE["bans_count"],
@@ -6864,9 +7162,157 @@ def api_sshd_key_remove(b):
 
 # ------------------------------------------------------------------ threat lists
 
+def _seen(name):
+    """Addresses in one of the "recently matched" sets, with the seconds left of their hour."""
+    rows = []
+    if not STATE["applied"]:
+        return rows
+    for v in ("4", "6"):
+        try:
+            data = json.loads(nft(["-j", "list", "set", "inet", "defender", f"{name}{v}"]))
+        except (RuntimeError, ValueError):
+            continue
+        for item in data.get("nftables", []):
+            for el in (item.get("set") or {}).get("elem", []) or []:
+                e = el.get("elem") if isinstance(el, dict) else None
+                if e and isinstance(e.get("val"), str):
+                    rows.append((e["val"], e.get("expires", 0)))
+                elif isinstance(el, str):
+                    rows.append((el, 0))
+    return rows
+
+
 def api_threat(q):
-    hits = read_counters().get("threat")
-    return {"feeds": threat.info(DATA), "enabled": CFG["threat"]["feeds"], "blocked": hits, "protection": CFG["enabled"]}
+    t = CFG["threat"]
+    feeds = threat_feeds()
+    counters = read_counters()
+    info = threat.info(DATA, feeds)
+    on = t["feeds"]
+    for fid, f in info.items():
+        f.update(enabled=fid in on, mode=t["mode"].get(fid, "block"), hits=counters.get(f"t_{fid}"))
+    recent = []
+    for kind, name in (("block", "tseen"), ("log", "tlog")):
+        for ip, left in sorted(_seen(name), key=lambda r: -r[1])[:100]:
+            try:
+                hit = threat.member(DATA, on, ip)
+            except ValueError:
+                hit = []
+            recent.append({"ip": ip, "kind": kind, "ago": max(0, 3600 - int(left)), "lists": hit})
+    recent.sort(key=lambda r: r["ago"])
+    blocking = [f for f in on if t["mode"].get(f, "block") == "block"]
+    return {"feeds": info, "order": list(feeds), "enabled": on, "protection": CFG["enabled"], "applied": STATE["applied"],
+            "outbound": t["outbound"], "refresh_hours": t["refresh_hours"], "custom_max": threat.MAX_CUSTOM,
+            "blocked": counters.get("threat"), "blocked_out": counters.get("tout"), "recent": recent[:150],
+            "addresses": sum(info[f]["addresses"] for f in blocking if f in info),
+            "entries": sum(info[f]["v4"] + info[f]["v6"] for f in blocking if f in info),
+            "next_check": THREAT_STATE["next"], "refreshing": THREAT_STATE["busy"]}
+
+
+THREAT_STATE = {"next": 0, "busy": False}
+
+
+def threat_update_sets(changed):
+    """New content of lists that are on goes into their sets in place, in one transaction: the
+    table, counters, bans and live limits stay as they are (a full rebuild would reset them)."""
+    if not changed or not CFG["enabled"] or not STATE["applied"] or STATE["pending"]:
+        return
+    lists_ = threat.lists(DATA, changed)
+    cmds = []
+    for fid in changed:
+        v4, v6 = lists_.get(fid, ([], []))
+        for v, items in (("4", v4), ("6", v6)):
+            cmds.append(f"flush set inet defender t_{fid}{v}")
+            for i in range(0, len(items), 5000):
+                cmds.append(f"add element inet defender t_{fid}{v} {{ {', '.join(items[i:i + 5000])} }}")
+    try:
+        nft(["-f", "-"], stdin="\n".join(cmds) + "\n")
+    except RuntimeError as e:      # a set is missing (the list was empty before): rebuild the table
+        log("threat sets: in-place update failed, rebuilding:", str(e)[:200])
+        apply()
+
+
+def threat_refresh(force=False, only=None):
+    with THREAT_LOCK:
+        THREAT_STATE["busy"] = True
+        try:
+            changed = threat_download(CFG, force=force, only=only)
+            if changed:
+                event("threat_updated", lists=changed)
+                with LOCK:
+                    threat_update_sets(changed)
+            return changed
+        finally:
+            THREAT_STATE["busy"] = False
+
+
+THREAT_LOCK = threading.Lock()
+
+
+def threat_refresh_loop():
+    """Checks every 30 minutes which lists that are on are older than their refresh interval."""
+    THREAT_STATE["next"] = int(time.time()) + 120
+    time.sleep(120)
+    while True:
+        THREAT_STATE["next"] = int(time.time()) + 1800
+        try:
+            if CFG["threat"]["feeds"] and CFG["enabled"]:
+                threat_refresh()
+        except Exception as e:
+            log("threat refresh", e)
+        time.sleep(1800)
+
+
+def api_threat_refresh(b):
+    fid = b.get("id")
+    if fid and fid not in CFG["threat"]["feeds"]:
+        raise ValueError("That list is not on")
+    if THREAT_STATE["busy"]:
+        raise ValueError("The lists are being updated right now; try again in a moment")
+    changed = threat_refresh(force=True, only=[fid] if fid else None)
+    return {**api_threat({}), "changed": changed}
+
+
+def api_threat_custom_add(b):
+    name = str(b.get("name", "")).strip()[:60]
+    if not name:
+        raise ValueError("Give the list a name")
+    url = threat.check_url(b.get("url"))
+    if len(CFG["threat"]["custom"]) >= threat.MAX_CUSTOM:
+        raise ValueError(f"At most {threat.MAX_CUSTOM} lists of your own")
+    if any(c["url"] == url for c in CFG["threat"]["custom"]):
+        raise ValueError("This list is already added")
+    used = {c["id"] for c in CFG["threat"]["custom"]}
+    cid = next(f"my{i}" for i in range(1, 100) if f"my{i}" not in used)
+    feed = threat.all_feeds([{"id": cid, "name": name, "url": url}])[cid]
+    threat.remove(DATA, cid)
+    threat.fetch(DATA, cid, feed, 0, force=True)       # raises (with the reason) if it cannot be read
+
+    def mut(c):
+        c["threat"]["custom"].append({"id": cid, "name": name, "url": url})
+        c["threat"]["mode"][cid] = "log"            # someone else's list: watch what it would block first
+        c["threat"]["feeds"].append(cid)
+    try:
+        change(mut, rollback=False, what="threat list added")
+    except Exception:
+        threat.remove(DATA, cid)
+        raise
+    event("threat_list", action="added", name=name)
+    return api_threat({})
+
+
+def api_threat_custom_remove(b):
+    cid = str(b.get("id", ""))
+    if not any(c["id"] == cid for c in CFG["threat"]["custom"]):
+        raise ValueError("No such list")
+
+    def mut(c):
+        c["threat"]["custom"] = [x for x in c["threat"]["custom"] if x["id"] != cid]
+        c["threat"]["feeds"] = [f for f in c["threat"]["feeds"] if f != cid]
+        c["threat"]["mode"].pop(cid, None)
+    change(mut, rollback=False, what="threat list removed")
+    threat.remove(DATA, cid)
+    event("threat_list", action="removed", list=cid)
+    return api_threat({})
 
 
 # ------------------------------------------------------------------ "what happens to this address?"
@@ -6930,9 +7376,14 @@ def api_test(b):
     if not verdict and CFG.get("trust_cdn", True) and _in(ip, list(nftrules.CDN4) + list(nftrules.CDN6)):
         verdict = step("cdn", "allow")
     if not verdict:
-        feeds = threat.member(DATA, CFG["threat"]["feeds"], ip)
-        if feeds:
-            verdict = step("threat", "block", feeds=feeds)
+        names = threat_feeds()
+        hits = threat.member(DATA, CFG["threat"]["feeds"], ip)
+        blocking = [f for f in hits if CFG["threat"]["mode"].get(f, "block") == "block"]
+        watching = [f for f in hits if f not in blocking]
+        if watching:
+            step("threat_log", "count", feeds=[names[f]["name"] for f in watching])
+        if blocking:
+            verdict = step("threat", "block", feeds=[names[f]["name"] for f in blocking])
     if not verdict:
         for r in CFG["rules"]:
             if not r.get("enabled", True) or r.get("direction") == "out":
@@ -6975,12 +7426,6 @@ def geo_refresh_loop():
     while True:
         time.sleep(6 * 3600)
         try:
-            feeds = CFG["threat"]["feeds"]
-            if feeds and CFG["enabled"]:
-                before_t = threat.info(DATA)
-                threat.build(DATA, feeds, download=True)
-                if threat.info(DATA) != before_t and not STATE["pending"]:
-                    apply()
             codes = sorted(set(CFG["geo"]["block"]) | {c for r in CFG["rules"] if r.get("enabled", True) for c in r.get("countries") or []})
             if not codes or not CFG["enabled"]:
                 continue
@@ -7075,6 +7520,9 @@ POST = {
     "/sshd/revert": api_sshd_revert,
     "/sshd/key/add": api_sshd_key_add,
     "/sshd/key/remove": api_sshd_key_remove,
+    "/threat/refresh": api_threat_refresh,
+    "/threat/custom/add": api_threat_custom_add,
+    "/threat/custom/remove": api_threat_custom_remove,
     "/test": api_test,
 }
 
@@ -7153,7 +7601,7 @@ def main():
     except Exception as e:
         STATE["error"] = str(e)
         log("cannot apply rules:", e)
-    for target in (stats_loop, ssh_guard_loop, admin_refresh_loop, geo_refresh_loop):
+    for target in (stats_loop, ssh_guard_loop, admin_refresh_loop, geo_refresh_loop, threat_refresh_loop):
         threading.Thread(target=target, daemon=True).start()
     threading.Thread(target=f2b.watch_log, args=(on_f2b_ban,), daemon=True).start()
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))   # the rules stay in the kernel while the agent restarts
@@ -7197,7 +7645,7 @@ LIMIT_KEYS = {"syn": (1, 100000), "conn": (1, 100000), "conc": (5, 1000000), "ud
               "icmp": (1, 10000), "ban": (1, 10080)}
 AUTOBAN_FACTOR = 3        # a source going this many times over a limit is banned, not just slowed down
 SSH_NEW_PER_MIN = 12      # new SSH connections per source and minute before the source is banned
-COUNTERS = ("allow", "block", "ban", "geo", "threat", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
+COUNTERS = ("allow", "block", "ban", "geo", "tout", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
             "udp", "icmp", "autoban", "new", "all")
 ALWAYS_TRUSTED = ("lo", "docker*", "br-*", "veth*")
 # Cloudflare's edge (https://www.cloudflare.com/ips/). A site or proxy behind Cloudflare receives all of its
@@ -7326,9 +7774,35 @@ def rule_parts(rule, zones):
     return sets, lines
 
 
+def threat_parts(threat_lists, outbound):
+    """Threat lists: one set pair and counter per list. A list in "block" mode drops everything the
+    listed addresses start (replies to connections this server opened still pass); "log" mode only
+    counts, to see what a list would block before trusting it. Recently matching addresses go to
+    tseen (blocked) / tlog (monitored) for an hour so the panel can show them."""
+    decl, pre, out = [], [], []
+    if not threat_lists:
+        return decl, pre, out
+    for fam, v in (("ipv4", "4"), ("ipv6", "6")):
+        decl += [f"    set tseen{v} {{ type {fam}_addr; flags dynamic, timeout; timeout 1h; size 4096; }}",
+                 f"    set tlog{v} {{ type {fam}_addr; flags dynamic, timeout; timeout 1h; size 4096; }}"]
+    ordered = sorted(threat_lists, key=lambda t: t[3] != "log")     # monitored lists first, so they count everything
+    for fid, v4, v6, mode in ordered:
+        decl.append(f"    counter c_t_{fid} {{ }}")
+        decl += [set_block(f"t_{fid}4", "ipv4", list(v4), " auto-merge;"), set_block(f"t_{fid}6", "ipv6", list(v6), " auto-merge;")]
+        for fam, v in (("ip", "4"), ("ip6", "6")):     # both, even if empty now: a refresh may fill the set in place
+            if mode == "log":
+                pre.append(f"        ct direction original {fam} saddr @t_{fid}{v} counter name c_t_{fid} update @tlog{v} {{ {fam} saddr }}")
+            else:
+                pre.append(f"        ct direction original {fam} saddr @t_{fid}{v} counter name c_t_{fid} update @tseen{v} {{ {fam} saddr }} drop")
+                if outbound:
+                    out.append(f"        {fam} daddr @t_{fid}{v} counter name c_tout drop")
+    return decl, pre, out
+
+
 def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=(), rule_zones=None,
-          threat4=(), threat6=(), wan=None):
-    """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table)."""
+          threat_lists=(), wan=None):
+    """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table).
+    threat_lists: [(id, v4, v6, mode)] for the threat lists that are on."""
     fw = cfg["firewall"]
     adv = cfg.get("advanced") or {}
     allow4, allow6 = split_ips(a["ip"] for a in cfg["allow"])
@@ -7343,8 +7817,9 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
               set_block("cdn4", "ipv4", list(CDN4) if cfg.get("trust_cdn", True) else []),
               set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else []),
               set_block("geo4", "ipv4", list(geo4), " auto-merge;"), set_block("geo6", "ipv6", list(geo6), " auto-merge;"),
-              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6),
-              set_block("threat4", "ipv4", list(threat4), " auto-merge;"), set_block("threat6", "ipv6", list(threat6), " auto-merge;")]
+              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6)]
+    t_decl, t_pre, t_out = threat_parts(threat_lists, (cfg.get("threat") or {}).get("outbound", False))
+    lines += t_decl
     for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
         els = ban_elements.get(name) or []
         body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
@@ -7374,8 +7849,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
             if adv.get("panel_allow") and panel_ports else []),   # panel only for listed addresses (admins pass above)
           "        ip saddr @cdn4 accept",   # blocklist and bans above still apply to the CDN
           "        ip6 saddr @cdn6 accept",
-          "        ip saddr @threat4 counter name c_threat drop",   # threat-intelligence blocklists
-          "        ip6 saddr @threat6 counter name c_threat drop",
+          *t_pre,                                            # threat-intelligence blocklists
           "        ip saddr @geo4 counter name c_geo drop",    # blocked countries (allowlist, admins, CDN pass above)
           "        ip6 saddr @geo6 counter name c_geo drop",
           "        counter name c_all",
@@ -7428,6 +7902,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
             f"        {icmp} update @m_icmp{suffix} {{ {fam} saddr limit rate over {L['icmp']}/second burst {L['icmp'] * 2} packets }} counter name c_icmp drop",
         ]
     r.append("    }")
+    out_lines = t_out + out_lines
     if out_lines:   # outgoing rules: the server itself, and containers / VPN clients leaving through the internet side
         r += ["", "    chain local_out {", "        type filter hook output priority 0; policy accept;", '        oif "lo" accept',
               "        ct state established,related accept"] + out_lines + ["    }"]
@@ -8900,28 +9375,61 @@ def remove_key(index, password_login):
     return keys()
 __MONITORING_EOF__
   write_file defender/threat.py 644 <<'__MONITORING_EOF__'
-"""Threat-intelligence blocklists: public lists of attacking / hijacked addresses, refreshed every 12 hours.
+"""Threat-intelligence blocklists: public lists of attacking, hijacked and botnet addresses.
 
-Private, loopback and other reserved ranges are always removed from the lists (some include them as
-"bogons"), so Docker, VPN tunnels and the LAN are never affected.
+Each list is downloaded, cleaned and merged into as few networks as possible, then stored on disk
+(DATA/threat/<id>.4 and .6) with what is known about it in meta.json. A list is only written (and the
+firewall only touched) when its content really changed. Private, loopback and other reserved ranges
+are always removed, so Docker, VPN tunnels and the LAN are never affected.
+
+Lookups for the panel (is this address listed? by which list?) use a sorted index of integer ranges,
+built once per list version, so checking an address costs microseconds even with 100 000 entries.
 """
+import bisect
+import hashlib
 import ipaddress
+import json
 import os
+import re
+import socket
+import threading
 import time
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+# kind: what the list contains. safe: almost no chance of blocking real users (turned on by "recommended").
 FEEDS = {
-    "spamhaus": {"name": "Spamhaus DROP", "urls": ["https://www.spamhaus.org/drop/drop.txt", "https://www.spamhaus.org/drop/dropv6.txt"],
-                 "site": "spamhaus.org"},
-    "firehol": {"name": "FireHOL Level 1", "urls": ["https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"],
-                "site": "iplists.firehol.org"},
-    "blocklistde": {"name": "blocklist.de", "urls": ["https://lists.blocklist.de/lists/all.txt"], "site": "blocklist.de"},
-    "et": {"name": "Emerging Threats", "urls": ["https://rules.emergingthreats.net/blockrules/compromised-ips.txt"], "site": "emergingthreats.net"},
-    "cins": {"name": "CINS Army", "urls": ["https://cinsscore.com/list/ci-badguys.txt"], "site": "cinsscore.com"},
+    "spamhaus": {"name": "Spamhaus DROP", "site": "spamhaus.org", "kind": "hijacked", "safe": True,
+                 "urls": ["https://www.spamhaus.org/drop/drop.txt", "https://www.spamhaus.org/drop/dropv6.txt"]},
+    "firehol": {"name": "FireHOL Level 1", "site": "iplists.firehol.org", "kind": "mixed", "safe": True,
+                "urls": ["https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"]},
+    "feodo": {"name": "abuse.ch Feodo Tracker", "site": "feodotracker.abuse.ch", "kind": "botnet", "safe": True,
+              "urls": ["https://feodotracker.abuse.ch/downloads/ipblocklist.txt"]},
+    "et": {"name": "Emerging Threats", "site": "emergingthreats.net", "kind": "compromised", "safe": True,
+           "urls": ["https://rules.emergingthreats.net/blockrules/compromised-ips.txt"]},
+    "cins": {"name": "CINS Army", "site": "cinsscore.com", "kind": "attackers", "safe": False,
+             "urls": ["https://cinsscore.com/list/ci-badguys.txt"]},
+    "blocklistde": {"name": "blocklist.de", "site": "blocklist.de", "kind": "attackers", "safe": False,
+                    "urls": ["https://lists.blocklist.de/lists/all.txt"]},
+    "ipsum": {"name": "IPsum (level 3)", "site": "github.com/stamparm/ipsum", "kind": "attackers", "safe": False,
+              "urls": ["https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt"]},
+    "greensnow": {"name": "GreenSnow", "site": "greensnow.co", "kind": "attackers", "safe": False,
+                  "urls": ["https://blocklist.greensnow.co/greensnow.txt"]},
+    "tor": {"name": "Tor exit nodes", "site": "torproject.org", "kind": "anonymizer", "safe": False,
+            "urls": ["https://check.torproject.org/torbulkexitlist"]},
 }
-MAX_AGE = 12 * 3600
-RESERVED = [ipaddress.ip_network(n) for n in ("0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
-                                               "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/3", "::/8", "fc00::/7", "fe80::/10", "ff00::/8")]
+MAX_CUSTOM = 8
+MAX_BYTES = 40_000_000           # per download
+MAX_ENTRIES = 300_000            # per list, after merging (kernel memory stays small)
+RESERVED = [ipaddress.ip_network(n) for n in (
+    "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24",
+    "192.0.2.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/3",
+    "::/8", "64:ff9b::/96", "2001:db8::/32", "fc00::/7", "fe80::/10", "ff00::/8")]
+ID_RE = re.compile(r"^[a-z][a-z0-9]{1,15}$")
+RANGE_RE = re.compile(r"^([0-9a-fA-F:.]+)\s*-\s*([0-9a-fA-F:.]+)$")
+_lock = threading.RLock()
+_cache = {}        # fid -> (mtime, v4, v6)
+_index = {}        # fid -> (mtime, {4: (starts, ends), 6: (...)})
 
 
 def _dir(data):
@@ -8930,86 +9438,290 @@ def _dir(data):
     return d
 
 
-def _clean(text):
-    v4, v6 = [], []
-    for line in text.splitlines():
-        token = line.split(";")[0].split("#")[0].strip().split()
-        if not token:
-            continue
-        try:
-            net = ipaddress.ip_network(token[0], strict=False)
-        except ValueError:
-            continue
-        if net.prefixlen == 0 or any(net.version == r.version and net.overlaps(r) for r in RESERVED):
-            continue
-        (v4 if net.version == 4 else v6).append(str(net))
-    return v4, v6
+def _meta_path(data):
+    return os.path.join(_dir(data), "meta.json")
 
 
-def fetch(data, fid, force=False):
-    """Download one feed when it is older than MAX_AGE; returns (v4, v6) from the cache."""
-    feed = FEEDS[fid]
-    path4, path6 = (os.path.join(_dir(data), f"{fid}.{v}") for v in (4, 6))
-    fresh = os.path.exists(path4) and time.time() - os.path.getmtime(path4) < MAX_AGE
-    if force or not fresh:
-        v4, v6 = [], []
-        for url in feed["urls"]:
-            req = Request(url, headers={"User-Agent": "server-monitor-firewall/1.0"})
-            try:
-                with urlopen(req, timeout=30) as r:
-                    a, b = _clean(r.read(30_000_000).decode("utf-8", "replace"))
-            except Exception as e:
-                if not os.path.exists(path4):
-                    raise ValueError(f"Cannot download {feed['name']}: {e}")
-                return cached(data, fid)
-            v4 += a
-            v6 += b
-        for path, items in ((path4, v4), (path6, v6)):
-            with open(path + ".tmp", "w") as f:
-                f.write("\n".join(sorted(set(items))))
-            os.replace(path + ".tmp", path)
-    return cached(data, fid)
+def load_meta(data):
+    try:
+        with open(_meta_path(data)) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
 
 
-def cached(data, fid):
-    out = []
-    for v in (4, 6):
-        p = os.path.join(_dir(data), f"{fid}.{v}")
-        out.append([ln for ln in open(p).read().splitlines() if ln] if os.path.exists(p) else [])
-    return out[0], out[1]
+def _save_meta(data, meta):
+    tmp = _meta_path(data) + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(meta, f)
+    os.replace(tmp, _meta_path(data))
 
 
-def build(data, ids, download=False):
-    v4, v6 = set(), set()
-    for fid in ids:
-        if fid not in FEEDS:
-            continue
-        a, b = fetch(data, fid) if download else cached(data, fid)
-        v4.update(a)
-        v6.update(b)
-    return sorted(v4), sorted(v6)
-
-
-def info(data):
-    out = {}
-    for fid, f in FEEDS.items():
-        p = os.path.join(_dir(data), f"{fid}.4")
-        v4, v6 = cached(data, fid)
-        out[fid] = {"name": f["name"], "site": f["site"], "entries": len(v4) + len(v6), "updated": round(os.path.getmtime(p)) if os.path.exists(p) else None}
+def all_feeds(custom=()):
+    """Built-in lists plus the user's own (custom: [{id, name, url}])."""
+    out = {k: dict(v, custom=False) for k, v in FEEDS.items()}
+    for c in custom or ():
+        out[c["id"]] = {"name": c["name"], "site": urlsplit(c["url"]).hostname or "", "kind": "custom", "safe": False,
+                        "urls": [c["url"]], "custom": True}
     return out
 
 
+def check_url(url):
+    """A list the user adds must be a public https address (the agent runs with the host's network)."""
+    url = str(url or "").strip()
+    parts = urlsplit(url)
+    if parts.scheme != "https" or not parts.hostname or len(url) > 400 or parts.username or parts.password:
+        raise ValueError("The list address must start with https:// and point to a public server")
+    try:
+        addrs = {ai[4][0] for ai in socket.getaddrinfo(parts.hostname, parts.port or 443, proto=socket.IPPROTO_TCP)}
+    except OSError:
+        raise ValueError(f"Cannot find the server {parts.hostname}")
+    for a in addrs:
+        ip = ipaddress.ip_address(a.split("%")[0])
+        if not ip.is_global:
+            raise ValueError(f"{parts.hostname} is a private or local address")
+    return url
+
+
+def parse(text):
+    """Plain lists in any of the usual formats: one address, network or range per line, comments
+    after # or ;, extra columns ignored. Returns merged (v4, v6) networks without reserved ranges."""
+    nets = {4: [], 6: []}
+    for line in text.splitlines():
+        line = line.split("#")[0].split(";")[0].strip()
+        if not line:
+            continue
+        m = RANGE_RE.match(line)
+        try:
+            if m:
+                a, b = ipaddress.ip_address(m.group(1)), ipaddress.ip_address(m.group(2))
+                found = list(ipaddress.summarize_address_range(a, b)) if a.version == b.version and a <= b else []
+            else:
+                token = line.replace(",", " ").split()[0]
+                found = [ipaddress.ip_network(token, strict=False)]
+        except ValueError:
+            continue
+        for net in found:
+            if net.prefixlen == 0 or (net.version == 4 and net.prefixlen < 8) or (net.version == 6 and net.prefixlen < 16):
+                continue          # a whole /0../7 is never a real entry
+            if any(net.version == r.version and net.overlaps(r) for r in RESERVED):
+                continue
+            nets[net.version].append(net)
+    return _merge(nets[4]), _merge(nets[6])
+
+
+def _merge(nets):
+    """As few networks as possible; single addresses without the /32 or /128."""
+    return [str(n.network_address) if n.prefixlen == n.max_prefixlen else str(n) for n in ipaddress.collapse_addresses(nets)]
+
+
+def _download(url):
+    req = Request(url, headers={"User-Agent": "server-monitor-firewall/1.1", "Accept-Encoding": "identity"})
+    with urlopen(req, timeout=40) as r:
+        body = r.read(MAX_BYTES + 1)
+    if len(body) > MAX_BYTES:
+        raise ValueError("the list is larger than 40 MB")
+    return body.decode("utf-8", "replace")
+
+
+def fetch(data, fid, feed, max_age, force=False):
+    """Downloads one list when it is older than max_age seconds (or force). Returns True when its
+    content changed. A failed download keeps the previous copy and records the error."""
+    with _lock:
+        meta = load_meta(data)
+        m = meta.get(fid, {})
+        if not force and time.time() - m.get("fetched", 0) < max_age and os.path.exists(_file(data, fid, 4)):
+            return False
+    v4, v6, err = [], [], ""
+    try:
+        for url in feed["urls"]:
+            a, b = parse(_download(url))
+            v4 += a
+            v6 += b
+        if len(feed["urls"]) > 1:
+            v4, v6 = _merge(ipaddress.ip_network(x) for x in v4), _merge(ipaddress.ip_network(x) for x in v6)
+        if not v4 and not v6:
+            raise ValueError("the list is empty or not in a known format")
+        if len(v4) + len(v6) > MAX_ENTRIES:
+            raise ValueError(f"the list has more than {MAX_ENTRIES} entries")
+    except Exception as e:  # network error, HTTP error, bad content
+        err = f"{type(e).__name__}: {e}"[:300] if not isinstance(e, ValueError) else str(e)[:300]
+    with _lock:
+        meta = load_meta(data)
+        m = meta.setdefault(fid, {})
+        now = int(time.time())
+        if err:
+            m.update(error=err, error_at=now)
+            # try again later (15 min without any copy, an hour with one), not at every change of the settings
+            m["fetched"] = now - max(0, max_age - (900 if not os.path.exists(_file(data, fid, 4)) else 3600))
+            _save_meta(data, meta)
+            if not os.path.exists(_file(data, fid, 4)):
+                raise ValueError(f"Cannot download {feed['name']}: {err}")
+            return False
+        digest = hashlib.sha256(("\n".join(v4) + "|" + "\n".join(v6)).encode()).hexdigest()
+        changed = digest != m.get("hash") or not os.path.exists(_file(data, fid, 4))
+        if changed:
+            for v, items in ((4, v4), (6, v6)):
+                p = _file(data, fid, v)
+                with open(p + ".tmp", "w") as f:
+                    f.write("\n".join(items))
+                os.replace(p + ".tmp", p)
+            m.update(hash=digest, changed=now, v4=len(v4), v6=len(v6), addresses=_count(v4, v6))
+        m.update(fetched=now, ok_at=now, error="", error_at=0)
+        _save_meta(data, meta)
+        return changed
+
+
+def _file(data, fid, v):
+    return os.path.join(_dir(data), f"{fid}.{v}")
+
+
+def _count(v4, v6):
+    """How many IPv4 addresses the list covers (IPv6 is shown as a number of networks)."""
+    return sum(1 << (32 - int(x.split("/")[1])) if "/" in x else 1 for x in v4)
+
+
+def cached(data, fid):
+    """(v4, v6) from disk, kept in memory until the file changes."""
+    p4, p6 = _file(data, fid, 4), _file(data, fid, 6)
+    try:
+        mtime = (os.path.getmtime(p4), os.path.getmtime(p6) if os.path.exists(p6) else 0)
+    except OSError:
+        return [], []
+    with _lock:
+        hit = _cache.get(fid)
+        if hit and hit[0] == mtime:
+            return hit[1], hit[2]
+        out = []
+        for p in (p4, p6):
+            try:
+                with open(p) as f:
+                    out.append([ln for ln in f.read().splitlines() if ln])
+            except OSError:
+                out.append([])
+        _cache[fid] = (mtime, out[0], out[1])
+        _index.pop(fid, None)
+        return out[0], out[1]
+
+
+def remove(data, fid):
+    with _lock:
+        for v in (4, 6):
+            try:
+                os.remove(_file(data, fid, v))
+            except OSError:
+                pass
+        meta = load_meta(data)
+        if meta.pop(fid, None) is not None:
+            _save_meta(data, meta)
+        _cache.pop(fid, None)
+        _index.pop(fid, None)
+
+
+def lists(data, ids):
+    """{fid: (v4, v6)} for the given lists, from disk."""
+    return {fid: cached(data, fid) for fid in ids}
+
+
+def _ranges(nets):
+    pairs = []
+    for n in nets:
+        net = ipaddress.ip_network(n)
+        pairs.append((int(net.network_address), int(net.broadcast_address)))
+    pairs.sort()
+    return [a for a, _ in pairs], [b for _, b in pairs]
+
+
+def _idx(data, fid):
+    v4, v6 = cached(data, fid)
+    with _lock:
+        hit = _index.get(fid)
+        key = _cache.get(fid, (None,))[0]
+        if hit and hit[0] == key:
+            return hit[1]
+        idx = {4: _ranges(v4), 6: _ranges(v6)}
+        _index[fid] = (key, idx)
+        return idx
+
+
 def member(data, ids, ip):
-    """Which of the enabled feeds list this address."""
+    """Which of these lists contain the address (fast: a binary search per list)."""
     addr = ipaddress.ip_address(ip)
-    hits = []
+    n, hits = int(addr), []
     for fid in ids:
-        a, b = cached(data, fid)
-        for n in (a if addr.version == 4 else b):
-            if addr in ipaddress.ip_network(n):
-                hits.append(FEEDS[fid]["name"])
-                break
+        starts, ends = _idx(data, fid)[addr.version]
+        i = bisect.bisect_right(starts, n) - 1
+        if i >= 0 and ends[i] >= n:     # lists are merged, so ranges never overlap
+            hits.append(fid)
     return hits
+
+
+def info(data, feeds):
+    meta = load_meta(data)
+    out = {}
+    for fid, f in feeds.items():
+        m = meta.get(fid, {})
+        have = os.path.exists(_file(data, fid, 4))
+        out[fid] = {"name": f["name"], "site": f["site"], "kind": f["kind"], "safe": f["safe"], "custom": f["custom"],
+                    "url": f["urls"][0] if f["custom"] else "", "v4": m.get("v4", 0) if have else 0, "v6": m.get("v6", 0) if have else 0,
+                    "addresses": m.get("addresses", 0) if have else 0, "updated": (m.get("ok_at") or None) if have else None,
+                    "changed": m.get("changed") if have else None, "error": m.get("error", ""), "error_at": m.get("error_at", 0)}
+    return out
+__MONITORING_EOF__
+  write_file defender/nftlib.py 644 <<'__MONITORING_EOF__'
+"""nftables through libnftables in this process, instead of starting an `nft` program for every call.
+
+The agent reads its counters every second; starting `nft` each time costs far more CPU than the work
+itself. libnftables is the library the nft program is built on (it ships with the nftables package),
+so the commands and their output are exactly the same. If the library cannot be loaded, run() returns
+None and the caller falls back to the nft program.
+"""
+import ctypes
+import threading
+
+JSON = 1 << 4          # NFT_CTX_OUTPUT_JSON
+_lock = threading.Lock()
+_ctx = {"lib": None, "ctx": None, "failed": False}
+
+
+def _load():
+    if _ctx["lib"] or _ctx["failed"]:
+        return _ctx["lib"]
+    try:
+        lib = ctypes.CDLL("libnftables.so.1")
+        lib.nft_ctx_new.restype = ctypes.c_void_p
+        lib.nft_ctx_new.argtypes = [ctypes.c_uint32]
+        for name in ("nft_ctx_buffer_output", "nft_ctx_buffer_error"):
+            getattr(lib, name).argtypes = [ctypes.c_void_p]
+        for name in ("nft_ctx_get_output_buffer", "nft_ctx_get_error_buffer"):
+            getattr(lib, name).argtypes = [ctypes.c_void_p]
+            getattr(lib, name).restype = ctypes.c_char_p
+        lib.nft_ctx_output_set_flags.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        lib.nft_ctx_output_get_flags.argtypes = [ctypes.c_void_p]
+        lib.nft_ctx_output_get_flags.restype = ctypes.c_uint
+        lib.nft_run_cmd_from_buffer.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        lib.nft_run_cmd_from_buffer.restype = ctypes.c_int
+        ctx = lib.nft_ctx_new(0)
+        if not ctx or lib.nft_ctx_buffer_output(ctx) or lib.nft_ctx_buffer_error(ctx):
+            raise OSError("nft_ctx_new failed")
+        _ctx.update(lib=lib, ctx=ctx, base=lib.nft_ctx_output_get_flags(ctx))
+    except (OSError, AttributeError):
+        _ctx["failed"] = True
+    return _ctx["lib"]
+
+
+def run(cmd, json_out=False):
+    """(ok, output, error) for one nft command line, or None when the library is not available."""
+    with _lock:
+        lib = _load()
+        if not lib:
+            return None
+        ctx = _ctx["ctx"]
+        lib.nft_ctx_output_set_flags(ctx, _ctx["base"] | (JSON if json_out else 0))
+        rc = lib.nft_run_cmd_from_buffer(ctx, cmd.encode())
+        out = (lib.nft_ctx_get_output_buffer(ctx) or b"").decode("utf-8", "replace")
+        err = (lib.nft_ctx_get_error_buffer(ctx) or b"").decode("utf-8", "replace")
+        return rc == 0, out, err
 __MONITORING_EOF__
   write_file panel/static/index.html 644 <<'__MONITORING_EOF__'
 <!doctype html>
@@ -11737,9 +12449,28 @@ label.btn input[type="file"] { display: none; }
 .tt-steps li:last-child { border-bottom: 0; }
 .tt-steps li .pill { flex: none; }
 .th-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
-.th-feed { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; }
+.th-feed { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); min-width: 0; }
 .th-feed.on { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
-.th-body { display: grid; gap: 3px; min-width: 0; }
+.th-feed.on.watch { border-color: color-mix(in srgb, var(--s-warn) 45%, var(--line)); }
+.th-top { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+.th-body { display: grid; gap: 5px; min-width: 0; }
+.th-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.th-feed > small { font-size: 12px; color: var(--muted); line-height: 1.6; overflow-wrap: anywhere; }
+.th-feed > small.th-desc { color: var(--ink); opacity: .85; }
+.th-err { display: flex; gap: 6px; align-items: flex-start; color: var(--s-bad) !important; }
+.th-err .ico { flex: none; width: 14px; height: 14px; margin-top: 2px; }
+.th-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
+.df-seg.th-mode { display: inline-flex; padding: 3px; }
+.df-seg.th-mode button { padding: 5px 11px; font-size: 12.5px; }
+.df-seg.th-mode button.on[data-mode="log"] { color: var(--s-warn); }
+.th-btns { display: inline-flex; gap: 4px; margin-inline-start: auto; }
+.th-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.th-stat { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); min-width: 0; }
+.th-stat > span { font-size: 12px; }
+.th-stat b { font-size: 20px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.th-stat small { font-size: 11px; }
+.th-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; align-items: start; }
+.th-two .subcard h4 { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; }
 .th-body small { font-size: 12px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
 .fw-sched[hidden] { display: none; }
 .fw-sched { margin-top: 10px; }
@@ -11747,7 +12478,8 @@ label.btn input[type="file"] { display: none; }
 .fw-actopt[hidden] { display: none; }
 @media (max-width: 699px) {
   .fw-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .th-grid { grid-template-columns: minmax(0, 1fr); }
+  .th-grid, .th-two { grid-template-columns: minmax(0, 1fr); }
+  .th-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'

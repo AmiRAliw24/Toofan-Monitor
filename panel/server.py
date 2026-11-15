@@ -6,6 +6,8 @@ the Defender (firewall / anti-DDoS, proxied to its agent, see defender.py).
 Standard library only. Anything that changes state needs the session cookie, a JSON body and the
 X-Panel header (a cross-site page cannot send that header), and is checked against the Origin.
 """
+import gzip
+import hashlib
 import json
 import os
 import secrets
@@ -34,6 +36,22 @@ USER = os.environ.get("PANEL_USER", "admin")
 PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PORT = int(os.environ.get("PANEL_LISTEN_PORT", "8080"))
 STATIC = Path(__file__).parent / "static"
+_static_cache = {}
+_static_lock = threading.Lock()
+
+
+def static_file(name):
+    """(version, raw, gzipped or None, etag) of a file in static/, cached in memory by mtime and size."""
+    st = (STATIC / name).stat()
+    version = (st.st_mtime_ns, st.st_size)
+    hit = _static_cache.get(name)
+    if hit and hit[0] == version:
+        return hit
+    with _static_lock:
+        raw = (STATIC / name).read_bytes()
+        packed = gzip.compress(raw, 9, mtime=0) if len(raw) > 1024 else None
+        hit = _static_cache[name] = (version, raw, packed, '"%s"' % hashlib.sha256(raw).hexdigest()[:20])
+        return hit
 COOKIE = "panel_session"
 VERSION = "2.2"
 SESSION_TTL = security.SESSION_MAX
@@ -293,11 +311,11 @@ class Handler(BaseHTTPRequestHandler):
         sys.stderr.write("%s %s\n" % (self.address_string(), fmt % args))
 
     # -- helpers
-    def _headers(self, status, ctype, length, extra=()):
+    def _headers(self, status, ctype, length, extra=(), cache="no-store"):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(length))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
@@ -322,7 +340,18 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _file(self, name, ctype):
-        self._bytes((STATIC / name).read_bytes(), ctype)
+        """Static files: read and compressed once (until the file changes), then served from memory.
+        The browser keeps them and only asks "changed?" (ETag), which costs a 304 with no body."""
+        _, raw, packed, etag = static_file(name)
+        extra = [("ETag", etag), ("Vary", "Accept-Encoding")]
+        if self.headers.get("If-None-Match") == etag:
+            return self._headers(304, ctype, 0, extra, cache="private, no-cache")
+        body = raw
+        if packed and "gzip" in self.headers.get("Accept-Encoding", ""):
+            body = packed
+            extra.append(("Content-Encoding", "gzip"))
+        self._headers(200, ctype, len(body), extra, cache="private, no-cache")
+        self.wfile.write(body)
 
     def _redirect(self, location):
         self._headers(302, "text/plain", 0, [("Location", location)])

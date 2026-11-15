@@ -15,6 +15,7 @@ Safety rules, in order of importance:
         nft delete table inet defender
 """
 import collections
+import concurrent.futures
 import copy
 import ipaddress
 import json
@@ -33,6 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import f2b  # noqa: E402
 import geo  # noqa: E402
 import hostinfo  # noqa: E402
+import nftlib  # noqa: E402
 import nftrules  # noqa: E402
 import sshmgr  # noqa: E402
 import threat  # noqa: E402
@@ -63,7 +65,9 @@ DEFAULT = {
     "trust_cdn": True,
     "geo": {"block": []},     # replaced by "rules" (kept so old backups still import)
     "rules": [],              # user firewall rules, see validate_rule
-    "threat": {"feeds": []},  # threat-intelligence blocklists that are on (see threat.FEEDS)
+    # threat-intelligence blocklists: the ones that are on, per list "block" (default) or "log" (only count),
+    # also block this server connecting to them, the user's own lists, and how often to refresh them
+    "threat": {"feeds": [], "mode": {}, "outbound": False, "custom": [], "refresh_hours": 12},
     # Expert settings (Advanced tab). Everything that used to be fixed can be changed here.
     "advanced": {
         "rollback_seconds": 60,       # 0 = apply changes without the safety test
@@ -136,7 +140,7 @@ STATE = {
 def event(kind, **data):
     with LOCK:
         eid = (EVENTS[-1]["id"] + 1) if EVENTS else 1
-        EVENTS.append({"id": eid, "t": round(time.time(), 1), "kind": kind, **data})
+        EVENTS.append({**data, "id": eid, "t": round(time.time(), 1), "kind": kind})   # data can never replace id/t/kind
         save_json("events.json", list(EVENTS))
     log("event", kind, data)
 
@@ -144,6 +148,16 @@ def event(kind, **data):
 # ------------------------------------------------------------------ nft
 
 def nft(args, stdin=None, check=True):
+    """Runs an nft command. Simple commands (lists, adding and removing set elements) go through
+    libnftables in this process; loading a whole ruleset (-f, -c) still uses the nft program."""
+    if stdin is None and not any(a.startswith("-") for a in args[1:]) and (not args[0].startswith("-") or args[0] == "-j"):
+        json_out = args[0] == "-j"
+        res = nftlib.run(" ".join(args[1:] if json_out else args), json_out)
+        if res is not None:
+            ok, out, err = res
+            if check and not ok:
+                raise RuntimeError(err.strip()[-800:] or "nft command failed")
+            return out
     p = subprocess.run(["nft"] + args, input=stdin, capture_output=True, text=True, timeout=20)
     if check and p.returncode != 0:
         raise RuntimeError((p.stderr or p.stdout).strip()[-800:] or f"nft exited with {p.returncode}")
@@ -151,7 +165,11 @@ def nft(args, stdin=None, check=True):
 
 
 def table_exists():
-    return subprocess.run(["nft", "list", "table", "inet", "defender"], capture_output=True, timeout=10).returncode == 0
+    """Only the table names: listing the table itself would print every element of the big sets."""
+    try:
+        return "table inet defender" in nft(["list", "tables", "inet"])
+    except RuntimeError:
+        return False
 
 
 def current_bans():
@@ -190,9 +208,38 @@ def ruleset(cfg=None):
         if rule.get("enabled", True) and rule.get("countries"):
             z4, z6, _ = geo.build(DATA, rule["countries"], download=False)
             zones[rule["id"]] = (z4, z6)
-    t4, t6 = threat.build(DATA, cfg.get("threat", {}).get("feeds", []), download=False)
     return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones,
-                          t4, t6, hostinfo.public_iface())
+                          threat_lists(cfg), hostinfo.public_iface())
+
+
+def threat_feeds(cfg=None):
+    return threat.all_feeds((cfg or CFG)["threat"].get("custom"))
+
+
+def threat_lists(cfg):
+    """[(id, v4, v6, mode)] for the lists that are on and downloaded."""
+    t = cfg.get("threat") or {}
+    out = []
+    for fid, (v4, v6) in threat.lists(DATA, t.get("feeds") or []).items():
+        if v4 or v6:
+            out.append((fid, v4, v6, (t.get("mode") or {}).get(fid, "block")))
+    return out
+
+
+def threat_download(cfg, force=False, only=None):
+    """Downloads the lists that are on (when old, or force); returns the ids whose content changed."""
+    feeds = threat.all_feeds(cfg["threat"].get("custom"))
+    max_age = int(cfg["threat"].get("refresh_hours", 12)) * 3600
+    todo = [f for f in cfg["threat"]["feeds"] if f in feeds and (only is None or f in only)]
+
+    def one(fid):
+        try:
+            return fid if threat.fetch(DATA, fid, feeds[fid], max_age, force=force) else None
+        except ValueError as e:     # one list down must not stop the others; the error shows on its card
+            log("threat list", fid, e)
+            return None
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:    # a slow server does not hold up the rest
+        return [fid for fid in pool.map(one, todo) if fid]
 
 
 def apply(cfg=None):
@@ -228,7 +275,7 @@ def change(mutator, rollback=True, what="config"):
             if codes:
                 geo.build(DATA, sorted(codes), download=True)   # raises before anything changes
             if new["threat"]["feeds"]:
-                threat.build(DATA, new["threat"]["feeds"], download=True)
+                threat_download(new)          # only lists that are missing or old; raises if a new one cannot be had
         try:
             apply(new)
         except Exception as e:
@@ -330,7 +377,7 @@ def validate(cfg):
             e["note"] = str(e.get("note", ""))[:80]
         if len(cfg[lst]) > 100000:
             raise ValueError("list too long")
-    cfg["threat"]["feeds"] = [f for f in dict.fromkeys(cfg["threat"].get("feeds") or []) if f in threat.FEEDS]
+    validate_threat(cfg["threat"])
     rules = cfg.get("rules") or []
     if not isinstance(rules, list) or len(rules) > 300:
         raise ValueError("At most 300 rules")
@@ -504,8 +551,11 @@ def ban_list():
             rows.append({"ip": ip, "left": int(left), "source": meta.get("source", "auto"), "reason": meta.get("reason", "rate")})
     with LOCK:   # forget metadata of bans that ended
         live = {r["ip"] for r in rows}
-        for ip in [k for k, v in BANS.items() if v["until"] < now or (STATE["applied"] and ip not in live and v["until"] - now < 5)]:
-            BANS.pop(ip, None)
+        ended = [k for k, v in BANS.items() if v["until"] < now or (STATE["applied"] and k not in live and v["until"] - now < 5)]
+        for k in ended:
+            BANS.pop(k, None)
+        if ended:
+            save_json("bans.json", BANS)
     try:
         f2b_rows = f2b.all_bans()
         for r in f2b_rows:
@@ -616,13 +666,21 @@ def read_counters():
         c = item.get("counter")
         if c and c.get("name", "").startswith("c_"):
             out[c["name"][2:]] = c.get("packets", 0)
+    mode = CFG["threat"]["mode"]
+    out["threat"] = sum(v for k, v in out.items() if k.startswith("t_") and mode.get(k[2:], "block") == "block")
     return out
 
 
+WATCH_SECONDS = 20     # the firewall page asked for live numbers this recently: sample every second
+
+
 def stats_loop():
+    """Samples traffic and the firewall's counters, and detects attacks. Every second while someone
+    watches the firewall page or something looks wrong; every 2 seconds otherwise (half the work)."""
     prev, prev_t = None, None
     calm, hot, base = 0, 0, None
-    last_bans = 0
+    last_bans = last_expire = 0
+    step = 1
     iface = hostinfo.public_iface()
     while True:
         t0 = time.time()
@@ -645,7 +703,7 @@ def stats_loop():
                     "ct": round(ct["count"] / ct["max"] * 100, 1) if ct else None,
                     "estab": cur["tcp"]["curr_estab"],
                 }
-                if t0 - last_bans > 5:
+                if t0 - last_bans > (5 if step == 1 else 30):
                     last_bans = t0
                     STATE["bans_count"] = sum(len(v) for v in current_bans().values())
                 s["bans"] = STATE["bans_count"]
@@ -667,7 +725,7 @@ def stats_loop():
                 if signals:
                     hot, calm = hot + 1, 0
                 else:
-                    calm, hot = calm + 1, 0
+                    calm, hot = calm + dt, 0
                     base = base * 0.995 + pps * 0.005
                 if att["active"]:
                     for k in ("pps", "drop", "conns", "cookies"):
@@ -703,11 +761,14 @@ def stats_loop():
                     ssh_revert("timeout")
                 except Exception as e:
                     log("ssh revert", e)
-            if int(t0) % 30 == 0:
+            if t0 - last_expire >= 30:
+                last_expire = t0
                 expire_rules()
+            busy = hot or STATE["attack"]["active"] or STATE["pending"] or STATE.get("ssh_pending")
+            step = 1 if busy or t0 - STATE.get("watched", 0) < WATCH_SECONDS else 2
         except Exception as e:  # never let the loop die
             log("stats error", type(e).__name__, e)
-        time.sleep(max(0.05, 1 - (time.time() - t0)))
+        time.sleep(max(0.05, step - (time.time() - t0)))
 
 
 def expire_rules():
@@ -792,6 +853,26 @@ def _port_match(p, r):
 
 # ------------------------------------------------------------------ API over the unix socket
 
+def validate_threat(t):
+    custom = []
+    for c in (t.get("custom") or [])[:threat.MAX_CUSTOM]:
+        cid, url = str(c.get("id", "")), str(c.get("url", "")).strip()
+        if not threat.ID_RE.match(cid) or cid in threat.FEEDS or any(x["id"] == cid for x in custom):
+            raise ValueError(f"Invalid list id: {cid}")
+        if not url.startswith("https://") or len(url) > 400:
+            raise ValueError("The list address must start with https://")
+        custom.append({"id": cid, "name": str(c.get("name", "")).strip()[:60] or cid, "url": url})
+    t["custom"] = custom
+    known = threat.all_feeds(custom)
+    t["feeds"] = [f for f in dict.fromkeys(t.get("feeds") or []) if f in known]
+    t["mode"] = {k: v for k, v in (t.get("mode") or {}).items() if k in known and v in ("block", "log")}
+    t["outbound"] = bool(t.get("outbound", False))
+    try:
+        t["refresh_hours"] = min(168, max(1, int(t.get("refresh_hours", 12))))
+    except (TypeError, ValueError):
+        raise ValueError("Refresh interval must be a number of hours")
+
+
 def _cfg_patch(body):
     """Only known keys can be changed from the panel."""
     def mut(c):
@@ -834,6 +915,13 @@ def _cfg_patch(body):
             c["rules"] = body["rules"]
         if isinstance(body.get("threat"), dict) and isinstance(body["threat"].get("feeds"), list):
             c["threat"]["feeds"] = [str(f) for f in body["threat"]["feeds"]]
+        if isinstance(body.get("threat"), dict):
+            tb = body["threat"]
+            if isinstance(tb.get("mode"), dict):
+                c["threat"]["mode"] = {str(k): str(v) for k, v in tb["mode"].items()}
+            for k in ("outbound", "refresh_hours"):
+                if k in tb:
+                    c["threat"][k] = tb[k]
         if "geo" in body and isinstance(body["geo"], dict) and "block" in body["geo"]:
             c["geo"]["block"] = [str(x) for x in body["geo"]["block"]][:200]
     return mut
@@ -945,6 +1033,7 @@ def api_audit():
 
 
 def api_live(q):
+    STATE["watched"] = time.time()      # someone has the firewall page open: sample every second
     since = float(q.get("since", 0) or 0)
     return {"samples": [s for s in STATE["samples"] if s["t"] > since], "attack": STATE["attack"],
             "escalated": STATE["escalated"], "applied": STATE["applied"], "bans": STATE["bans_count"],
@@ -1177,9 +1266,157 @@ def api_sshd_key_remove(b):
 
 # ------------------------------------------------------------------ threat lists
 
+def _seen(name):
+    """Addresses in one of the "recently matched" sets, with the seconds left of their hour."""
+    rows = []
+    if not STATE["applied"]:
+        return rows
+    for v in ("4", "6"):
+        try:
+            data = json.loads(nft(["-j", "list", "set", "inet", "defender", f"{name}{v}"]))
+        except (RuntimeError, ValueError):
+            continue
+        for item in data.get("nftables", []):
+            for el in (item.get("set") or {}).get("elem", []) or []:
+                e = el.get("elem") if isinstance(el, dict) else None
+                if e and isinstance(e.get("val"), str):
+                    rows.append((e["val"], e.get("expires", 0)))
+                elif isinstance(el, str):
+                    rows.append((el, 0))
+    return rows
+
+
 def api_threat(q):
-    hits = read_counters().get("threat")
-    return {"feeds": threat.info(DATA), "enabled": CFG["threat"]["feeds"], "blocked": hits, "protection": CFG["enabled"]}
+    t = CFG["threat"]
+    feeds = threat_feeds()
+    counters = read_counters()
+    info = threat.info(DATA, feeds)
+    on = t["feeds"]
+    for fid, f in info.items():
+        f.update(enabled=fid in on, mode=t["mode"].get(fid, "block"), hits=counters.get(f"t_{fid}"))
+    recent = []
+    for kind, name in (("block", "tseen"), ("log", "tlog")):
+        for ip, left in sorted(_seen(name), key=lambda r: -r[1])[:100]:
+            try:
+                hit = threat.member(DATA, on, ip)
+            except ValueError:
+                hit = []
+            recent.append({"ip": ip, "kind": kind, "ago": max(0, 3600 - int(left)), "lists": hit})
+    recent.sort(key=lambda r: r["ago"])
+    blocking = [f for f in on if t["mode"].get(f, "block") == "block"]
+    return {"feeds": info, "order": list(feeds), "enabled": on, "protection": CFG["enabled"], "applied": STATE["applied"],
+            "outbound": t["outbound"], "refresh_hours": t["refresh_hours"], "custom_max": threat.MAX_CUSTOM,
+            "blocked": counters.get("threat"), "blocked_out": counters.get("tout"), "recent": recent[:150],
+            "addresses": sum(info[f]["addresses"] for f in blocking if f in info),
+            "entries": sum(info[f]["v4"] + info[f]["v6"] for f in blocking if f in info),
+            "next_check": THREAT_STATE["next"], "refreshing": THREAT_STATE["busy"]}
+
+
+THREAT_STATE = {"next": 0, "busy": False}
+
+
+def threat_update_sets(changed):
+    """New content of lists that are on goes into their sets in place, in one transaction: the
+    table, counters, bans and live limits stay as they are (a full rebuild would reset them)."""
+    if not changed or not CFG["enabled"] or not STATE["applied"] or STATE["pending"]:
+        return
+    lists_ = threat.lists(DATA, changed)
+    cmds = []
+    for fid in changed:
+        v4, v6 = lists_.get(fid, ([], []))
+        for v, items in (("4", v4), ("6", v6)):
+            cmds.append(f"flush set inet defender t_{fid}{v}")
+            for i in range(0, len(items), 5000):
+                cmds.append(f"add element inet defender t_{fid}{v} {{ {', '.join(items[i:i + 5000])} }}")
+    try:
+        nft(["-f", "-"], stdin="\n".join(cmds) + "\n")
+    except RuntimeError as e:      # a set is missing (the list was empty before): rebuild the table
+        log("threat sets: in-place update failed, rebuilding:", str(e)[:200])
+        apply()
+
+
+def threat_refresh(force=False, only=None):
+    with THREAT_LOCK:
+        THREAT_STATE["busy"] = True
+        try:
+            changed = threat_download(CFG, force=force, only=only)
+            if changed:
+                event("threat_updated", lists=changed)
+                with LOCK:
+                    threat_update_sets(changed)
+            return changed
+        finally:
+            THREAT_STATE["busy"] = False
+
+
+THREAT_LOCK = threading.Lock()
+
+
+def threat_refresh_loop():
+    """Checks every 30 minutes which lists that are on are older than their refresh interval."""
+    THREAT_STATE["next"] = int(time.time()) + 120
+    time.sleep(120)
+    while True:
+        THREAT_STATE["next"] = int(time.time()) + 1800
+        try:
+            if CFG["threat"]["feeds"] and CFG["enabled"]:
+                threat_refresh()
+        except Exception as e:
+            log("threat refresh", e)
+        time.sleep(1800)
+
+
+def api_threat_refresh(b):
+    fid = b.get("id")
+    if fid and fid not in CFG["threat"]["feeds"]:
+        raise ValueError("That list is not on")
+    if THREAT_STATE["busy"]:
+        raise ValueError("The lists are being updated right now; try again in a moment")
+    changed = threat_refresh(force=True, only=[fid] if fid else None)
+    return {**api_threat({}), "changed": changed}
+
+
+def api_threat_custom_add(b):
+    name = str(b.get("name", "")).strip()[:60]
+    if not name:
+        raise ValueError("Give the list a name")
+    url = threat.check_url(b.get("url"))
+    if len(CFG["threat"]["custom"]) >= threat.MAX_CUSTOM:
+        raise ValueError(f"At most {threat.MAX_CUSTOM} lists of your own")
+    if any(c["url"] == url for c in CFG["threat"]["custom"]):
+        raise ValueError("This list is already added")
+    used = {c["id"] for c in CFG["threat"]["custom"]}
+    cid = next(f"my{i}" for i in range(1, 100) if f"my{i}" not in used)
+    feed = threat.all_feeds([{"id": cid, "name": name, "url": url}])[cid]
+    threat.remove(DATA, cid)
+    threat.fetch(DATA, cid, feed, 0, force=True)       # raises (with the reason) if it cannot be read
+
+    def mut(c):
+        c["threat"]["custom"].append({"id": cid, "name": name, "url": url})
+        c["threat"]["mode"][cid] = "log"            # someone else's list: watch what it would block first
+        c["threat"]["feeds"].append(cid)
+    try:
+        change(mut, rollback=False, what="threat list added")
+    except Exception:
+        threat.remove(DATA, cid)
+        raise
+    event("threat_list", action="added", name=name)
+    return api_threat({})
+
+
+def api_threat_custom_remove(b):
+    cid = str(b.get("id", ""))
+    if not any(c["id"] == cid for c in CFG["threat"]["custom"]):
+        raise ValueError("No such list")
+
+    def mut(c):
+        c["threat"]["custom"] = [x for x in c["threat"]["custom"] if x["id"] != cid]
+        c["threat"]["feeds"] = [f for f in c["threat"]["feeds"] if f != cid]
+        c["threat"]["mode"].pop(cid, None)
+    change(mut, rollback=False, what="threat list removed")
+    threat.remove(DATA, cid)
+    event("threat_list", action="removed", list=cid)
+    return api_threat({})
 
 
 # ------------------------------------------------------------------ "what happens to this address?"
@@ -1243,9 +1480,14 @@ def api_test(b):
     if not verdict and CFG.get("trust_cdn", True) and _in(ip, list(nftrules.CDN4) + list(nftrules.CDN6)):
         verdict = step("cdn", "allow")
     if not verdict:
-        feeds = threat.member(DATA, CFG["threat"]["feeds"], ip)
-        if feeds:
-            verdict = step("threat", "block", feeds=feeds)
+        names = threat_feeds()
+        hits = threat.member(DATA, CFG["threat"]["feeds"], ip)
+        blocking = [f for f in hits if CFG["threat"]["mode"].get(f, "block") == "block"]
+        watching = [f for f in hits if f not in blocking]
+        if watching:
+            step("threat_log", "count", feeds=[names[f]["name"] for f in watching])
+        if blocking:
+            verdict = step("threat", "block", feeds=[names[f]["name"] for f in blocking])
     if not verdict:
         for r in CFG["rules"]:
             if not r.get("enabled", True) or r.get("direction") == "out":
@@ -1288,12 +1530,6 @@ def geo_refresh_loop():
     while True:
         time.sleep(6 * 3600)
         try:
-            feeds = CFG["threat"]["feeds"]
-            if feeds and CFG["enabled"]:
-                before_t = threat.info(DATA)
-                threat.build(DATA, feeds, download=True)
-                if threat.info(DATA) != before_t and not STATE["pending"]:
-                    apply()
             codes = sorted(set(CFG["geo"]["block"]) | {c for r in CFG["rules"] if r.get("enabled", True) for c in r.get("countries") or []})
             if not codes or not CFG["enabled"]:
                 continue
@@ -1388,6 +1624,9 @@ POST = {
     "/sshd/revert": api_sshd_revert,
     "/sshd/key/add": api_sshd_key_add,
     "/sshd/key/remove": api_sshd_key_remove,
+    "/threat/refresh": api_threat_refresh,
+    "/threat/custom/add": api_threat_custom_add,
+    "/threat/custom/remove": api_threat_custom_remove,
     "/test": api_test,
 }
 
@@ -1466,7 +1705,7 @@ def main():
     except Exception as e:
         STATE["error"] = str(e)
         log("cannot apply rules:", e)
-    for target in (stats_loop, ssh_guard_loop, admin_refresh_loop, geo_refresh_loop):
+    for target in (stats_loop, ssh_guard_loop, admin_refresh_loop, geo_refresh_loop, threat_refresh_loop):
         threading.Thread(target=target, daemon=True).start()
     threading.Thread(target=f2b.watch_log, args=(on_f2b_ban,), daemon=True).start()
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))   # the rules stay in the kernel while the agent restarts

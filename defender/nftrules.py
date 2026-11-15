@@ -29,7 +29,7 @@ LIMIT_KEYS = {"syn": (1, 100000), "conn": (1, 100000), "conc": (5, 1000000), "ud
               "icmp": (1, 10000), "ban": (1, 10080)}
 AUTOBAN_FACTOR = 3        # a source going this many times over a limit is banned, not just slowed down
 SSH_NEW_PER_MIN = 12      # new SSH connections per source and minute before the source is banned
-COUNTERS = ("allow", "block", "ban", "geo", "threat", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
+COUNTERS = ("allow", "block", "ban", "geo", "tout", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
             "udp", "icmp", "autoban", "new", "all")
 ALWAYS_TRUSTED = ("lo", "docker*", "br-*", "veth*")
 # Cloudflare's edge (https://www.cloudflare.com/ips/). A site or proxy behind Cloudflare receives all of its
@@ -158,9 +158,35 @@ def rule_parts(rule, zones):
     return sets, lines
 
 
+def threat_parts(threat_lists, outbound):
+    """Threat lists: one set pair and counter per list. A list in "block" mode drops everything the
+    listed addresses start (replies to connections this server opened still pass); "log" mode only
+    counts, to see what a list would block before trusting it. Recently matching addresses go to
+    tseen (blocked) / tlog (monitored) for an hour so the panel can show them."""
+    decl, pre, out = [], [], []
+    if not threat_lists:
+        return decl, pre, out
+    for fam, v in (("ipv4", "4"), ("ipv6", "6")):
+        decl += [f"    set tseen{v} {{ type {fam}_addr; flags dynamic, timeout; timeout 1h; size 4096; }}",
+                 f"    set tlog{v} {{ type {fam}_addr; flags dynamic, timeout; timeout 1h; size 4096; }}"]
+    ordered = sorted(threat_lists, key=lambda t: t[3] != "log")     # monitored lists first, so they count everything
+    for fid, v4, v6, mode in ordered:
+        decl.append(f"    counter c_t_{fid} {{ }}")
+        decl += [set_block(f"t_{fid}4", "ipv4", list(v4), " auto-merge;"), set_block(f"t_{fid}6", "ipv6", list(v6), " auto-merge;")]
+        for fam, v in (("ip", "4"), ("ip6", "6")):     # both, even if empty now: a refresh may fill the set in place
+            if mode == "log":
+                pre.append(f"        ct direction original {fam} saddr @t_{fid}{v} counter name c_t_{fid} update @tlog{v} {{ {fam} saddr }}")
+            else:
+                pre.append(f"        ct direction original {fam} saddr @t_{fid}{v} counter name c_t_{fid} update @tseen{v} {{ {fam} saddr }} drop")
+                if outbound:
+                    out.append(f"        {fam} daddr @t_{fid}{v} counter name c_tout drop")
+    return decl, pre, out
+
+
 def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=(), rule_zones=None,
-          threat4=(), threat6=(), wan=None):
-    """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table)."""
+          threat_lists=(), wan=None):
+    """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table).
+    threat_lists: [(id, v4, v6, mode)] for the threat lists that are on."""
     fw = cfg["firewall"]
     adv = cfg.get("advanced") or {}
     allow4, allow6 = split_ips(a["ip"] for a in cfg["allow"])
@@ -175,8 +201,9 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
               set_block("cdn4", "ipv4", list(CDN4) if cfg.get("trust_cdn", True) else []),
               set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else []),
               set_block("geo4", "ipv4", list(geo4), " auto-merge;"), set_block("geo6", "ipv6", list(geo6), " auto-merge;"),
-              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6),
-              set_block("threat4", "ipv4", list(threat4), " auto-merge;"), set_block("threat6", "ipv6", list(threat6), " auto-merge;")]
+              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6)]
+    t_decl, t_pre, t_out = threat_parts(threat_lists, (cfg.get("threat") or {}).get("outbound", False))
+    lines += t_decl
     for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
         els = ban_elements.get(name) or []
         body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
@@ -206,8 +233,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
             if adv.get("panel_allow") and panel_ports else []),   # panel only for listed addresses (admins pass above)
           "        ip saddr @cdn4 accept",   # blocklist and bans above still apply to the CDN
           "        ip6 saddr @cdn6 accept",
-          "        ip saddr @threat4 counter name c_threat drop",   # threat-intelligence blocklists
-          "        ip6 saddr @threat6 counter name c_threat drop",
+          *t_pre,                                            # threat-intelligence blocklists
           "        ip saddr @geo4 counter name c_geo drop",    # blocked countries (allowlist, admins, CDN pass above)
           "        ip6 saddr @geo6 counter name c_geo drop",
           "        counter name c_all",
@@ -260,6 +286,7 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
             f"        {icmp} update @m_icmp{suffix} {{ {fam} saddr limit rate over {L['icmp']}/second burst {L['icmp'] * 2} packets }} counter name c_icmp drop",
         ]
     r.append("    }")
+    out_lines = t_out + out_lines
     if out_lines:   # outgoing rules: the server itself, and containers / VPN clients leaving through the internet side
         r += ["", "    chain local_out {", "        type filter hook output priority 0; policy accept;", '        oif "lo" accept',
               "        ct state established,related accept"] + out_lines + ["    }"]

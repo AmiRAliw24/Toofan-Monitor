@@ -32,6 +32,7 @@ scrape_configs:
         replacement: node-exporter:9100
 
   - job_name: cadvisor
+    scrape_interval: 30s      # cAdvisor refreshes every 30 s (see docker-compose.yml)
     static_configs:
       - targets: [cadvisor:8080]
 

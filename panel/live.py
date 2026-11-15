@@ -13,6 +13,7 @@ import os
 import re
 import threading
 import time
+from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import monitor
@@ -34,6 +35,10 @@ WANTED = (
     "node_filesystem_size_bytes", "node_filesystem_avail_bytes",
     "node_disk_read_bytes_total", "node_disk_written_bytes_total",
 )
+# Only the collectors the live view needs: a full scrape is ~50 KB and runs every collector (tens of
+# ms of CPU in node_exporter); this one is a few KB and ~3 ms. Disk sizes change slowly: every 10 s.
+FAST = ("cpu", "meminfo", "loadavg", "diskstats")
+DISK_EVERY = 10
 LINE = re.compile(r"^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(.*)\})?\s+(\S+)")
 LABEL = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"')
 
@@ -105,9 +110,14 @@ def rate(now, before, dt):
 class Sampler:
     def __init__(self, instance):
         self.instance = instance
-        self.urls = [f"http://{instance}/metrics"]
-        if instance == LOCAL_INSTANCE:
-            self.urls.append(LOCAL_NET_URL)
+        local = instance == LOCAL_INSTANCE
+        # (base url, collectors it should run); on this server network counters come from node-net
+        self.sources = [(f"http://{instance}/metrics", FAST if local else FAST + ("netdev",))]
+        if local:
+            self.sources.append((LOCAL_NET_URL, ("netdev",)))
+        self.unfiltered = set()      # exporters too old for collect[] (or with a collector switched off)
+        self.tick = 0
+        self.disk = None
         self.samples = collections.deque(maxlen=KEEP)
         self.error = ""
         self.cond = threading.Condition()
@@ -117,8 +127,21 @@ class Sampler:
 
     def _read(self):
         metrics = collections.defaultdict(list)
-        for url in self.urls:
-            for k, v in parse(fetch(url)).items():
+        with_disk = self.tick % DISK_EVERY == 0 or self.disk is None
+        self.tick += 1
+        for base, wanted in self.sources:
+            if base in self.unfiltered:
+                text = fetch(base)
+            else:
+                names = wanted + (("filesystem",) if with_disk and base != LOCAL_NET_URL else ())
+                try:
+                    text = fetch(base + "?" + "&".join(f"collect[]={c}" for c in names))
+                except HTTPError as e:
+                    if e.code != 400:
+                        raise
+                    self.unfiltered.add(base)      # "missing collector": ask for everything from now on
+                    text = fetch(base)
+            for k, v in parse(text).items():
                 metrics[k].extend(v)
         return metrics
 
@@ -155,8 +178,13 @@ class Sampler:
             "load": [first(metrics, f"node_load{p}") for p in (1, 5, 15)],
             "rx": total(0), "tx": total(1), "dev": dev,
             "io": [rate(c["io"]["r"], p["io"]["r"], dt), rate(c["io"]["w"], p["io"]["w"], dt)],
-            "disk": root_disk(metrics),
+            "disk": self._disk(metrics),
         }
+
+    def _disk(self, metrics):
+        if metrics.get("node_filesystem_size_bytes"):
+            self.disk = root_disk(metrics)
+        return self.disk
 
     def _loop(self):
         next_at = time.monotonic()

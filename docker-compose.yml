@@ -76,10 +76,18 @@ services:
       - /sys:/host/sys:ro
     networks: [monitoring]
 
+  # Only CPU and memory per container are used (the container alerts), so cAdvisor collects just
+  # those, for Docker containers only, every 30 s instead of every second (its default).
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     restart: always
     privileged: true
+    command:
+      - --housekeeping_interval=30s
+      - --max_housekeeping_interval=60s
+      - --docker_only=true
+      - --store_container_labels=false
+      - --enable_metrics=cpu,memory
     devices:
       - /dev/kmsg
     volumes:
@@ -173,8 +181,9 @@ services:
     ports:
       - "${PANEL_BIND:-0.0.0.0}:${PANEL_PORT:-3000}:8080"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
-      interval: 30s
+      # busybox wget: starting Python for every check cost more CPU than the panel itself when idle
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 60s
       timeout: 5s
       retries: 3
     depends_on: [prometheus, alertmanager, blackbox]

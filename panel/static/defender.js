@@ -186,7 +186,7 @@
   const tt = (k, i, vars) => { const v = t(k); const s = Array.isArray(v) ? v[i] : v; return vars ? Object.entries(vars).reduce((a, [x, y]) => a.replace(`{${x}}`, y), s) : s; };
 
   // ---------------------------------------------------------------- state
-  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["rules", "rule"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
+  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["rules", "rule"], ["lists", "list"], ["threat", "radar"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
   const store = { get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } } };
   const D = { tab: store.get("df_tab", "overview"), st: null, err: "", samples: [], lastT: 0, timer: null, ticks: 0, fw: null, talkers: [], events: [], root: null, heroKey: "" };
   if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
@@ -399,7 +399,10 @@
       } else box.innerHTML = `<div class="empty">${esc(t("live_waiting"))}</div>`;
     }
     const totals = {};
-    for (const s of S) for (const [k, v] of Object.entries(s.drops || {})) totals[k] = (totals[k] || 0) + v;
+    S.forEach((s, i) => {   // rates per second; samples are 1 s apart while watched, 2 s when idle
+      const dt = i ? Math.min(5, Math.max(0.2, s.t - S[i - 1].t)) : 1;
+      for (const [k, v] of Object.entries(s.drops || {})) totals[k] = (totals[k] || 0) + v * dt;
+    });
     const rows = Object.entries(totals).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]);
     const max = rows.length ? rows[0][1] : 1;
     setHTML(root.querySelector("#df-reasons"), rows.length ? rows.map(([k, v]) => `<div class="df-bar"><span>${esc(t(`df_r_${k}`))}</span><b>${num(nf(v, 0))}</b><i style="width:${Math.max(2, (v / max) * 100).toFixed(1)}%"></i></div>`).join("")
@@ -1341,10 +1344,6 @@
     df_tt_banned: "Banned by the firewall, {left} left.", df_tt_fail2ban: "Banned by fail2ban ({jail}).", df_tt_panel_allow: "Only the listed addresses may open the panel.", df_tt_cdn: "A Cloudflare address (trusted).",
     df_tt_threat: "Listed in: {feeds}.", df_tt_rule_allow: "Rule \"{name}\": allow.", df_tt_rule_block: "Rule \"{name}\": block.", df_tt_rule_limit: "Rule \"{name}\": limited to {rate}/s.", df_tt_rule_count: "Rule \"{name}\": counted.",
     df_tt_strict: "Strict mode: port {port} is not open.", df_tt_limits: "Allowed, within the flood limits ({syn} SYN/s, {conc} connections).", df_tt_sched: " (only at its scheduled times)",
-    df_th_title: "Threat blocklists", df_th_sub: "Public lists of attacking, hijacked and spamming addresses, blocked before anything else and refreshed every 12 hours. Private networks are always left out.",
-    df_th_entries: "{n} addresses / networks", df_th_never: "not downloaded yet", df_th_blocked: "{n} packets blocked by these lists since the rules were applied",
-    df_th_spamhaus: "Hijacked networks used by spammers and criminals. Very safe to turn on.", df_th_firehol: "A curated mix of the worst lists (attacks, malware, hijacked networks).",
-    df_th_blocklistde: "Addresses that attacked servers in the last 48 hours (SSH, mail, web).", df_th_et: "Compromised hosts tracked by Emerging Threats.", df_th_cins: "Addresses with a bad reputation from the CINS Army sensors.",
   }, {
     df_sv_title: "سرور SSH", df_sv_sub: "پورت، گزینه‌های ورود و کلیدهای خود سرور SSH. هر تغییر آزمایش می‌شود: اگر SSH روی همه‌ی پورت‌ها جواب ندهد، تنظیمات قبلی فوراً برمی‌گردد؛ وگرنه {m} دقیقه وقت دارید دوباره وارد شوید و آن را نگه دارید، وگرنه خودش برمی‌گردد. نشست‌های باز وصل می‌مانند.",
     df_sv_ports: "پورت‌های SSH", df_sv_ports_hint: "هنگام جابه‌جایی هر دو پورت را نگه دارید: پورت جدید را اضافه کنید، بعد از ورود موفق با آن تغییر را نگه دارید، و بعد پورت قدیمی را حذف کنید.",
@@ -1364,10 +1363,6 @@
     df_tt_banned: "توسط فایروال مسدود است، {left} مانده.", df_tt_fail2ban: "توسط fail2ban مسدود است ({jail}).", df_tt_panel_allow: "فقط آدرس‌های مشخص اجازه‌ی باز کردن پنل دارند.", df_tt_cdn: "آدرس Cloudflare (مورد اعتماد).",
     df_tt_threat: "در این لیست‌ها: {feeds}.", df_tt_rule_allow: "قانون «{name}»: اجازه.", df_tt_rule_block: "قانون «{name}»: مسدود.", df_tt_rule_limit: "قانون «{name}»: محدود به {rate} در ثانیه.", df_tt_rule_count: "قانون «{name}»: شمرده می‌شود.",
     df_tt_strict: "حالت سخت‌گیر: پورت {port} باز نیست.", df_tt_limits: "مجاز، در حد محدودیت‌های فلاد ({syn} SYN در ثانیه، {conc} اتصال).", df_tt_sched: " (فقط در زمان‌بندی‌اش)",
-    df_th_title: "لیست‌های تهدید", df_th_sub: "لیست‌های عمومی آدرس‌های مهاجم، ربوده‌شده و اسپمر؛ قبل از هر چیز مسدود و هر ۱۲ ساعت بروز می‌شوند. شبکه‌های خصوصی همیشه کنار گذاشته می‌شوند.",
-    df_th_entries: "{n} آدرس / شبکه", df_th_never: "هنوز دانلود نشده", df_th_blocked: "{n} بسته از وقتی قوانین اعمال شده توسط این لیست‌ها مسدود شده",
-    df_th_spamhaus: "شبکه‌های ربوده‌شده که اسپمرها و مجرمان استفاده می‌کنند. روشن کردنش خیلی امن است.", df_th_firehol: "ترکیب دست‌چین بدترین لیست‌ها (حمله، بدافزار، شبکه‌های ربوده‌شده).",
-    df_th_blocklistde: "آدرس‌هایی که در ۴۸ ساعت اخیر به سرورها حمله کرده‌اند (SSH، ایمیل، وب).", df_th_et: "میزبان‌های آلوده‌ای که Emerging Threats رصد می‌کند.", df_th_cins: "آدرس‌های بدنام از حسگرهای CINS Army.",
   });
 
   // ---- SSH server
@@ -1434,6 +1429,7 @@
       if (s.kind === "banned") return t("df_tt_banned", { left: s.left ? fmtLeft(s.left) : "–" });
       if (s.kind === "fail2ban") return t("df_tt_fail2ban", { jail: s.jail || "fail2ban" });
       if (s.kind === "threat") return t("df_tt_threat", { feeds: s.feeds.join("، ") });
+      if (s.kind === "threat_log") return t("df_tt_threat_log", { feeds: s.feeds.join("، ") });
       if (s.kind === "limits") return t("df_tt_limits", { syn: s.limits.syn, conc: s.limits.conc });
       return t(`df_tt_${s.kind}`, s);
     };
@@ -1441,22 +1437,126 @@
       <span dir="ltr"><b>${esc(r.ip)}</b>${r.port ? `:${r.port}/${r.proto}` : ""}</span><span class="muted">${esc(r.country ? t("df_tt_country", { c: `${flag(r.country)} ${ccName(r.country)}` }) : t("df_tt_country_unknown"))}</span></div>
       <ol class="tt-steps">${r.steps.map((s) => `<li class="${tone[s.result] || ""}">${pill(tone[s.result] || "", t(`df_tt_${s.result === "count" ? "allow" : s.result}`), false)}<span>${esc(text(s))}</span></li>`).join("")}</ol>`;
   }
-  async function threatHTML() {
-    const th = await api("/api/defender/threat").catch(() => null);
-    if (!th) return "";
-    const on = new Set(th.enabled);
-    const rows = Object.entries(th.feeds).map(([id, f]) => `<label class="th-feed${on.has(id) ? " on" : ""}"><span class="switch"><input type="checkbox" data-feed="${id}" ${on.has(id) ? "checked" : ""}><span></span></span>
-      <span class="th-body"><b>${esc(f.name)}</b><small>${esc(t(`df_th_${id}`))}</small><small class="muted">${esc(f.updated ? `${t("df_th_entries", { n: nf(f.entries, 0) })} · ${ago(f.updated)}` : t("df_th_never"))} · <span dir="ltr">${esc(f.site)}</span></small></span></label>`).join("");
-    return `<section class="sec"><div class="sec-head"><h3>${icon("shield")}${esc(t("df_th_title"))}</h3><p class="muted">${esc(t("df_th_sub"))}</p></div>
-      ${th.protection ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_r_off"))}</span></div>`}
-      <div class="th-grid">${rows}</div>${th.blocked ? `<p class="muted">${esc(t("df_th_blocked", { n: nf(th.blocked, 0) }))}</p>` : ""}</section>`;
-  }
-  async function renderListsAll() {
-    const [lists, th] = await Promise.all([renderLists(), threatHTML()]);
-    return testerHTML() + th + lists;
+  // ---------------------------------------------------------------- threat lists (own tab)
+  P.addIcons({ radar: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18.4 5.6"/>' });
+  P.addStrings({
+    df_t_threat: "Threat lists",
+    df_th_title: "Threat lists", df_th_sub: "Public lists of attacking, hijacked and botnet addresses. Everything a listed address starts is dropped before any other check; replies to connections this server opens itself still pass. Private networks are always left out.",
+    df_th_on: "Lists on", df_th_blocked_n: "Packets blocked", df_th_since: "since the rules were applied", df_th_kernel: "Entries in the firewall", df_th_cover: "IPv4 addresses covered",
+    df_th_out_n: "Outgoing blocked", df_th_next: "Next check", df_th_now: "updating…",
+    df_th_recommended: "Turn on the recommended lists", df_th_update_all: "Update all now", df_th_updated_n: "{n} list(s) had new content", df_th_up_to_date: "All lists are up to date",
+    df_th_settings: "Settings", df_th_outbound: "Also block this server connecting to them", df_th_outbound_sub: "Stops malware or a hacked app on this server (or a VPN client) from reaching botnet servers. Only lists in block mode.",
+    df_th_refresh: "Refresh every", df_th_hours: "{n} h", df_th_save: "Save",
+    df_th_mode_block: "Block", df_th_mode_log: "Watch only", df_th_mode_hint: "Watch only counts what the list would block, without blocking: try a list this way first.",
+    df_th_rec: "Recommended", df_th_risky: "may hit real users", df_th_entries: "{n} entries", df_th_v6: "{n} IPv6", df_th_addrs: "{n} IPv4 addresses",
+    df_th_never: "not downloaded yet", df_th_hits: "{n} packets", df_th_err: "Last update failed: {e}", df_th_update: "Update now", df_th_remove: "Remove",
+    df_th_k_hijacked: "Hijacked networks", df_th_k_mixed: "Mixed", df_th_k_botnet: "Botnet servers", df_th_k_compromised: "Compromised hosts", df_th_k_attackers: "Attackers",
+    df_th_k_anonymizer: "Anonymizer", df_th_k_custom: "Your list",
+    df_th_spamhaus: "Networks stolen by spammers and criminals. Practically never blocks a real user.", df_th_firehol: "A careful mix of the worst lists (attacks, malware, hijacked and unused networks).",
+    df_th_feodo: "Command servers of banking trojans and botnets (abuse.ch). Best together with blocking outgoing connections.", df_th_et: "Compromised hosts tracked by Emerging Threats.",
+    df_th_cins: "Addresses with a bad reputation from the CINS Army sensors.", df_th_blocklistde: "Addresses that attacked servers in the last 48 hours (SSH, mail, web). Large; shared home addresses can be in it.",
+    df_th_ipsum: "Addresses reported by at least 3 different blocklists in the last day.", df_th_greensnow: "Addresses caught scanning and brute-forcing by the GreenSnow sensors.",
+    df_th_tor: "Exit nodes of the Tor network. Not attackers as such: turn on only if you don't want anonymous visitors.", df_th_custom: "Your own list from {site}.",
+    df_th_add: "Add your own list", df_th_add_sub: "Any https address of a plain list (one address, network or range per line; # and ; start comments). It starts in watch-only mode.",
+    df_th_name: "Name", df_th_url: "List address (https)", df_th_add_btn: "Add list", df_th_added: "List added", df_th_removed: "List removed", df_th_remove_confirm: "Remove the list \"{name}\"?",
+    df_th_recent: "Recently matched addresses", df_th_recent_sub: "Addresses that hit a list in the last hour. If a real user is among them, allow the address: the allowlist always wins.",
+    df_th_none_recent: "No address hit the lists in the last hour.", df_th_r_ip: "Address", df_th_r_kind: "Result", df_th_r_lists: "Lists", df_th_r_when: "When",
+    df_th_r_block: "blocked", df_th_r_log: "watched", df_th_allow: "Allow", df_th_allowed: "{ip} is now allowed",
+    df_tt_threat_log: "In a watch-only list (not blocked): {feeds}.",
+  }, {
+    df_t_threat: "لیست‌های تهدید",
+    df_th_title: "لیست‌های تهدید", df_th_sub: "لیست‌های عمومی آدرس‌های مهاجم، ربوده‌شده و بات‌نت. هر چیزی که یک آدرس لیست‌شده شروع کند قبل از هر بررسی دیگری دور ریخته می‌شود؛ جواب اتصال‌هایی که خود این سرور باز می‌کند رد می‌شود. شبکه‌های خصوصی همیشه کنار گذاشته می‌شوند.",
+    df_th_on: "لیست‌های روشن", df_th_blocked_n: "بسته‌های مسدودشده", df_th_since: "از وقتی قوانین اعمال شده", df_th_kernel: "ردیف‌ها در فایروال", df_th_cover: "آدرس IPv4 پوشش داده‌شده",
+    df_th_out_n: "خروجی مسدودشده", df_th_next: "بررسی بعدی", df_th_now: "در حال بروزرسانی…",
+    df_th_recommended: "روشن کردن لیست‌های پیشنهادی", df_th_update_all: "بروزرسانی همه همین حالا", df_th_updated_n: "{n} لیست محتوای جدید داشت", df_th_up_to_date: "همه‌ی لیست‌ها بروز هستند",
+    df_th_settings: "تنظیمات", df_th_outbound: "اتصال این سرور به آن‌ها هم مسدود شود", df_th_outbound_sub: "جلوی رسیدن بدافزار یا برنامه‌ی هک‌شده روی این سرور (یا کاربر VPN) به سرورهای بات‌نت را می‌گیرد. فقط لیست‌های حالت مسدود.",
+    df_th_refresh: "بروزرسانی هر", df_th_hours: "{n} ساعت", df_th_save: "ذخیره",
+    df_th_mode_block: "مسدود", df_th_mode_log: "فقط نظارت", df_th_mode_hint: "«فقط نظارت» چیزی را مسدود نمی‌کند، فقط می‌شمارد که لیست چه چیزهایی را مسدود می‌کرد: اول یک لیست را این‌طور امتحان کنید.",
+    df_th_rec: "پیشنهادی", df_th_risky: "ممکن است کاربر واقعی را بگیرد", df_th_entries: "{n} ردیف", df_th_v6: "{n} IPv6", df_th_addrs: "{n} آدرس IPv4",
+    df_th_never: "هنوز دانلود نشده", df_th_hits: "{n} بسته", df_th_err: "آخرین بروزرسانی ناموفق بود: {e}", df_th_update: "بروزرسانی", df_th_remove: "حذف",
+    df_th_k_hijacked: "شبکه‌های ربوده‌شده", df_th_k_mixed: "ترکیبی", df_th_k_botnet: "سرورهای بات‌نت", df_th_k_compromised: "میزبان‌های آلوده", df_th_k_attackers: "مهاجم‌ها",
+    df_th_k_anonymizer: "ناشناس‌ساز", df_th_k_custom: "لیست شما",
+    df_th_spamhaus: "شبکه‌هایی که اسپمرها و مجرمان دزدیده‌اند. تقریباً هیچ‌وقت کاربر واقعی را نمی‌گیرد.", df_th_firehol: "ترکیب دقیق بدترین لیست‌ها (حمله، بدافزار، شبکه‌های ربوده‌شده و استفاده‌نشده).",
+    df_th_feodo: "سرورهای فرمان تروجان‌های بانکی و بات‌نت‌ها (abuse.ch). بهترین حالت همراه با مسدود کردن اتصال خروجی است.", df_th_et: "میزبان‌های آلوده‌ای که Emerging Threats رصد می‌کند.",
+    df_th_cins: "آدرس‌های بدنام از حسگرهای CINS Army.", df_th_blocklistde: "آدرس‌هایی که در ۴۸ ساعت اخیر به سرورها حمله کرده‌اند (SSH، ایمیل، وب). بزرگ است و ممکن است آدرس‌های مشترک خانگی در آن باشد.",
+    df_th_ipsum: "آدرس‌هایی که در روز گذشته دست‌کم در ۳ لیست سیاه مختلف گزارش شده‌اند.", df_th_greensnow: "آدرس‌هایی که حسگرهای GreenSnow حین اسکن و حدس رمز گرفته‌اند.",
+    df_th_tor: "نودهای خروجی شبکه‌ی Tor. خودشان مهاجم نیستند: فقط اگر بازدیدکننده‌ی ناشناس نمی‌خواهید روشن کنید.", df_th_custom: "لیست خودتان از {site}.",
+    df_th_add: "افزودن لیست خودتان", df_th_add_sub: "هر آدرس https یک لیست ساده (در هر خط یک آدرس، شبکه یا بازه؛ # و ; شروع توضیح). اول در حالت «فقط نظارت» شروع می‌شود.",
+    df_th_name: "نام", df_th_url: "آدرس لیست (https)", df_th_add_btn: "افزودن لیست", df_th_added: "لیست اضافه شد", df_th_removed: "لیست حذف شد", df_th_remove_confirm: "لیست «{name}» حذف شود؟",
+    df_th_recent: "آدرس‌هایی که اخیراً منطبق شدند", df_th_recent_sub: "آدرس‌هایی که در یک ساعت اخیر به یکی از لیست‌ها خورده‌اند. اگر کاربر واقعی بین‌شان است، آن آدرس را مجاز کنید: لیست سفید همیشه مقدم است.",
+    df_th_none_recent: "در یک ساعت اخیر هیچ آدرسی به لیست‌ها نخورده است.", df_th_r_ip: "آدرس", df_th_r_kind: "نتیجه", df_th_r_lists: "لیست‌ها", df_th_r_when: "زمان",
+    df_th_r_block: "مسدود شد", df_th_r_log: "نظارت شد", df_th_allow: "مجاز کن", df_th_allowed: "{ip} حالا مجاز است",
+    df_tt_threat_log: "در لیستی با حالت «فقط نظارت» (مسدود نمی‌شود): {feeds}.",
+  });
+
+  function threatCard(id, f) {
+    const on = f.enabled;
+    const desc = f.custom ? t("df_th_custom", { site: f.site }) : t(`df_th_${id}`);
+    const stats = f.updated
+      ? [t("df_th_entries", { n: nf(f.v4 + f.v6, 0) }), f.addresses ? t("df_th_addrs", { n: nf(f.addresses, 0) }) : "", f.v6 ? t("df_th_v6", { n: nf(f.v6, 0) }) : "", ago(f.updated)].filter(Boolean).join(" · ")
+      : t("df_th_never");
+    const mode = on ? `<div class="df-seg th-mode" role="group" aria-label="${esc(t("df_th_mode_hint"))}">${["block", "log"].map((m) =>
+      `<button type="button" class="${f.mode === m ? "on" : ""}" aria-pressed="${f.mode === m}" data-a="th-mode" data-id="${esc(id)}" data-mode="${m}">${esc(t(`df_th_mode_${m}`))}</button>`).join("")}</div>` : "";
+    return `<article class="th-feed${on ? " on" : ""}${on && f.mode === "log" ? " watch" : ""}">
+      <label class="th-top"><span class="switch"><input type="checkbox" data-feed="${esc(id)}" ${on ? "checked" : ""}><span></span></span>
+        <span class="th-body"><b>${esc(f.name)}</b><span class="th-tags">${pill("", t(`df_th_k_${f.kind}`), false)}${f.safe ? pill("ok", t("df_th_rec"), false) : `<small class="muted">${esc(t("df_th_risky"))}</small>`}</span></span></label>
+      <small class="th-desc">${esc(desc)}</small>
+      <small class="muted">${esc(stats)} · <span dir="ltr">${esc(f.site)}</span></small>
+      ${f.error ? `<small class="th-err">${icon("alert")}<span>${esc(t("df_th_err", { e: f.error }))}</span></small>` : ""}
+      <div class="th-foot">${mode}${on && f.hits ? `<span class="pill ${f.mode === "log" ? "warn" : "bad"}">${esc(t("df_th_hits", { n: nf(f.hits, 0) }))}</span>` : ""}
+        <span class="th-btns">${on ? btnIcon("refresh", t("df_th_update"), `data-a="th-refresh" data-id="${esc(id)}"`) : ""}${f.custom ? btnIcon("trash", t("df_th_remove"), `data-a="th-del" data-id="${esc(id)}" data-name="${esc(f.name)}"`, "danger") : ""}</span></div>
+    </article>`;
   }
 
-  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderListsAll, ssh: renderSshAll, f2b: renderF2b, hardening: renderHardening };
+  async function renderThreat() {
+    const th = await api("/api/defender/threat");
+    D.th = th;
+    const ids = th.order.filter((id) => th.feeds[id]);
+    const on = ids.filter((id) => th.feeds[id].enabled);
+    const stat = (label, value, sub = "") => `<div class="th-stat"><span class="muted">${esc(label)}</span><b>${esc(value)}</b>${sub ? `<small class="muted">${esc(sub)}</small>` : ""}</div>`;
+    const next = th.refreshing ? t("df_th_now") : th.next_check ? new Date(th.next_check * 1000).toLocaleTimeString(P.state.lang === "fa" ? "fa-IR" : "en-GB", { hour: "2-digit", minute: "2-digit" }) : "–";
+    const stats = `<div class="th-stats">${stat(t("df_th_on"), `${nf(on.length, 0)} / ${nf(ids.length, 0)}`)}${stat(t("df_th_blocked_n"), th.blocked == null ? "–" : nf(th.blocked, 0), t("df_th_since"))}
+      ${stat(t("df_th_kernel"), nf(th.entries, 0))}${stat(t("df_th_cover"), nf(th.addresses, 0))}${th.outbound ? stat(t("df_th_out_n"), th.blocked_out == null ? "–" : nf(th.blocked_out, 0)) : ""}${on.length ? stat(t("df_th_next"), next) : ""}</div>`;
+    const recSafe = ids.filter((id) => th.feeds[id].safe && !th.feeds[id].enabled);
+    const tools = `<div class="actions-row">${recSafe.length ? `<button type="button" class="btn primary" data-a="th-recommended">${icon("shield")}<span>${esc(t("df_th_recommended"))}</span></button>` : ""}
+      ${on.length ? `<button type="button" class="btn" data-a="th-refresh">${icon("refresh")}<span>${esc(t("df_th_update_all"))}</span></button>` : ""}</div>`;
+    const hours = [3, 6, 12, 24, 48].includes(th.refresh_hours) ? [3, 6, 12, 24, 48] : [3, 6, 12, 24, 48, th.refresh_hours].sort((a, b) => a - b);
+    const settings = `<form class="subcard th-set" data-f="th-set"><h4>${icon("sliders")}${esc(t("df_th_settings"))}</h4>
+      <label class="df-switch"><span class="switch"><input type="checkbox" name="outbound" ${th.outbound ? "checked" : ""}><span></span></span><span><b>${esc(t("df_th_outbound"))}</b><small>${esc(t("df_th_outbound_sub"))}</small></span></label>
+      <div class="field-row">${field(t("df_th_refresh"), `<select name="hours">${hours.map((h) => `<option value="${h}" ${h === th.refresh_hours ? "selected" : ""}>${esc(t("df_th_hours", { n: nf(h, 0) }))}</option>`).join("")}</select>`)}
+        <div class="field"><label>&nbsp;</label><button type="submit" class="btn">${icon("check")}<span>${esc(t("df_th_save"))}</span></button></div></div>
+      <p class="hint">${esc(t("df_th_mode_hint"))}</p></form>`;
+    const customN = ids.filter((id) => th.feeds[id].custom).length;
+    const add = customN < th.custom_max ? `<form class="subcard" data-f="th-add"><h4>${icon("plus")}${esc(t("df_th_add"))}</h4><p class="muted">${esc(t("df_th_add_sub"))}</p>
+      <div class="df-form-grid">${field(t("df_th_name"), '<input name="name" maxlength="60" required autocomplete="off">')}${field(t("df_th_url"), '<input name="url" type="url" dir="ltr" required placeholder="https://example.com/blocklist.txt" autocomplete="off">')}</div>
+      <div class="actions-row"><button type="submit" class="btn primary">${icon("plus")}<span>${esc(t("df_th_add_btn"))}</span></button></div></form>` : "";
+    const names = Object.fromEntries(ids.map((id) => [id, th.feeds[id].name]));
+    const recent = th.recent.length ? table([
+      { h: "df_th_r_ip", cell: (r) => `<code dir="ltr">${esc(r.ip)}</code>` },
+      { h: "df_th_r_kind", cell: (r) => pill(r.kind === "block" ? "bad" : "warn", t(`df_th_r_${r.kind}`)) },
+      { h: "df_th_r_lists", cell: (r) => esc(r.lists.map((x) => names[x] || x).join("، ") || "–") },
+      { h: "df_th_r_when", cell: (r) => esc(ago(Date.now() / 1000 - r.ago)) },
+      { h: "actions", cell: (r) => `<button type="button" class="btn small" data-a="th-allow" data-ip="${esc(r.ip)}">${icon("check")}<span>${esc(t("df_th_allow"))}</span></button>` },
+    ], th.recent) : `<div class="empty">${esc(t("df_th_none_recent"))}</div>`;
+    return `<section class="sec"><div class="sec-head"><h3>${icon("radar")}${esc(t("df_th_title"))}</h3><p class="muted">${esc(t("df_th_sub"))}</p></div>
+        ${th.protection ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_r_off"))}</span></div>`}
+        ${stats}${tools}</section>
+      <section class="sec"><div class="th-grid">${ids.map((id) => threatCard(id, th.feeds[id])).join("")}</div></section>
+      <section class="sec"><div class="th-two">${settings}${add}</div></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("eye")}${esc(t("df_th_recent"))}</h3><p class="muted">${esc(t("df_th_recent_sub"))}</p></div>${recent}</section>`;
+  }
+
+  async function threatSave(el, patch, what) {
+    const ok = await apply(el, "config", { threat: patch, _what: what }, t("df_r_saved"));
+    if (D.tab === "threat") showTab("threat");
+    return ok;
+  }
+
+  async function renderListsAll() {
+    return testerHTML() + await renderLists();
+  }
+
+  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderListsAll, threat: renderThreat, ssh: renderSshAll, f2b: renderF2b, hardening: renderHardening };
   const rerender = () => showTab(D.tab);
 
   // ---------------------------------------------------------------- events
@@ -1465,6 +1565,33 @@
     if (!b || b.disabled) return;
     const a = b.dataset.a;
     if (a === "tab") return showTab(b.dataset.tab);
+    if (a === "th-mode") {
+      if (b.classList.contains("on")) return;
+      return threatSave(b, { mode: { ...D.th.feeds && Object.fromEntries(Object.entries(D.th.feeds).map(([id, f]) => [id, f.mode])), [b.dataset.id]: b.dataset.mode } }, "threat list mode");
+    }
+    if (a === "th-recommended") {
+      const feeds = [...new Set([...D.th.enabled, ...D.th.order.filter((id) => D.th.feeds[id] && D.th.feeds[id].safe)])];
+      return threatSave(b, { feeds }, "threat lists");
+    }
+    if (a === "th-refresh") {
+      const r = await act(b, () => post("/api/defender/threat/refresh", b.dataset.id ? { id: b.dataset.id } : {}));
+      if (r) {
+        const failed = Object.values(r.feeds).filter((f) => f.enabled && f.error && f.error_at > Date.now() / 1000 - 300);
+        if (failed.length) toast(t("df_th_err", { e: failed.map((f) => `${f.name}: ${f.error}`).join(" · ") }), "warn");
+        else toast(r.changed.length ? t("df_th_updated_n", { n: r.changed.length }) : t("df_th_up_to_date"));
+        if (D.tab === "threat") showTab("threat");
+      }
+      return;
+    }
+    if (a === "th-del") {
+      if (!(await confirmBox({ message: t("df_th_remove_confirm", { name: b.dataset.name }), label: t("df_th_remove") }))) return;
+      if (await act(b, () => post("/api/defender/threat/custom/remove", { id: b.dataset.id }), t("df_th_removed"))) showTab("threat");
+      return;
+    }
+    if (a === "th-allow") {
+      if (await act(b, () => post("/api/defender/allow", { ip: b.dataset.ip, note: "threat list" }), t("df_th_allowed", { ip: b.dataset.ip }))) showTab("threat");
+      return;
+    }
     if (a === "keep") { if (await act(b, () => post("/api/defender/confirm", {}), t("df_kept"))) paintPending(null); return; }
     if (a === "undo") { const r = await act(b, () => post("/api/defender/revert", {}), t("df_undone")); if (r) { D.st = r; D.fw = null; paintPending(null); rerender(); } return; }
     if (a === "enable") {
@@ -1605,11 +1732,9 @@
     const el = e.target;
     if (el.dataset.feed) {
       const feeds = [...D.root.querySelectorAll("[data-feed]")].filter((x) => x.checked).map((x) => x.dataset.feed);
-      el.disabled = true;
-      const ok = await apply(el, "config", { threat: { feeds }, _what: "threat lists" }, t("df_r_saved"));
-      if (!ok) el.checked = !el.checked;
-      el.disabled = false;
-      if (ok && D.tab === "lists") showTab("lists");
+      D.root.querySelectorAll("[data-feed]").forEach((x) => { x.disabled = true; });
+      if (!(await threatSave(el, { feeds }, "threat lists"))) el.checked = !el.checked;
+      D.root.querySelectorAll("[data-feed]").forEach((x) => { x.disabled = false; });
       return;
     }
     if (el.dataset.ruleToggle !== undefined) {
@@ -1666,6 +1791,14 @@
     if (f === "sv-key") {
       const r = await act(btn, () => post("/api/defender/sshd/key/add", { key: el.key.value }), t("saved"));
       if (r) { D.sv.keys = r.keys; svFormToDraft(); repaintSv(); }
+      return;
+    }
+    if (f === "th-set") {
+      await threatSave(btn, { outbound: el.outbound.checked, refresh_hours: +el.hours.value }, "threat settings");
+      return;
+    }
+    if (f === "th-add") {
+      if (await act(btn, () => post("/api/defender/threat/custom/add", { name: el.name.value.trim(), url: el.url.value.trim() }), t("df_th_added"))) showTab("threat");
       return;
     }
     if (f === "tt") {
