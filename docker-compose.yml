@@ -1,9 +1,13 @@
 name: server-monitoring
 
+# restart: always (not unless-stopped): the stack must come back after every reboot. Docker
+# marks a container as "manually stopped" after any `docker kill`, even a harmless SIGHUP,
+# and unless-stopped then leaves it down on the next boot; prometheus going missing that way
+# shows up in the panel as a DNS error ("Try again") for the name prometheus.
 services:
   prometheus:
     image: prom/prometheus:v2.55.1
-    restart: unless-stopped
+    restart: always
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -20,7 +24,7 @@ services:
 
   alertmanager:
     image: prom/alertmanager:v0.27.0
-    restart: unless-stopped
+    restart: always
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
@@ -34,7 +38,7 @@ services:
 
   node-exporter:
     image: prom/node-exporter:v1.8.2
-    restart: unless-stopped
+    restart: always
     pid: host
     command:
       - --path.rootfs=/host
@@ -52,7 +56,7 @@ services:
   # AppArmor/ptrace restrictions.
   node-net:
     image: prom/node-exporter:v1.8.2
-    restart: unless-stopped
+    restart: always
     pid: host
     privileged: true
     user: root
@@ -74,7 +78,7 @@ services:
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
-    restart: unless-stopped
+    restart: always
     privileged: true
     devices:
       - /dev/kmsg
@@ -87,7 +91,7 @@ services:
 
   blackbox:
     image: prom/blackbox-exporter:v0.25.0
-    restart: unless-stopped
+    restart: always
     command: --config.file=/etc/blackbox/blackbox.yml
     volumes:
       - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
@@ -97,7 +101,7 @@ services:
   # lookups use the real interfaces; set PUBLIC_IP_LOOKUP=0 in .env to disable.
   hostip:
     image: python:3.12-alpine
-    restart: unless-stopped
+    restart: always
     command: ["python", "-u", "/app/hostip.py"]
     network_mode: host
     user: "65534:65534"
@@ -114,7 +118,7 @@ services:
 
   panel:
     image: python:3.12-alpine
-    restart: unless-stopped
+    restart: always
     command: ["python", "-u", "/app/server.py"]
     user: "65534:65534"
     # Group that owns /var/run/docker.sock (the installer sets DOCKER_GID); lets the panel manage containers.

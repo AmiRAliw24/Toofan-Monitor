@@ -350,6 +350,8 @@ docker compose up -d
 
 روی دکمه‌ی **«پیدا کردن دلیل»** کنار پیام بزنید. پنل خودش سرویس‌ها (Prometheus، Alertmanager، Blackbox) را یکی‌یکی چک می‌کند (اول DNS، بعد HTTP)، وضعیت و کد خروج و تعداد ری‌استارت هر کانتینر، پر بودن دیسک و کار کردن DNS اینترنت را نشان می‌دهد، آخرین خط‌های لاگ کانتینرهای خراب را می‌آورد و کنار هر کانتینر متوقف دکمه‌ی ری‌استارت دارد. خطای `Temporary failure in name resolution` (`Errno -3`) یعنی DNS داخلی داکر جواب نمی‌دهد؛ معمولاً چون کانتینر Prometheus خاموش است یا resolver سرور خراب است.
 
+اگر بعد از ری‌استارت سرور، Prometheus و Alertmanager و Blackbox با `Exited (0)` خاموش مانده‌اند، از نسخه‌های قدیمی نصب‌کننده است: آن نسخه‌ها برای خواندن دوباره‌ی تنظیمات `docker compose kill -s SIGHUP` می‌زدند و داکر این را «توقف دستی» حساب می‌کند، پس `unless-stopped` بعد از بوت آن‌ها را بالا نمی‌آورد. یک بار `install.sh` جدید را اجرا کنید (یا `docker compose up -d` و بعد `docker compose restart prometheus alertmanager blackbox` در `/opt/server-monitoring`) تا درست شود.
+
 </details>
 
 <details>

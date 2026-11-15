@@ -78,10 +78,14 @@ extract_files() {
   write_file docker-compose.yml 644 <<'__MONITORING_EOF__'
 name: server-monitoring
 
+# restart: always (not unless-stopped): the stack must come back after every reboot. Docker
+# marks a container as "manually stopped" after any `docker kill`, even a harmless SIGHUP,
+# and unless-stopped then leaves it down on the next boot; prometheus going missing that way
+# shows up in the panel as a DNS error ("Try again") for the name prometheus.
 services:
   prometheus:
     image: prom/prometheus:v2.55.1
-    restart: unless-stopped
+    restart: always
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -98,7 +102,7 @@ services:
 
   alertmanager:
     image: prom/alertmanager:v0.27.0
-    restart: unless-stopped
+    restart: always
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
@@ -112,7 +116,7 @@ services:
 
   node-exporter:
     image: prom/node-exporter:v1.8.2
-    restart: unless-stopped
+    restart: always
     pid: host
     command:
       - --path.rootfs=/host
@@ -130,7 +134,7 @@ services:
   # AppArmor/ptrace restrictions.
   node-net:
     image: prom/node-exporter:v1.8.2
-    restart: unless-stopped
+    restart: always
     pid: host
     privileged: true
     user: root
@@ -152,7 +156,7 @@ services:
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
-    restart: unless-stopped
+    restart: always
     privileged: true
     devices:
       - /dev/kmsg
@@ -165,7 +169,7 @@ services:
 
   blackbox:
     image: prom/blackbox-exporter:v0.25.0
-    restart: unless-stopped
+    restart: always
     command: --config.file=/etc/blackbox/blackbox.yml
     volumes:
       - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
@@ -175,7 +179,7 @@ services:
   # lookups use the real interfaces; set PUBLIC_IP_LOOKUP=0 in .env to disable.
   hostip:
     image: python:3.12-alpine
-    restart: unless-stopped
+    restart: always
     command: ["python", "-u", "/app/hostip.py"]
     network_mode: host
     user: "65534:65534"
@@ -192,7 +196,7 @@ services:
 
   panel:
     image: python:3.12-alpine
-    restart: unless-stopped
+    restart: always
     command: ["python", "-u", "/app/server.py"]
     user: "65534:65534"
     # Group that owns /var/run/docker.sock (the installer sets DOCKER_GID); lets the panel manage containers.
@@ -622,6 +626,8 @@ docker compose up -d
 <br>
 
 روی دکمه‌ی **«پیدا کردن دلیل»** کنار پیام بزنید. پنل خودش سرویس‌ها (Prometheus، Alertmanager، Blackbox) را یکی‌یکی چک می‌کند (اول DNS، بعد HTTP)، وضعیت و کد خروج و تعداد ری‌استارت هر کانتینر، پر بودن دیسک و کار کردن DNS اینترنت را نشان می‌دهد، آخرین خط‌های لاگ کانتینرهای خراب را می‌آورد و کنار هر کانتینر متوقف دکمه‌ی ری‌استارت دارد. خطای `Temporary failure in name resolution` (`Errno -3`) یعنی DNS داخلی داکر جواب نمی‌دهد؛ معمولاً چون کانتینر Prometheus خاموش است یا resolver سرور خراب است.
+
+اگر بعد از ری‌استارت سرور، Prometheus و Alertmanager و Blackbox با `Exited (0)` خاموش مانده‌اند، از نسخه‌های قدیمی نصب‌کننده است: آن نسخه‌ها برای خواندن دوباره‌ی تنظیمات `docker compose kill -s SIGHUP` می‌زدند و داکر این را «توقف دستی» حساب می‌کند، پس `unless-stopped` بعد از بوت آن‌ها را بالا نمی‌آورد. یک بار `install.sh` جدید را اجرا کنید (یا `docker compose up -d` و بعد `docker compose restart prometheus alertmanager blackbox` در `/opt/server-monitoring`) تا درست شود.
 
 </details>
 
@@ -5372,7 +5378,10 @@ remove_legacy_grafana
 choose_port PANEL_PORT panel 8080 3000
 compose up -d --remove-orphans < /dev/null
 # Config files are bind-mounted, so running containers need a nudge to re-read them.
-compose kill -s SIGHUP prometheus alertmanager blackbox < /dev/null >/dev/null 2>&1 || true
+# Restart, never `compose kill -s SIGHUP`: Docker records any kill (even a harmless HUP) as a
+# manual stop, and the restart policy then leaves those containers down after the next reboot.
+# A restart also clears that mark on installs that were reloaded with SIGHUP before.
+compose restart prometheus alertmanager blackbox < /dev/null >/dev/null 2>&1 || true
 # The panel's Python code is loaded once at start, so an updated server.py needs a restart.
 compose restart panel < /dev/null >/dev/null 2>&1 || true
 

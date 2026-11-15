@@ -231,7 +231,10 @@ remove_legacy_grafana
 choose_port PANEL_PORT panel 8080 3000
 compose up -d --remove-orphans < /dev/null
 # Config files are bind-mounted, so running containers need a nudge to re-read them.
-compose kill -s SIGHUP prometheus alertmanager blackbox < /dev/null >/dev/null 2>&1 || true
+# Restart, never `compose kill -s SIGHUP`: Docker records any kill (even a harmless HUP) as a
+# manual stop, and the restart policy then leaves those containers down after the next reboot.
+# A restart also clears that mark on installs that were reloaded with SIGHUP before.
+compose restart prometheus alertmanager blackbox < /dev/null >/dev/null 2>&1 || true
 # The panel's Python code is loaded once at start, so an updated server.py needs a restart.
 compose restart panel < /dev/null >/dev/null 2>&1 || true
 
