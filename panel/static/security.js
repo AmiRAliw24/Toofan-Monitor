@@ -3,7 +3,7 @@
   "use strict";
   const P = window.Panel;
   if (!P) return;
-  const { t, esc, num, ago, icon, api, post, act, toast, openDialog, confirmBox, table, pill, field } = P;
+  const { t, esc, num, ago, icon, api, post, act, toast, openDialog, confirmBox, table, field } = P;
 
   P.addIcons({ key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8M16 6l3 3M14 8l2 2"/>', device: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>' });
   P.addStrings({

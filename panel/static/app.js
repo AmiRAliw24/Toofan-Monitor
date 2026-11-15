@@ -267,7 +267,7 @@
   };
   const state = {
     lang: T[store.get("lang", "en")] ? store.get("lang", "en") : "en",
-    theme: store.get("theme", "dark"),
+    theme: document.documentElement.dataset.theme === "light" ? "light" : "dark",   // set by boot.js before the first paint
     range: store.get("range", "live"),
     instance: store.get("instance", ""),
     instances: [],
@@ -1193,7 +1193,6 @@
   }
 
   // ---------------------------------------------------------------- charts
-  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   // One categorical slot per series, in fixed order (blue, orange, aqua); text never wears a series colour.
   const CHARTS = [
     { m: "cpu", title: "c_cpu", fmt: (v) => `${nf(v)}%`, max: 100, colors: ["--c1"], now: true },
@@ -1597,7 +1596,16 @@
   }
 
   // ---------------------------------------------------------------- boot
-  $("theme").onclick = () => { state.theme = state.theme === "dark" ? "light" : "dark"; store.set("theme", state.theme); applyLocale(); renderStats(); renderView(true); };
+  $("theme").onclick = () => {
+    // No transitions while the colours swap, so the two themes never blend for a moment.
+    document.documentElement.classList.add("no-anim");
+    state.theme = state.theme === "dark" ? "light" : "dark";
+    store.set("theme", state.theme);
+    applyLocale(); renderStats(); renderView(true);
+    const done = () => document.documentElement.classList.remove("no-anim");
+    requestAnimationFrame(() => requestAnimationFrame(done));
+    setTimeout(done, 120);   // frames can be paused (hidden window): never leave transitions switched off
+  };
   $("lang").onclick = () => { state.lang = state.lang === "en" ? "fa" : "en"; store.set("lang", state.lang); applyLocale(); renderStats(); renderView(true); };
   $("refresh").onclick = () => tick(true);
   $("logout").onclick = async () => { try { await fetch("/logout", { method: "POST" }); } catch (e) { /* ignore */ } location.replace("/login"); };

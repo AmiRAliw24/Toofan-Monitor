@@ -10,7 +10,6 @@ import configparser
 import glob
 import ipaddress
 import os
-import shutil
 import pickle
 import re
 import socket

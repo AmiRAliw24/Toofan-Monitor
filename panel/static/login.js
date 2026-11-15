@@ -7,9 +7,10 @@
       otp_need: "کد ۶ رقمی برنامه‌ی احراز هویت (مثل Google Authenticator) را وارد کنید.", bad: "نام کاربری یا رمز عبور اشتباه است", bad_otp: "نام کاربری، رمز یا کد اشتباه است",
       locked: "تلاش اشتباه زیادی از این آدرس شده. {m} دقیقه‌ی دیگر دوباره امتحان کنید.", busy: "درخواست زیاد است. کمی صبر کنید و دوباره امتحان کنید.", net: "ارتباط با سرور برقرار نشد" },
   };
-  let lang = "en", theme = "dark";
-  try { lang = localStorage.getItem("lang") || lang; theme = localStorage.getItem("theme") || theme; } catch (e) { /* storage blocked */ }
+  let lang = "en";
+  try { lang = localStorage.getItem("lang") || lang; } catch (e) { /* storage blocked */ }
   if (!T[lang]) lang = "en";
+  const theme = document.documentElement.dataset.theme || "dark";   // chosen by boot.js before the first paint
   const t = (k, v = {}) => T[lang][k].replace(/\{(\w+)\}/g, (_, x) => v[x]);
   document.documentElement.dataset.theme = theme;
   document.documentElement.lang = lang;

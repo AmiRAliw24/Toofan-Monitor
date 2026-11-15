@@ -350,7 +350,7 @@ __MONITORING_EOF__
 <td width="50%" valign="top">
 
 ### 🩺 هوشمند
-- 🛡️ **فایروال**: ضد DDoS، مسدود کردن کشورها، مدیریت کامل fail2ban، محافظ SSH و سخت‌سازی سرور با تشخیص خودکار حمله
+- 🛡️ **فایروال**: ضد DDoS، قوانین کشور/آدرس/پورت مثل Cloudflare، مدیریت کامل fail2ban، محافظ SSH و سخت‌سازی سرور با تشخیص خودکار حمله
 - 🔍 **«چرا این سایت خراب است؟»** با توضیح ساده
 - 🪄 **رفع خودکار** سایتی که چک استاندارد را رد می‌کند
 - ⏳ هشدار **انقضای SSL**
@@ -455,7 +455,7 @@ ssh root@SERVER 'bash install.sh'
 | 📡 | **شبکه** | کارت‌های شبکه و مصرف کامل آپلود/دانلود |
 | 🎯 | **تارگت‌ها** | وضعیت منابعی که Prometheus از آن‌ها داده می‌گیرد |
 | 🚨 | **هشدارها** | هشدارهای فعال و در انتظار |
-| 🛡️ | **فایروال** | ضد DDoS، کشورها، لیست آی‌پی‌ها، محافظ SSH، fail2ban و امتیاز امنیت (پایین‌تر کامل توضیح داده شده) |
+| 🛡️ | **فایروال** | ضد DDoS، قوانین، لیست آی‌پی‌ها، محافظ SSH، fail2ban و امتیاز امنیت (پایین‌تر کامل توضیح داده شده) |
 | 🖥️ | **سرورها** | افزودن و حذف سرورهای دیگر |
 | 🔔 | **اعلان‌ها** | اتصال و تست تلگرام |
 | 🎚️ | **قوانین هشدار** | روشن/خاموش و تغییر آستانه‌ها |
@@ -553,9 +553,9 @@ ssh root@SERVER 'bash install.sh'
 
 <br>
 
-## 🛡️ فایروال (ضد DDoS، کشورها، fail2ban)
+## 🛡️ فایروال (ضد DDoS، قوانین، fail2ban)
 
-صفحه‌ی **فایروال** در پنل، قوانین پورت، محافظت در برابر DDoS، مسدود کردن کشورها، مدیریت fail2ban، محافظ حمله‌ی رمز SSH و سخت‌سازی سرور را یک جا جمع می‌کند. کار سطح پایین را یک سرویس جدا به نام `defender` انجام می‌دهد (nftables روی خود سرور) و پنل فقط از طریق یک سوکت با آن حرف می‌زند.
+صفحه‌ی **فایروال** در پنل، قوانین پورت، محافظت در برابر DDoS، قوانین کشور/آدرس/پورت، مدیریت fail2ban، محافظ حمله‌ی رمز SSH و سخت‌سازی سرور را یک جا جمع می‌کند. کار سطح پایین را یک سرویس جدا به نام `defender` انجام می‌دهد (nftables روی خود سرور) و پنل فقط از طریق یک سوکت با آن حرف می‌زند.
 
 > 🟢 **بعد از نصب، محافظت خاموش است** و فایروال فقط نگاه می‌کند (آمار، بررسی امنیتی). از تب «نمای کلی» صفحه‌ی فایروال روشنش کنید.
 
@@ -567,7 +567,7 @@ ssh root@SERVER 'bash install.sh'
 | 🔥 | **پورت‌ها و قوانین** | حالت **باز** (فقط ترافیک مخرب بسته می‌شود) یا **سخت‌گیر** (فقط پورت‌های مجاز)، لیست سرویس‌هایی که از اینترنت باز هستند، قانون پورت با محدودیت منبع («این پورت فقط از این آی‌پی»)، اینترفیس‌های مورد اعتماد (VPN و تانل)، دیدن قوانین nftables قبل از اعمال |
 | ⚡ | **ضد DDoS** | سه سطح آماده (عادی، سخت‌گیر، زیر حمله) و تنظیم دستی؛ برای هر آی‌پی: SYN فلاد، فلاد اتصال، اتصال هم‌زمان بیش از حد، UDP فلاد، پینگ فلاد، بسته‌های نامعتبر و اسکن پورت. هر کس ۳ برابر حد برود خودکار مسدود می‌شود |
 | 🚨 | **تشخیص حمله** | با دیدن حمله، خودکار به حالت «زیر حمله» می‌رود و ۱۰ دقیقه بعد از پایان برمی‌گردد؛ پیام تلگرام شروع و پایان حمله |
-| 🌍 | **کشورها** | مسدود کردن کشورها با جستجو (نام فارسی و انگلیسی)؛ لیست آی‌پی هر کشور از ipdeny.com، با بروزرسانی هفتگی. ادمین‌ها، لیست سفید و Cloudflare مسدود نمی‌شوند |
+| 🧭 | **قوانین** | قوانین فایروال مثل Cloudflare و ابر آروان: شرط بر اساس **کشور** (از / نه از این کشورها)، **آدرس** یا شبکه، **پروتکل** و **پورت**، و یکی از کارها: **اجازه** (حتی از محدودیت‌های فلاد رد شود)، **مسدود**، **محدود** با حساسیت کم/متوسط/زیاد/خیلی زیاد یا دلخواه و مسدودی خودکار، یا **فقط شمارش**. قوانین از بالا به پایین اجرا می‌شوند، هر قانون تعداد برخوردهایش را نشان می‌دهد و الگوهای آماده دارد (مسدود کردن کشورها، فقط چند کشور، محدودیت سخت برای کشورها، اجازه به یک آدرس، بستن یک پورت). لیست آی‌پی کشورها از ipdeny.com می‌آید و هر هفته بروز می‌شود؛ ادمین‌ها، لیست سفید و Cloudflare تحت تأثیر نیستند |
 | 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول همه‌ی مسدودها (فلاد، محافظ SSH، دستی و fail2ban با نام جیل) و رفع مسدودی از همان‌جا |
 | 🔑 | **محافظ SSH** | خواندن لاگ ورود و مسدود کردن آی‌پی‌هایی که مدام رمز اشتباه می‌زنند، به‌علاوه‌ی محدودیت اتصال جدید به SSH |
 | 🚔 | **fail2ban** | نصب و حذف با یک کلیک، شروع/توقف/ری‌استارت و اجرا هنگام بوت؛ **ساخت، ویرایش کامل (همه‌ی گزینه‌ها: فیلتر، لاگ، پورت، backend، روش مسدودی، …) و حذف جیل‌ها**، و **ویرایشگر همه‌ی فایل‌های /etc/fail2ban** با بررسی و برگشت خودکار؛ هر جیل یک کارت با کلید روشن/خاموش، آمار مسدودها و تنظیمات ساده («۳ خطا در ۳۰ دقیقه ← ۱ ساعت مسدودی»)؛ محافظت‌های آماده (Nginx، Apache، ایمیل، FTP، MySQL، متخلفان تکراری) فقط وقتی آن سرویس هست؛ مسدودی تکراری طولانی‌تر، لیست «هرگز مسدود نشود»، مسدود/رفع مسدودی دستی و لاگ |
@@ -789,7 +789,7 @@ docker compose restart panel
 │   ├── live.py               #   آمار زنده‌ی هر ثانیه
 │   ├── defender.py           #   رابط پنل با فایروال و اعلان تلگرام
 │   └── static/               #   رابط کاربری
-├── defender/                 # سرویس فایروال (nftables، ضد DDoS، کشورها، fail2ban، محافظ SSH، بررسی امنیتی)
+├── defender/                 # سرویس فایروال (nftables، ضد DDoS، قوانین، fail2ban، محافظ SSH، بررسی امنیتی)
 ├── prometheus/ blackbox/     # تنظیمات
 ├── scripts/                  # ساخت نصب‌کننده و ابزارها
 └── docs/screenshots/         # تصاویر این صفحه
@@ -1008,6 +1008,7 @@ PUBLIC_FILES = {
     "/style.css": ("style.css", "text/css; charset=utf-8"),
     "/fonts.css": ("fonts.css", "text/css; charset=utf-8"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml"),
+    "/boot.js": ("boot.js", "text/javascript; charset=utf-8"),
 }
 PRIVATE_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -3330,7 +3331,7 @@ import monitor
 import store
 
 SOCK = os.environ.get("DEFENDER_SOCKET", "/defender/agent.sock")
-GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "rules", "ssh",
+GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "rules", "fwrules", "ssh",
              "f2b", "f2b/bans", "f2b/log", "f2b/jail", "f2b/files", "f2b/file", "geo", "export"}
 POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unallow", "unban", "sysctl",
               "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
@@ -3668,7 +3669,7 @@ __MONITORING_EOF__
   const tt = (k, i, vars) => { const v = t(k); const s = Array.isArray(v) ? v[i] : v; return vars ? Object.entries(vars).reduce((a, [x, y]) => a.replace(`{${x}}`, y), s) : s; };
 
   // ---------------------------------------------------------------- state
-  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["countries", "globe"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
+  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["rules", "rule"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
   const store = { get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } } };
   const D = { tab: store.get("df_tab", "overview"), st: null, err: "", samples: [], lastT: 0, timer: null, ticks: 0, fw: null, talkers: [], events: [], root: null, heroKey: "" };
   if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
@@ -3696,7 +3697,6 @@ __MONITORING_EOF__
     root.addEventListener("submit", onSubmit);
     root.addEventListener("input", (e) => {
       if (e.target.id === "df-ban-filter") filterBans(e.target.value);
-      if (e.target.id === "df-geo-q") { D.geoQ = e.target.value; clearTimeout(D.geoT); D.geoT = setTimeout(() => repaintGeo(true), 120); }
     });
     if (D.st) { paintPending(D.st.pending); showTab(D.tab); }
     clearInterval(D.timer);
@@ -3732,6 +3732,10 @@ __MONITORING_EOF__
       if (D.tab === "overview") {
         paintLive();
         if (D.ticks % 5 === 0) refreshOverviewSlow();
+      }
+      if (D.tab === "rules" && D.ticks % 5 === 0 && !document.querySelector("dialog[open]")) {
+        const fr = await api("/api/defender/fwrules").catch(() => null);
+        if (fr && D.tab === "rules") { D.rules = fr.rules; D.ruleHits = fr.hits || {}; repaintRules(); }
       }
     } catch (e) { /* the next tick tries again */ }
   }
@@ -4182,41 +4186,6 @@ __MONITORING_EOF__
   const ccEnglish = (cc) => { try { enNames = enNames || new Intl.DisplayNames(["en"], { type: "region" }); return enNames.of(cc.toUpperCase()) || ""; } catch (e) { return ""; } };
   const flag = (cc) => String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e6 - 65 + c.charCodeAt(0)));
 
-  async function renderCountries() {
-    const g = await api("/api/defender/geo");
-    if (!D.geo) D.geo = [...g.block];
-    D.geoInfo = g.info || {};
-    return countriesHTML();
-  }
-  function countriesHTML() {
-    const sel = new Set(D.geo), saved = JSON.stringify([...(D.st.config.geo || { block: [] }).block].sort());
-    const dirty = JSON.stringify([...D.geo].sort()) !== saved;
-    const chips = D.geo.length ? D.geo.map((cc) => `<span class="chip">${flag(cc)} <b>${esc(ccName(cc))}</b>${D.geoInfo[cc] ? `<small class="muted">${esc(t("df_geo_ranges", { n: nf(D.geoInfo[cc].ranges, 0) }))}</small>` : ""}<button type="button" class="chip-x" data-a="geo-del" data-cc="${cc}" aria-label="${esc(t("df_remove"))} ${esc(ccName(cc))}">${icon("x")}</button></span>`).join("")
-      : `<span class="muted">${esc(t("df_geo_none"))}</span>`;
-    const q = (D.geoQ || "").trim().toLowerCase();
-    const list = COUNTRIES.map((cc) => [cc, ccName(cc)]).filter(([cc, n]) => !q || cc.includes(q) || n.toLowerCase().includes(q) || ccEnglish(cc).toLowerCase().includes(q)).sort((a, b) => a[1].localeCompare(b[1], P.state.lang))
-      .map(([cc, n]) => `<label class="geo-item${sel.has(cc) ? " on" : ""}"><input type="checkbox" data-geo="${cc}" ${sel.has(cc) ? "checked" : ""}><span class="geo-flag">${flag(cc)}</span><span>${esc(n)}</span><code>${cc.toUpperCase()}</code></label>`).join("");
-    return `<section class="sec"><div class="sec-head"><h3>${icon("globe")}${esc(t("df_geo_title"))}</h3><p class="muted">${esc(t("df_geo_sub"))}</p></div>
-        <div class="notice warn">${icon("alert")}<span>${esc(t("df_geo_warn"))}</span></div>
-        ${D.st.enabled ? "" : `<div class="notice">${icon("bell")}<span>${esc(t("df_geo_off"))}</span></div>`}
-        <h4 class="df-h4">${esc(t("df_geo_selected"))}</h4><div class="chips">${chips}</div></section>
-      <section class="sec"><div class="sec-head df-head-row"><h3>${icon("list")}${esc(t("df_geo_all"))}</h3>
-        <input type="search" class="df-filter" id="df-geo-q" value="${esc(D.geoQ || "")}" placeholder="${esc(t("df_geo_search"))}" aria-label="${esc(t("df_geo_search"))}"></div>
-        <div class="geo-grid" id="df-geo-list">${list}</div></section>
-      ${dirty ? `<div class="df-actions dirty"><span class="muted">${esc(t("df_dirty"))}</span>
-        <button type="button" class="btn" data-a="geo-reset">${esc(t("df_discard"))}</button>
-        <button type="button" class="btn primary" data-a="geo-apply">${icon("check")}<span>${esc(t("df_apply"))}</span></button></div>` : ""}`;
-  }
-  const repaintGeo = (keepFocus) => {
-    const b = D.root.querySelector("#df-body");
-    if (!b || D.tab !== "countries") return;
-    const scroll = b.querySelector("#df-geo-list") ? b.querySelector("#df-geo-list").scrollTop : 0;
-    b.innerHTML = countriesHTML();
-    const listEl = b.querySelector("#df-geo-list");
-    if (listEl) listEl.scrollTop = scroll;
-    if (keepFocus) { const inp = b.querySelector("#df-geo-q"); inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
-  };
-
   // ---------------------------------------------------------------- fail2ban
   const fmtSecs = (s) => {
     s = Number(s);
@@ -4404,7 +4373,7 @@ __MONITORING_EOF__
     try { data = JSON.parse(await file.text()); } catch (e) { return toast(t("df_import_bad"), "bad"); }
     if (!data || data.app !== "server-monitor-firewall") return toast(t("df_import_bad"), "bad");
     if (!(await confirmBox({ message: t("df_import_confirm", { name: file.name }), label: t("df_import"), danger: false }))) return;
-    if (await apply(null, "import", { data })) { D.fw = null; D.geo = null; rerender(); }
+    if (await apply(null, "import", { data })) { D.fw = null; D.adv = null; rerender(); }
   }
 
   // ---------------------------------------------------------------- full control: jail editor, files, advanced
@@ -4612,7 +4581,188 @@ __MONITORING_EOF__
     D.adv._cdn = el.trust_cdn.checked;
   }
 
-  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, countries: renderCountries, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
+  // ---------------------------------------------------------------- firewall rules (country / address / port → action)
+  P.addStrings({
+    df_t_rules: "Rules", df_r_title: "Firewall rules",
+    df_r_sub: "Decide what happens to new connections by country, address, protocol and port, like the firewall rules of Cloudflare or ArvanCloud. Rules run from top to bottom; the first Allow or Block that matches decides.",
+    df_r_exempt: "Logged-in SSH users, the allowlist and Cloudflare (when trusted) are never affected by these rules.", df_r_off: "Protection is off, so the rules are saved but not active. Turn it on in the Overview tab.",
+    df_r_new: "New rule", df_r_templates: "Start from a template", df_r_empty: "No rules yet. Pick a template above or create a rule.",
+    df_r_tpl_block: "Block countries", df_r_tpl_only: "Allow only some countries", df_r_tpl_strict: "Strict limit for countries", df_r_tpl_allow: "Always allow an address", df_r_tpl_port: "Close a port to everyone else",
+    df_r_name: "Rule name", df_r_when: "When the connection…", df_r_then: "Then", df_r_country: "Comes from", df_r_addr: "Comes from the address", df_r_proto: "Uses the protocol", df_r_ports: "Goes to ports",
+    df_r_any_country: "any country", df_r_in: "one of these", df_r_not_in: "none of these", df_r_any_addr: "any address", df_r_any_proto: "any protocol", df_r_ping: "Ping (ICMP)",
+    df_r_ports_hint: "For example 22 or 80,443 or 8000-8100. Empty = every port.", df_r_ips_hint: "One address or network per line (203.0.113.7, 203.0.113.0/24, 2001:db8::/32).",
+    df_r_search: "Search countries…", df_r_selected: "{n} selected",
+    df_r_a_allow: "Allow", df_r_a_block: "Block", df_r_a_limit: "Limit", df_r_a_log: "Count only",
+    df_r_a_allow_d: "Always let it through, past the flood limits and strict mode.", df_r_a_block_d: "Drop it. The sender gets no answer.",
+    df_r_a_limit_d: "Allow, but each address may only open a few new connections per second.", df_r_a_log_d: "Do nothing, only count the matching traffic (to test a rule first).",
+    df_r_sens: "Sensitivity", df_r_s_low: "Low", df_r_s_medium: "Medium", df_r_s_high: "High", df_r_s_vhigh: "Very high", df_r_s_custom: "Custom",
+    df_r_per_s: "new connections per second per address", df_r_burst: "Short bursts up to", df_r_ban: "Ban addresses that go over it", df_r_ban_no: "No, only slow them down",
+    df_r_need_cond: "Pick at least one condition (country, address, protocol or port).", df_r_need_country: "Pick at least one country.", df_r_need_ip: "Enter at least one address.",
+    df_r_hits: "{n} packets", df_r_hits_none: "no matches yet", df_r_up: "Move up", df_r_down: "Move down", df_r_dup: "Duplicate", df_r_delete_confirm: "Delete the rule \"{name}\"?", df_r_copy: "copy",
+    df_r_if: "If", df_r_and: "and", df_r_country_is: "country is {list}", df_r_country_not: "country is not {list}", df_r_addr_is: "address is {list}", df_r_addr_not: "address is not {list}",
+    df_r_proto_is: "protocol is {p}", df_r_ports_is: "port is {list}", df_r_arrow: "→", df_r_limit_sum: "limit to {rate}/s per address", df_r_ban_sum: "ban for {m} min",
+    df_r_saved: "Rules applied", df_r_disabled: "Off",
+  }, {
+    df_t_rules: "قوانین", df_r_title: "قوانین فایروال",
+    df_r_sub: "تعیین کنید با اتصال‌های جدید بر اساس کشور، آدرس، پروتکل و پورت چه شود؛ مثل قوانین فایروال Cloudflare یا ابر آروان. قوانین از بالا به پایین اجرا می‌شوند و اولین «اجازه» یا «مسدود» که بخورد تصمیم می‌گیرد.",
+    df_r_exempt: "کاربرهای واردشده با SSH، لیست سفید و Cloudflare (اگر مورد اعتماد باشد) هرگز تحت تأثیر این قوانین نیستند.", df_r_off: "محافظت خاموش است؛ قوانین ذخیره می‌شوند ولی فعال نیستند. از تب نمای کلی روشنش کنید.",
+    df_r_new: "قانون جدید", df_r_templates: "شروع از یک الگو", df_r_empty: "هنوز قانونی نیست. یک الگو از بالا انتخاب کنید یا قانون جدید بسازید.",
+    df_r_tpl_block: "مسدود کردن کشورها", df_r_tpl_only: "فقط چند کشور وصل شوند", df_r_tpl_strict: "محدودیت سخت برای کشورها", df_r_tpl_allow: "همیشه اجازه به یک آدرس", df_r_tpl_port: "بستن یک پورت برای بقیه",
+    df_r_name: "نام قانون", df_r_when: "وقتی اتصال…", df_r_then: "آن‌وقت", df_r_country: "از کشور", df_r_addr: "از آدرس", df_r_proto: "با پروتکل", df_r_ports: "به پورت",
+    df_r_any_country: "هر کشوری", df_r_in: "یکی از این‌ها", df_r_not_in: "هیچ‌کدام از این‌ها", df_r_any_addr: "هر آدرسی", df_r_any_proto: "هر پروتکلی", df_r_ping: "پینگ (ICMP)",
+    df_r_ports_hint: "مثلاً 22 یا 80,443 یا 8000-8100. خالی = همه‌ی پورت‌ها.", df_r_ips_hint: "هر خط یک آدرس یا شبکه (203.0.113.7، 203.0.113.0/24، 2001:db8::/32).",
+    df_r_search: "جستجوی کشور…", df_r_selected: "{n} انتخاب‌شده",
+    df_r_a_allow: "اجازه", df_r_a_block: "مسدود", df_r_a_limit: "محدود", df_r_a_log: "فقط شمارش",
+    df_r_a_allow_d: "همیشه رد شود، حتی از محدودیت‌های فلاد و حالت سخت‌گیر.", df_r_a_block_d: "دور ریخته شود. فرستنده هیچ جوابی نمی‌گیرد.",
+    df_r_a_limit_d: "اجازه، ولی هر آدرس فقط چند اتصال جدید در ثانیه.", df_r_a_log_d: "کاری نکن، فقط ترافیک منطبق را بشمار (برای آزمایش یک قانون).",
+    df_r_sens: "حساسیت", df_r_s_low: "کم", df_r_s_medium: "متوسط", df_r_s_high: "زیاد", df_r_s_vhigh: "خیلی زیاد", df_r_s_custom: "دلخواه",
+    df_r_per_s: "اتصال جدید در ثانیه برای هر آدرس", df_r_burst: "جهش کوتاه تا", df_r_ban: "آدرس‌هایی که از آن رد شوند مسدود شوند", df_r_ban_no: "نه، فقط کندشان کن",
+    df_r_need_cond: "حداقل یک شرط (کشور، آدرس، پروتکل یا پورت) انتخاب کنید.", df_r_need_country: "حداقل یک کشور انتخاب کنید.", df_r_need_ip: "حداقل یک آدرس وارد کنید.",
+    df_r_hits: "{n} بسته", df_r_hits_none: "هنوز منطبقی نبوده", df_r_up: "بالاتر", df_r_down: "پایین‌تر", df_r_dup: "کپی", df_r_delete_confirm: "قانون «{name}» حذف شود؟", df_r_copy: "کپی",
+    df_r_if: "اگر", df_r_and: "و", df_r_country_is: "کشور {list} باشد", df_r_country_not: "کشور {list} نباشد", df_r_addr_is: "آدرس {list} باشد", df_r_addr_not: "آدرس {list} نباشد",
+    df_r_proto_is: "پروتکل {p} باشد", df_r_ports_is: "پورت {list} باشد", df_r_arrow: "←", df_r_limit_sum: "محدود به {rate} در ثانیه برای هر آدرس", df_r_ban_sum: "مسدودی {m} دقیقه",
+    df_r_saved: "قوانین اعمال شد", df_r_disabled: "خاموش",
+  });
+  P.addIcons({ rule: '<path d="M4 5h16l-6 7.5V19l-4 1.5v-8L4 5z"/>', up: '<path d="m6 15 6-6 6 6"/>', down2: '<path d="m6 9 6 6 6-6"/>', dup: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>' });
+
+  const SENS = { low: [100, 200], medium: [30, 60], high: [10, 20], vhigh: [3, 6] };
+  const sensOf = (L) => Object.keys(SENS).find((k) => SENS[k][0] === L.rate && SENS[k][1] === L.burst) || "custom";
+  const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(3)), (b) => b.toString(16).padStart(2, "0")).join("");
+  const blankRule = (over = {}) => ({ id: newId(), name: "", enabled: true, countries: [], country_mode: "in", ips: [], ip_mode: "in", proto: "any", ports: "", action: "block", limit: { rate: 10, burst: 20, ban: 0 }, ...over });
+  const TEMPLATES = {
+    block: () => blankRule({ name: t("df_r_tpl_block"), action: "block", _c: true }),
+    only: () => blankRule({ name: t("df_r_tpl_only"), country_mode: "not_in", action: "block", _c: true }),
+    strict: () => blankRule({ name: t("df_r_tpl_strict"), action: "limit", limit: { rate: 3, burst: 6, ban: 60 }, _c: true }),
+    allow: () => blankRule({ name: t("df_r_tpl_allow"), action: "allow", _a: true }),
+    port: () => blankRule({ name: t("df_r_tpl_port"), ip_mode: "not_in", proto: "tcp", action: "block", _a: true }),
+  };
+
+  const shortList = (items, f = (x) => x) => (items.length > 3 ? `${items.slice(0, 3).map(f).join("، ")} +${items.length - 3}` : items.map(f).join("، "));
+  function summary(r) {
+    const c = [];
+    if (r.countries.length) c.push(t(r.country_mode === "not_in" ? "df_r_country_not" : "df_r_country_is", { list: shortList(r.countries, ccName) }));
+    if (r.ips.length) c.push(t(r.ip_mode === "not_in" ? "df_r_addr_not" : "df_r_addr_is", { list: shortList(r.ips) }));
+    if (r.proto !== "any") c.push(t("df_r_proto_is", { p: r.proto === "icmp" ? t("df_r_ping") : r.proto.toUpperCase() }));
+    if (r.ports) c.push(t("df_r_ports_is", { list: r.ports.replace(/,/g, "، ") }));
+    let act = t(`df_r_a_${r.action}`);
+    if (r.action === "limit") act = t("df_r_limit_sum", { rate: r.limit.rate }) + (r.limit.ban ? ` · ${t("df_r_ban_sum", { m: r.limit.ban })}` : "");
+    return `${t("df_r_if")} ${c.join(` ${t("df_r_and")} `)} ${t("df_r_arrow")} ${act}`;
+  }
+  const ACT_TONE = { allow: "ok", block: "bad", limit: "warn", log: "" };
+
+  async function renderRules() {
+    const r = await api("/api/defender/fwrules");
+    D.rules = r.rules;
+    D.ruleHits = r.hits || {};
+    return rulesHTML();
+  }
+  function rulesHTML() {
+    const tpl = Object.keys(TEMPLATES).map((k) => `<button type="button" class="btn small" data-a="r-tpl" data-tpl="${k}">${icon("plus")}<span>${esc(t(`df_r_tpl_${k}`))}</span></button>`).join("");
+    const list = D.rules.length ? `<ol class="fw-rules">${D.rules.map((r, i) => {
+      const hits = D.ruleHits[r.id];
+      return `<li class="fw-rule${r.enabled ? "" : " off"}"><span class="fw-n">${num(i + 1)}</span>
+        <div class="fw-main"><div class="fw-top"><b>${esc(r.name)}</b>${pill(ACT_TONE[r.action], t(`df_r_a_${r.action}`))}${r.enabled ? "" : pill("", t("df_r_disabled"), false)}</div>
+          <p class="fw-sum">${esc(summary(r))}</p>
+          <small class="muted">${hits && hits.packets ? esc(t("df_r_hits", { n: nf(hits.packets, 0) })) : esc(t("df_r_hits_none"))}</small></div>
+        <div class="fw-act"><label class="switch" title="${esc(r.enabled ? t("df_f2b_on") : t("df_f2b_off"))}"><input type="checkbox" data-rule-toggle="${i}" ${r.enabled ? "checked" : ""} aria-label="${esc(r.name)}"><span></span></label>
+          <div class="row-actions">${btnIcon("up", t("df_r_up"), `data-a="r-move" data-i="${i}" data-d="-1" ${i ? "" : "disabled"}`)}${btnIcon("down2", t("df_r_down"), `data-a="r-move" data-i="${i}" data-d="1" ${i < D.rules.length - 1 ? "" : "disabled"}`)}
+          ${btnIcon("sliders", t("df_j_edit"), `data-a="r-edit" data-i="${i}"`)}${btnIcon("dup", t("df_r_dup"), `data-a="r-dup" data-i="${i}"`)}${btnIcon("trash", t("df_j_delete"), `data-a="r-del" data-i="${i}"`, "danger")}</div></div></li>`;
+    }).join("")}</ol>` : `<div class="empty">${esc(t("df_r_empty"))}</div>`;
+    return `<section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("rule")}${esc(t("df_r_title"))}</h3><p class="muted">${esc(t("df_r_sub"))}</p></div>
+        <button type="button" class="btn primary" data-a="r-new">${icon("plus")}<span>${esc(t("df_r_new"))}</span></button></div>
+        <div class="notice">${icon("shield")}<span>${esc(t("df_r_exempt"))}</span></div>
+        ${D.st.enabled ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_r_off"))}</span></div>`}
+        <h4 class="df-h4">${esc(t("df_r_templates"))}</h4><div class="row-actions fw-tpls">${tpl}</div></section>
+      <section class="sec">${list}</section>`;
+  }
+  const repaintRules = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "rules") b.innerHTML = rulesHTML(); };
+
+  async function saveRules(btn, rules) {
+    const ok = await apply(btn, "config", { rules, _what: "rules" }, t("df_r_saved"));
+    if (ok) { D.rules = rules; if (D.tab === "rules") showTab("rules"); }
+    return ok;
+  }
+
+  function ruleEditor(rule, index) {
+    const r = JSON.parse(JSON.stringify(rule));
+    const isNew = index == null;
+    let picked = new Set(r.countries);
+    const cmode = r.countries.length || r._c ? r.country_mode : "any";
+    const amode = r.ips.length || r._a ? r.ip_mode : "any";
+    delete r._c;
+    delete r._a;
+    const sens = sensOf(r.limit);
+    const actCard = (a) => `<label class="fw-actopt ${a}"><input type="radio" name="action" value="${a}" ${r.action === a ? "checked" : ""}><span><b>${esc(t(`df_r_a_${a}`))}</b><small>${esc(t(`df_r_a_${a}_d`))}</small></span></label>`;
+    const sensBtns = ["low", "medium", "high", "vhigh", "custom"].map((k) => `<label class="fw-sens"><input type="radio" name="sens" value="${k}" ${sens === k ? "checked" : ""}><span>${esc(t(`df_r_s_${k}`))}${SENS[k] ? `<small>${SENS[k][0]}/s</small>` : ""}</span></label>`).join("");
+    const dlg = openDialog({
+      title: isNew ? t("df_r_new") : `${r.name} · ${t("df_j_edit")}`, submit: t("df_save"), wide: true,
+      body: `${field(t("df_r_name"), `<input name="name" maxlength="80" value="${esc(r.name)}" required autocomplete="off">`)}
+        <h4 class="fw-h">${esc(t("df_r_when"))}</h4>
+        <div class="fw-cond"><div class="field-row">${field(t("df_r_country"), `<select name="cmode"><option value="any">${esc(t("df_r_any_country"))}</option><option value="in" ${cmode === "in" ? "selected" : ""}>${esc(t("df_r_in"))}</option><option value="not_in" ${cmode === "not_in" ? "selected" : ""}>${esc(t("df_r_not_in"))}</option></select>`)}
+          <div class="field fw-cc-count"><label>&nbsp;</label><span class="muted" data-cc-count></span></div></div>
+          <div class="fw-cc" ${cmode === "any" ? "hidden" : ""}><div class="chips" data-cc-chips></div>
+            <input type="search" class="df-filter" data-cc-q placeholder="${esc(t("df_r_search"))}" aria-label="${esc(t("df_r_search"))}"><div class="geo-grid fw-cc-list" data-cc-list></div></div></div>
+        <div class="fw-cond">${field(t("df_r_addr"), `<select name="amode"><option value="any">${esc(t("df_r_any_addr"))}</option><option value="in" ${amode === "in" ? "selected" : ""}>${esc(t("df_r_in"))}</option><option value="not_in" ${amode === "not_in" ? "selected" : ""}>${esc(t("df_r_not_in"))}</option></select>`)}
+          <div class="fw-ips" ${amode === "any" ? "hidden" : ""}>${field("", `<textarea name="ips" dir="ltr" rows="3" spellcheck="false" placeholder="203.0.113.7&#10;198.51.100.0/24">${esc(r.ips.join("\n"))}</textarea>`, t("df_r_ips_hint"))}</div></div>
+        <div class="fw-cond field-row">${field(t("df_r_proto"), `<select name="proto">${[["any", t("df_r_any_proto")], ["tcp", "TCP"], ["udp", "UDP"], ["icmp", t("df_r_ping")]].map(([v, l]) => `<option value="${v}" ${r.proto === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`)}
+          ${field(t("df_r_ports"), `<input name="ports" dir="ltr" value="${esc(r.ports)}" placeholder="22, 80,443, 8000-8100" autocomplete="off">`, t("df_r_ports_hint"))}</div>
+        <h4 class="fw-h">${esc(t("df_r_then"))}</h4><div class="fw-actions">${["allow", "block", "limit", "log"].map(actCard).join("")}</div>
+        <div class="fw-limit" ${r.action === "limit" ? "" : "hidden"}><label class="fw-lbl">${esc(t("df_r_sens"))}</label><div class="fw-sensrow">${sensBtns}</div>
+          <div class="field-row fw-custom" ${sens === "custom" ? "" : "hidden"}>${field(t("df_r_per_s"), `<input type="number" name="rate" min="1" value="${r.limit.rate}" dir="ltr">`)}${field(t("df_r_burst"), `<input type="number" name="burst" min="1" value="${r.limit.burst}" dir="ltr">`)}</div>
+          ${field(t("df_r_ban"), `<select name="ban">${[[0, t("df_r_ban_no")], [10, "10 min"], [60, "1 h"], [360, "6 h"], [1440, "1 d"], [10080, "1 w"]].map(([v, l]) => `<option value="${v}" ${+r.limit.ban === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`)}</div>
+        <p class="fw-preview" data-preview></p>`,
+      onSubmit: async () => {
+        const out = collect();
+        if (!out.countries.length && !out.ips.length && out.proto === "any" && !out.ports) throw new Error(t("df_r_need_cond"));
+        if (dlg.querySelector('[name="cmode"]').value !== "any" && !out.countries.length) throw new Error(t("df_r_need_country"));
+        if (dlg.querySelector('[name="amode"]').value !== "any" && !out.ips.length) throw new Error(t("df_r_need_ip"));
+        const rules = [...D.rules];
+        if (isNew) rules.push(out); else rules[index] = out;
+        if (!(await saveRules(null, rules))) throw new Error("");   // the reason is already shown as a message
+      },
+    });
+    const $q = (s) => dlg.querySelector(s);
+    function collect() {
+      const el = $q("form").elements;
+      const cm = el.cmode.value, am = el.amode.value, sens = el.sens.value;
+      const lim = sens === "custom" ? { rate: +el.rate.value || 1, burst: +el.burst.value || (+el.rate.value || 1) * 2 } : { rate: SENS[sens][0], burst: SENS[sens][1] };
+      return {
+        ...r, name: el.name.value.trim() || t("df_r_new"),
+        countries: cm === "any" ? [] : [...picked], country_mode: cm === "not_in" ? "not_in" : "in",
+        ips: am === "any" ? [] : el.ips.value.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean), ip_mode: am === "not_in" ? "not_in" : "in",
+        proto: el.proto.value, ports: el.proto.value === "icmp" ? "" : el.ports.value.replace(/\s+/g, ""),
+        action: el.action.value, limit: { ...lim, ban: +el.ban.value },
+      };
+    }
+    function paintCountries() {
+      const q = ($q("[data-cc-q]").value || "").trim().toLowerCase();
+      $q("[data-cc-chips]").innerHTML = [...picked].map((cc) => `<span class="chip">${flag(cc)} <b>${esc(ccName(cc))}</b><button type="button" class="chip-x" data-cc-del="${cc}" aria-label="${esc(t("df_remove"))} ${esc(ccName(cc))}">${icon("x")}</button></span>`).join("");
+      $q("[data-cc-count]").textContent = picked.size ? t("df_r_selected", { n: picked.size }) : "";
+      $q("[data-cc-list]").innerHTML = COUNTRIES.map((cc) => [cc, ccName(cc)]).filter(([cc, n]) => !q || cc.includes(q) || n.toLowerCase().includes(q) || ccEnglish(cc).toLowerCase().includes(q))
+        .sort((a, b) => a[1].localeCompare(b[1], P.state.lang))
+        .map(([cc, n]) => `<label class="geo-item${picked.has(cc) ? " on" : ""}"><input type="checkbox" data-cc="${cc}" ${picked.has(cc) ? "checked" : ""}><span class="geo-flag">${flag(cc)}</span><span>${esc(n)}</span><code>${cc.toUpperCase()}</code></label>`).join("");
+    }
+    function sync() {
+      const el = $q("form").elements;
+      $q(".fw-cc").hidden = el.cmode.value === "any";
+      $q(".fw-ips").hidden = el.amode.value === "any";
+      el.ports.disabled = el.proto.value === "icmp";
+      $q(".fw-limit").hidden = el.action.value !== "limit";
+      $q(".fw-custom").hidden = el.sens.value !== "custom";
+      const out = collect();
+      $q("[data-preview]").textContent = out.countries.length || out.ips.length || out.proto !== "any" || out.ports ? summary(out) : "";
+    }
+    $q("form").addEventListener("change", (e) => {
+      if (e.target.dataset.cc) { if (e.target.checked) picked.add(e.target.dataset.cc); else picked.delete(e.target.dataset.cc); paintCountries(); }
+      sync();
+    });
+    $q("form").addEventListener("input", (e) => { if (e.target.matches("[data-cc-q]")) paintCountries(); else if (e.target.name === "ips" || e.target.name === "ports" || e.target.name === "rate") sync(); });
+    $q("form").addEventListener("click", (e) => { const x = e.target.closest("[data-cc-del]"); if (x) { e.preventDefault(); picked.delete(x.dataset.ccDel); paintCountries(); sync(); } });
+    paintCountries();
+    sync();
+  }
+
+  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
   const rerender = () => showTab(D.tab);
 
   // ---------------------------------------------------------------- events
@@ -4658,11 +4808,26 @@ __MONITORING_EOF__
       if (await apply(b, "config", { firewall: D.fw, _what: "firewall" })) { D.fw = null; D.prefilled = false; rerender(); }
       return;
     }
-    if (a === "geo-del") { D.geo = D.geo.filter((c) => c !== b.dataset.cc); return repaintGeo(); }
-    if (a === "geo-reset") { D.geo = [...(D.st.config.geo || { block: [] }).block]; return repaintGeo(); }
-    if (a === "geo-apply") {
-      if (await apply(b, "config", { geo: { block: D.geo }, _what: "countries" })) { D.geo = null; rerender(); }
-      return;
+    if (a === "r-new") return ruleEditor(blankRule(), null);
+    if (a === "r-tpl") return ruleEditor(TEMPLATES[b.dataset.tpl](), null);
+    if (a === "r-edit") return ruleEditor(D.rules[+b.dataset.i], +b.dataset.i);
+    if (a === "r-dup") {
+      const src = D.rules[+b.dataset.i];
+      const rules = [...D.rules];
+      rules.splice(+b.dataset.i + 1, 0, { ...JSON.parse(JSON.stringify(src)), id: newId(), name: `${src.name} (${t("df_r_copy")})`, enabled: false });
+      return saveRules(b, rules);
+    }
+    if (a === "r-move") {
+      const i = +b.dataset.i, j = i + +b.dataset.d;
+      if (j < 0 || j >= D.rules.length) return;
+      const rules = [...D.rules];
+      [rules[i], rules[j]] = [rules[j], rules[i]];
+      return saveRules(b, rules);
+    }
+    if (a === "r-del") {
+      const r = D.rules[+b.dataset.i];
+      if (!(await confirmBox({ message: t("df_r_delete_confirm", { name: r.name }), label: t("df_j_delete") }))) return;
+      return saveRules(b, D.rules.filter((_, k) => k !== +b.dataset.i));
     }
     if (a === "f2b-install") {
       if (!(await confirmBox({ message: t("df_f2b_install_confirm"), label: t("df_f2b_install"), danger: false }))) return;
@@ -4724,10 +4889,11 @@ __MONITORING_EOF__
 
   async function onChange(e) {
     const el = e.target;
-    if (el.dataset.geo) {
-      const cc = el.dataset.geo;
-      D.geo = el.checked ? [...new Set([...D.geo, cc])] : D.geo.filter((c) => c !== cc);
-      return repaintGeo();
+    if (el.dataset.ruleToggle !== undefined) {
+      const rules = D.rules.map((r, k) => (k === +el.dataset.ruleToggle ? { ...r, enabled: el.checked } : r));
+      el.disabled = true;
+      if (!(await saveRules(el, rules))) { el.checked = !el.checked; el.disabled = false; }
+      return;
     }
     if (el.dataset.jailToggle) {
       const name = el.dataset.jailToggle, on = el.checked;
@@ -4803,7 +4969,7 @@ __MONITORING_EOF__
   "use strict";
   const P = window.Panel;
   if (!P) return;
-  const { t, esc, num, ago, icon, api, post, act, toast, openDialog, confirmBox, table, pill, field } = P;
+  const { t, esc, num, ago, icon, api, post, act, toast, openDialog, confirmBox, table, field } = P;
 
   P.addIcons({ key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8M16 6l3 3M14 8l2 2"/>', device: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>' });
   P.addStrings({
@@ -4961,6 +5127,23 @@ __MONITORING_EOF__
   }
 
   P.registerView({ id: "security", icon: "key", label: "sec_nav", desc: "sec_desc", group: "manage", static: true }, { build, bind }, "settings");
+})();
+__MONITORING_EOF__
+  write_file panel/static/boot.js 644 <<'__MONITORING_EOF__'
+// Runs in <head> before the first paint: applies the saved theme and language so the page never
+// flashes the wrong theme (or flips direction) while the main script is still loading.
+(function () {
+  var d = document.documentElement, theme = null, lang = null;
+  try { theme = localStorage.getItem("theme"); lang = localStorage.getItem("lang"); } catch (e) { /* storage blocked */ }
+  if (theme !== "light" && theme !== "dark") {
+    theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+  if (lang !== "fa" && lang !== "en") lang = "en";
+  d.setAttribute("data-theme", theme);
+  d.setAttribute("lang", lang);
+  d.setAttribute("dir", lang === "fa" ? "rtl" : "ltr");
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "dark" ? "#070b12" : "#eef2f8");
 })();
 __MONITORING_EOF__
   write_file panel/security.py 644 <<'__MONITORING_EOF__'
@@ -5240,7 +5423,8 @@ class Log:
 
     def known_ip(self, ip, days=30):
         cutoff = time.time() - days * 86400
-        return any(r["kind"] == "login" and r.get("ip") == ip and r["t"] > cutoff for r in list(self.rows)[:-1])
+        with _lock:   # called before this login is logged, so every earlier row counts
+            return any(r["kind"] == "login" and r.get("ip") == ip and r["t"] > cutoff for r in self.rows)
 
 
 class Settings:
@@ -5296,7 +5480,6 @@ import json
 import os
 import re
 import signal
-import socket
 import socketserver
 import subprocess
 import sys
@@ -5335,7 +5518,8 @@ DEFAULT = {
     "ssh_guard": {"enabled": True, "l4": True, "failures": 5, "window": 10, "ban": 60, "exempt_private": True},
     "trust_logged_in": True,
     "trust_cdn": True,
-    "geo": {"block": []},
+    "geo": {"block": []},     # replaced by "rules" (kept so old backups still import)
+    "rules": [],              # user firewall rules, see validate_rule
     # Expert settings (Advanced tab). Everything that used to be fixed can be changed here.
     "advanced": {
         "rollback_seconds": 60,       # 0 = apply changes without the safety test
@@ -5390,6 +5574,11 @@ def merged_default(cfg):
 
 
 CFG = merged_default(load_json("config.json", {}))
+if CFG["geo"].get("block") and not CFG["rules"]:    # the old country blocklist becomes a rule
+    CFG["rules"] = [{"id": "c0untr", "name": "Blocked countries", "enabled": True, "countries": list(CFG["geo"]["block"]),
+                     "country_mode": "in", "ips": [], "ip_mode": "in", "proto": "any", "ports": "", "action": "block",
+                     "limit": {"rate": 10, "burst": 20, "ban": 0}}]
+    CFG["geo"]["block"] = []
 BANS = load_json("bans.json", {})            # ip -> {until, reason, source}: bans the agent made (for the panel)
 EVENTS = collections.deque(load_json("events.json", []), maxlen=400)
 F2B = load_json("f2b.json", {"default": {}, "jails": {}})   # fail2ban settings the panel manages
@@ -5452,7 +5641,12 @@ def ruleset(cfg=None):
     allow_extra = [{"ip": ip} for ip in admin_ips()] if cfg.get("trust_logged_in", True) else []
     view = dict(cfg, allow=cfg["allow"] + allow_extra)
     g4, g6, _ = geo.build(DATA, cfg.get("geo", {}).get("block", []), download=False)
-    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6)
+    zones = {}
+    for rule in cfg.get("rules") or []:
+        if rule.get("enabled", True) and rule.get("countries"):
+            z4, z6, _ = geo.build(DATA, rule["countries"], download=False)
+            zones[rule["id"]] = (z4, z6)
+    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones)
 
 
 def apply(cfg=None):
@@ -5480,8 +5674,13 @@ def change(mutator, rollback=True, what="config"):
         new = copy.deepcopy(CFG)
         mutator(new)
         validate(new)
-        if new["enabled"] and new["geo"]["block"]:
-            geo.build(DATA, new["geo"]["block"], download=True)   # raises before anything changes
+        if new["enabled"]:
+            codes = set(new["geo"]["block"])
+            for rule in new["rules"]:
+                if rule.get("enabled", True):
+                    codes.update(rule.get("countries") or [])
+            if codes:
+                geo.build(DATA, sorted(codes), download=True)   # raises before anything changes
         try:
             apply(new)
         except Exception as e:
@@ -5583,6 +5782,15 @@ def validate(cfg):
             e["note"] = str(e.get("note", ""))[:80]
         if len(cfg[lst]) > 100000:
             raise ValueError("list too long")
+    rules = cfg.get("rules") or []
+    if not isinstance(rules, list) or len(rules) > 300:
+        raise ValueError("At most 300 rules")
+    seen_ids = set()
+    for i, rule in enumerate(rules):
+        rules[i] = validate_rule(rule)
+        if rules[i]["id"] in seen_ids:
+            rules[i]["id"] = __import__("secrets").token_hex(3)
+        seen_ids.add(rules[i]["id"])
     codes = sorted({str(c).strip().lower() for c in cfg["geo"].get("block", [])})
     if len(codes) > 300 or not all(geo.CC_RE.match(c) for c in codes):
         raise ValueError("invalid country list")
@@ -5604,6 +5812,53 @@ def validate(cfg):
         if not isinstance(g.get(k), (int, float)) or not lo <= g[k] <= hi:
             raise ValueError(f"SSH guard {k}: must be between {lo} and {hi}")
         g[k] = int(g[k])
+
+
+RULE_ID = re.compile(r"^[a-z0-9]{6}$")
+PORTS_RE = re.compile(r"^\d{1,5}(-\d{1,5})?$")
+
+
+def validate_rule(r):
+    """A firewall rule: conditions (countries, addresses, protocol, ports; all must match) and one action."""
+    if not isinstance(r, dict):
+        raise ValueError("invalid rule")
+    import secrets as _s
+    out = {"id": r.get("id") if RULE_ID.match(str(r.get("id", ""))) else _s.token_hex(3),
+           "name": str(r.get("name") or "").strip()[:80] or "Rule", "enabled": bool(r.get("enabled", True))}
+    codes = sorted({str(c).strip().lower() for c in r.get("countries") or [] if str(c).strip()})
+    if not all(geo.CC_RE.match(c) for c in codes):
+        raise ValueError(f"{out['name']}: unknown country code")
+    out["countries"] = codes
+    out["country_mode"] = "not_in" if r.get("country_mode") == "not_in" else "in"
+    out["ips"] = [net_str(parse_net(x, allow_any=True)) for x in (r.get("ips") or []) if str(x).strip()][:20000]
+    out["ip_mode"] = "not_in" if r.get("ip_mode") == "not_in" else "in"
+    proto = r.get("proto", "any")
+    if proto not in ("any", "tcp", "udp", "icmp"):
+        raise ValueError(f"{out['name']}: unknown protocol")
+    out["proto"] = proto
+    ports = [p.strip() for p in str(r.get("ports") or "").replace(" ", "").split(",") if p.strip()]
+    for p in ports:
+        a, _, b = p.partition("-")
+        if not PORTS_RE.match(p) or not 1 <= int(a) <= 65535 or (b and not int(a) < int(b) <= 65535):
+            raise ValueError(f"{out['name']}: invalid port {p}")
+    if ports and proto == "icmp":
+        raise ValueError(f"{out['name']}: ping (ICMP) has no ports")
+    out["ports"] = ",".join(ports[:200])
+    if not (codes or out["ips"] or out["ports"] or proto != "any"):
+        raise ValueError(f"{out['name']}: a rule needs at least one condition (country, address, protocol or port)")
+    act = r.get("action", "block")
+    if act not in ("allow", "block", "limit", "log"):
+        raise ValueError(f"{out['name']}: unknown action")
+    out["action"] = act
+    lim = r.get("limit") or {}
+    try:
+        rate, burst, ban = int(lim.get("rate", 10)), int(lim.get("burst", 0) or 0), int(lim.get("ban", 0) or 0)
+    except (TypeError, ValueError):
+        raise ValueError(f"{out['name']}: invalid limit")
+    if not 1 <= rate <= 1_000_000 or not 0 <= ban <= 525600:
+        raise ValueError(f"{out['name']}: the limit must be 1 to 1000000 per second, the ban 0 to 525600 minutes")
+    out["limit"] = {"rate": rate, "burst": max(1, min(burst or rate * 2, 10_000_000)), "ban": ban}
+    return out
 
 
 def own_or_admin(ip):
@@ -5908,7 +6163,7 @@ def status():
             "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
             "effective": effective_limits(), "profiles": nftrules.PROFILES,
             "attack": {k: v for k, v in STATE["attack"].items()},
-            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced")},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules")},
             "allow": CFG["allow"], "block": CFG["block"],
             "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
             "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
@@ -5985,6 +6240,8 @@ def _cfg_patch(body):
             for k, v in body["advanced"].items():
                 if k in DEFAULT["advanced"]:
                     c["advanced"][k] = v
+        if isinstance(body.get("rules"), list):
+            c["rules"] = body["rules"]
         if "geo" in body and isinstance(body["geo"], dict) and "block" in body["geo"]:
             c["geo"]["block"] = [str(x) for x in body["geo"]["block"]][:200]
     return mut
@@ -6229,6 +6486,22 @@ def api_f2b_bans(q):
     return {"rows": f2b.jail_bans(f2b_jail_name(q.get("jail"), must_run=True))}
 
 
+def api_fwrules(q):
+    """The rules with how many packets each one matched since the rules were last applied."""
+    hits = {}
+    if STATE["applied"]:
+        try:
+            data = json.loads(nft(["-j", "list", "counters", "table", "inet", "defender"]))
+            for item in data.get("nftables", []):
+                c = item.get("counter")
+                if c and c.get("name", "").startswith("c_r_"):
+                    hits[c["name"][4:]] = {"packets": c.get("packets", 0), "bytes": c.get("bytes", 0)}
+        except (RuntimeError, ValueError):
+            pass
+    codes = sorted({c for r in CFG["rules"] for c in r.get("countries") or []})
+    return {"rules": CFG["rules"], "hits": hits, "zones": geo.info(DATA, codes), "enabled": CFG["enabled"]}
+
+
 def api_geo(q):
     return {"block": CFG["geo"]["block"], "info": geo.info(DATA, CFG["geo"]["block"])}
 
@@ -6238,7 +6511,7 @@ def geo_refresh_loop():
     while True:
         time.sleep(6 * 3600)
         try:
-            codes = CFG["geo"]["block"]
+            codes = sorted(set(CFG["geo"]["block"]) | {c for r in CFG["rules"] if r.get("enabled", True) for c in r.get("countries") or []})
             if not codes or not CFG["enabled"]:
                 continue
             before = geo.info(DATA, codes)
@@ -6250,7 +6523,7 @@ def geo_refresh_loop():
 
 
 EXPORT_KEYS = ("enabled", "profile", "limits", "auto_escalate", "ddos", "firewall", "allow", "block", "ssh_guard",
-               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced")
+               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules")
 
 
 def api_export(q):
@@ -6301,6 +6574,7 @@ GET = {
     "/f2b/files": lambda q: {"rows": f2b.files(), "backups": f2b.BACKUPS},
     "/f2b/file": lambda q: f2b.file_read(q.get("path")),
     "/geo": api_geo,
+    "/fwrules": api_fwrules,
     "/export": api_export,
 }
 POST = {
@@ -6368,7 +6642,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             n = int(self.headers.get("Content-Length", 0))
-            body = json.loads(self.rfile.read(min(n, 1_000_000)) or b"{}")
+            if n > 8_000_000:
+                raise ValueError
+            body = json.loads(self.rfile.read(n) or b"{}")
             if not isinstance(body, dict):
                 raise ValueError
         except ValueError:
@@ -6500,7 +6776,58 @@ def set_block(name, family, items, extra=""):
     return f"    set {name} {{ type {family}_addr; flags interval;{extra}{elements} }}"
 
 
-def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=()):
+def rule_parts(rule, zones):
+    """Set declarations and chain lines for one user rule (see agent.validate_rule for its fields)."""
+    rid = rule["id"]
+    sets, lines = [f"    counter c_r_{rid} {{ }}"], []
+    c4, c6 = zones.get(rid, ([], []))
+    i4, i6 = split_ips(rule.get("ips") or [])
+    if rule.get("countries"):
+        sets += [set_block(f"r_{rid}_c4", "ipv4", c4, " auto-merge;"), set_block(f"r_{rid}_c6", "ipv6", c6, " auto-merge;")]
+    if rule.get("ips"):
+        sets += [set_block(f"r_{rid}_i4", "ipv4", i4), set_block(f"r_{rid}_i6", "ipv6", i6)]
+    act = rule["action"]
+    if act == "limit":
+        sets += [f"    set r_{rid}_m4 {{ type ipv4_addr; flags dynamic, timeout; timeout 2m; size 262144; }}",
+                 f"    set r_{rid}_m6 {{ type ipv6_addr; flags dynamic, timeout; timeout 2m; size 262144; }}"]
+    for fam, v, nfp, cset, iset in (("ip", "4", "ipv4", c4, i4), ("ip6", "6", "ipv6", c6, i6)):
+        parts = [f"meta nfproto {nfp}"]
+        skip = False
+        for kind, items, mode in (("c", cset, rule.get("country_mode", "in")), ("i", iset, rule.get("ip_mode", "in"))):
+            if not (rule.get("countries") if kind == "c" else rule.get("ips")):
+                continue
+            if not items:          # nothing of this family in the list
+                if mode == "in":
+                    skip = True    # "from these" can never match this family
+                continue           # "not from these" matches every address of this family
+            parts.append(f"{fam} saddr {'!= ' if mode == 'not_in' else ''}@r_{rid}_{kind}{v}")
+        if skip:
+            continue
+        proto, ports = rule.get("proto", "any"), rule.get("ports", "")
+        if proto == "icmp":
+            parts.append("meta l4proto icmp" if v == "4" else "meta l4proto ipv6-icmp")
+        elif proto in ("tcp", "udp"):
+            parts.append(f"meta l4proto {proto}")
+        elif ports:
+            parts.append("meta l4proto { tcp, udp }")
+        if ports:
+            parts.append(f"th dport {{ {', '.join(ports.split(','))} }}")
+        parts.append(f"counter name c_r_{rid}")
+        if act == "allow":
+            parts.append("accept")
+        elif act == "block":
+            parts.append("drop")
+        elif act == "limit":
+            L = rule["limit"]
+            parts.append(f"update @r_{rid}_m{v} {{ {fam} saddr limit rate over {L['rate']}/second burst {L['burst']} packets }}")
+            if L.get("ban"):
+                parts.append(f"add @ban{v} {{ {fam} saddr timeout {L['ban']}m }}")
+            parts.append("drop")
+        lines.append("        " + " ".join(parts))
+    return sets, lines
+
+
+def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=(), rule_zones=None):
     """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table)."""
     fw = cfg["firewall"]
     adv = cfg.get("advanced") or {}
@@ -6560,6 +6887,11 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     for ln in (adv.get("custom_rules") or "").split("\n"):
         if ln.strip():
             r.append(f"        {ln.strip()}")
+    for rule in cfg.get("rules") or []:      # the user's rules, top to bottom, for new connections
+        if rule.get("enabled", True):
+            rsets, rlines = rule_parts(rule, rule_zones or {})
+            lines[3:3] = rsets               # declarations go into the table (after its opening lines)
+            r += rlines
     ssh_rate = int(adv.get("ssh_rate", SSH_NEW_PER_MIN))
     if cfg["ssh_guard"].get("l4", True) and ssh_rate > 0:
         for fam, suffix in (("ip", "4"), ("ip6", "6")):
@@ -7035,7 +7367,6 @@ import configparser
 import glob
 import ipaddress
 import os
-import shutil
 import pickle
 import re
 import socket
@@ -7801,6 +8132,7 @@ __MONITORING_EOF__
   <link rel="shortcut icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0a0f16">
+  <script src="/boot.js"></script>
   <link rel="stylesheet" href="/fonts.css">
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
@@ -7863,6 +8195,7 @@ __MONITORING_EOF__
   <link rel="shortcut icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0a0f16">
+  <script src="/boot.js"></script>
   <link rel="stylesheet" href="/fonts.css">
   <link rel="stylesheet" href="/style.css">
   <script src="/login.js" defer></script>
@@ -8168,7 +8501,7 @@ __MONITORING_EOF__
   };
   const state = {
     lang: T[store.get("lang", "en")] ? store.get("lang", "en") : "en",
-    theme: store.get("theme", "dark"),
+    theme: document.documentElement.dataset.theme === "light" ? "light" : "dark",   // set by boot.js before the first paint
     range: store.get("range", "live"),
     instance: store.get("instance", ""),
     instances: [],
@@ -9094,7 +9427,6 @@ __MONITORING_EOF__
   }
 
   // ---------------------------------------------------------------- charts
-  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   // One categorical slot per series, in fixed order (blue, orange, aqua); text never wears a series colour.
   const CHARTS = [
     { m: "cpu", title: "c_cpu", fmt: (v) => `${nf(v)}%`, max: 100, colors: ["--c1"], now: true },
@@ -9498,7 +9830,16 @@ __MONITORING_EOF__
   }
 
   // ---------------------------------------------------------------- boot
-  $("theme").onclick = () => { state.theme = state.theme === "dark" ? "light" : "dark"; store.set("theme", state.theme); applyLocale(); renderStats(); renderView(true); };
+  $("theme").onclick = () => {
+    // No transitions while the colours swap, so the two themes never blend for a moment.
+    document.documentElement.classList.add("no-anim");
+    state.theme = state.theme === "dark" ? "light" : "dark";
+    store.set("theme", state.theme);
+    applyLocale(); renderStats(); renderView(true);
+    const done = () => document.documentElement.classList.remove("no-anim");
+    requestAnimationFrame(() => requestAnimationFrame(done));
+    setTimeout(done, 120);   // frames can be paused (hidden window): never leave transitions switched off
+  };
   $("lang").onclick = () => { state.lang = state.lang === "en" ? "fa" : "en"; store.set("lang", state.lang); applyLocale(); renderStats(); renderView(true); };
   $("refresh").onclick = () => tick(true);
   $("logout").onclick = async () => { try { await fetch("/logout", { method: "POST" }); } catch (e) { /* ignore */ } location.replace("/login"); };
@@ -9567,9 +9908,10 @@ __MONITORING_EOF__
       otp_need: "کد ۶ رقمی برنامه‌ی احراز هویت (مثل Google Authenticator) را وارد کنید.", bad: "نام کاربری یا رمز عبور اشتباه است", bad_otp: "نام کاربری، رمز یا کد اشتباه است",
       locked: "تلاش اشتباه زیادی از این آدرس شده. {m} دقیقه‌ی دیگر دوباره امتحان کنید.", busy: "درخواست زیاد است. کمی صبر کنید و دوباره امتحان کنید.", net: "ارتباط با سرور برقرار نشد" },
   };
-  let lang = "en", theme = "dark";
-  try { lang = localStorage.getItem("lang") || lang; theme = localStorage.getItem("theme") || theme; } catch (e) { /* storage blocked */ }
+  let lang = "en";
+  try { lang = localStorage.getItem("lang") || lang; } catch (e) { /* storage blocked */ }
   if (!T[lang]) lang = "en";
+  const theme = document.documentElement.dataset.theme || "dark";   // chosen by boot.js before the first paint
   const t = (k, v = {}) => T[lang][k].replace(/\{(\w+)\}/g, (_, x) => v[x]);
   document.documentElement.dataset.theme = theme;
   document.documentElement.lang = lang;
@@ -10441,6 +10783,58 @@ label.btn input[type="file"] { display: none; }
 .f2b-jail .f2b-manage { border-top: 1px dashed var(--line); padding-top: 10px; }
 .sec-key { font: 600 18px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .08em; padding: 12px 14px; border-radius: 12px;
   background: var(--surface-2); border: 1px solid var(--line); overflow-wrap: anywhere; user-select: all; }
+
+/* theme switch: colours change in one frame, nothing animates between the two themes */
+.no-anim, .no-anim *, .no-anim *::before, .no-anim *::after { transition: none !important; }
+
+/* firewall rules */
+.fw-tpls { flex-wrap: wrap; }
+.fw-rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fw-rule { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); }
+.fw-rule.off { opacity: .62; }
+.fw-n { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); font-weight: 800; font-size: 13px; color: var(--muted); }
+.fw-main { min-width: 0; display: grid; gap: 4px; }
+.fw-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fw-top b { font-size: 15px; }
+.fw-sum { margin: 0; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.fw-act { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.fw-act .btn:disabled { opacity: .35; }
+.fw-h { margin: 18px 0 8px; font-size: 13px; letter-spacing: .02em; color: var(--muted); text-transform: uppercase; }
+.fw-cond { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); margin-bottom: 10px; }
+.fw-cond .field { margin-bottom: 8px; }
+.fw-cc[hidden], .fw-ips[hidden], .fw-limit[hidden], .fw-custom[hidden] { display: none; }
+.fw-cc .chips { margin-bottom: 8px; }
+.fw-cc .df-filter { width: 100%; margin-bottom: 8px; }
+.fw-cc-list { max-height: 240px; }
+.fw-cc-count { align-self: end; }
+.fw-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.fw-actopt { position: relative; display: block; cursor: pointer; }
+.fw-actopt input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.fw-actopt > span { display: grid; gap: 4px; height: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); --tone: var(--muted); }
+.fw-actopt.allow > span { --tone: var(--s-good); }
+.fw-actopt.block > span { --tone: var(--s-bad); }
+.fw-actopt.limit > span { --tone: var(--s-warn); }
+.fw-actopt b { color: var(--tone); font-size: 14px; }
+.fw-actopt small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.fw-actopt input:checked + span { border-color: var(--tone); background: color-mix(in srgb, var(--tone) 9%, var(--surface-2)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 16%, transparent); }
+.fw-actopt input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fw-limit { margin-top: 12px; padding: 12px 14px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--s-warn) 45%, var(--line)); }
+.fw-lbl { display: block; font-size: 13px; font-weight: 650; margin-bottom: 8px; }
+.fw-sensrow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.fw-sens { position: relative; cursor: pointer; }
+.fw-sens input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.fw-sens span { display: grid; gap: 2px; text-align: center; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-size: 13px; font-weight: 650; }
+.fw-sens small { color: var(--faint); font-weight: 500; font-size: 11px; }
+.fw-sens input:checked + span { border-color: var(--s-warn); color: var(--ink); background: color-mix(in srgb, var(--s-warn) 12%, var(--surface-2)); }
+.fw-sens input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fw-preview { margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--ink); font-size: 13px; }
+.fw-preview:empty { display: none; }
+@media (max-width: 699px) {
+  .fw-rule { grid-template-columns: auto minmax(0, 1fr); }
+  .fw-act { grid-column: 1 / -1; justify-content: space-between; }
+  .fw-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fw-sensrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'
 /* Vazirmatn (SIL Open Font License 1.1) - Latin + Persian/Arabic subset, embedded so the panel needs no external font host. */

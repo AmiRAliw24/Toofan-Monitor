@@ -52,6 +52,7 @@ PUBLIC_FILES = {
     "/style.css": ("style.css", "text/css; charset=utf-8"),
     "/fonts.css": ("fonts.css", "text/css; charset=utf-8"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml"),
+    "/boot.js": ("boot.js", "text/javascript; charset=utf-8"),
 }
 PRIVATE_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),

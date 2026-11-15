@@ -86,7 +86,58 @@ def set_block(name, family, items, extra=""):
     return f"    set {name} {{ type {family}_addr; flags interval;{extra}{elements} }}"
 
 
-def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=()):
+def rule_parts(rule, zones):
+    """Set declarations and chain lines for one user rule (see agent.validate_rule for its fields)."""
+    rid = rule["id"]
+    sets, lines = [f"    counter c_r_{rid} {{ }}"], []
+    c4, c6 = zones.get(rid, ([], []))
+    i4, i6 = split_ips(rule.get("ips") or [])
+    if rule.get("countries"):
+        sets += [set_block(f"r_{rid}_c4", "ipv4", c4, " auto-merge;"), set_block(f"r_{rid}_c6", "ipv6", c6, " auto-merge;")]
+    if rule.get("ips"):
+        sets += [set_block(f"r_{rid}_i4", "ipv4", i4), set_block(f"r_{rid}_i6", "ipv6", i6)]
+    act = rule["action"]
+    if act == "limit":
+        sets += [f"    set r_{rid}_m4 {{ type ipv4_addr; flags dynamic, timeout; timeout 2m; size 262144; }}",
+                 f"    set r_{rid}_m6 {{ type ipv6_addr; flags dynamic, timeout; timeout 2m; size 262144; }}"]
+    for fam, v, nfp, cset, iset in (("ip", "4", "ipv4", c4, i4), ("ip6", "6", "ipv6", c6, i6)):
+        parts = [f"meta nfproto {nfp}"]
+        skip = False
+        for kind, items, mode in (("c", cset, rule.get("country_mode", "in")), ("i", iset, rule.get("ip_mode", "in"))):
+            if not (rule.get("countries") if kind == "c" else rule.get("ips")):
+                continue
+            if not items:          # nothing of this family in the list
+                if mode == "in":
+                    skip = True    # "from these" can never match this family
+                continue           # "not from these" matches every address of this family
+            parts.append(f"{fam} saddr {'!= ' if mode == 'not_in' else ''}@r_{rid}_{kind}{v}")
+        if skip:
+            continue
+        proto, ports = rule.get("proto", "any"), rule.get("ports", "")
+        if proto == "icmp":
+            parts.append("meta l4proto icmp" if v == "4" else "meta l4proto ipv6-icmp")
+        elif proto in ("tcp", "udp"):
+            parts.append(f"meta l4proto {proto}")
+        elif ports:
+            parts.append("meta l4proto { tcp, udp }")
+        if ports:
+            parts.append(f"th dport {{ {', '.join(ports.split(','))} }}")
+        parts.append(f"counter name c_r_{rid}")
+        if act == "allow":
+            parts.append("accept")
+        elif act == "block":
+            parts.append("drop")
+        elif act == "limit":
+            L = rule["limit"]
+            parts.append(f"update @r_{rid}_m{v} {{ {fam} saddr limit rate over {L['rate']}/second burst {L['burst']} packets }}")
+            if L.get("ban"):
+                parts.append(f"add @ban{v} {{ {fam} saddr timeout {L['ban']}m }}")
+            parts.append("drop")
+        lines.append("        " + " ".join(parts))
+    return sets, lines
+
+
+def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=(), rule_zones=None):
     """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table)."""
     fw = cfg["firewall"]
     adv = cfg.get("advanced") or {}
@@ -146,6 +197,11 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     for ln in (adv.get("custom_rules") or "").split("\n"):
         if ln.strip():
             r.append(f"        {ln.strip()}")
+    for rule in cfg.get("rules") or []:      # the user's rules, top to bottom, for new connections
+        if rule.get("enabled", True):
+            rsets, rlines = rule_parts(rule, rule_zones or {})
+            lines[3:3] = rsets               # declarations go into the table (after its opening lines)
+            r += rlines
     ssh_rate = int(adv.get("ssh_rate", SSH_NEW_PER_MIN))
     if cfg["ssh_guard"].get("l4", True) and ssh_rate > 0:
         for fam, suffix in (("ip", "4"), ("ip6", "6")):

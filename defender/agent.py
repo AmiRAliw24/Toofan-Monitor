@@ -21,7 +21,6 @@ import json
 import os
 import re
 import signal
-import socket
 import socketserver
 import subprocess
 import sys
@@ -60,7 +59,8 @@ DEFAULT = {
     "ssh_guard": {"enabled": True, "l4": True, "failures": 5, "window": 10, "ban": 60, "exempt_private": True},
     "trust_logged_in": True,
     "trust_cdn": True,
-    "geo": {"block": []},
+    "geo": {"block": []},     # replaced by "rules" (kept so old backups still import)
+    "rules": [],              # user firewall rules, see validate_rule
     # Expert settings (Advanced tab). Everything that used to be fixed can be changed here.
     "advanced": {
         "rollback_seconds": 60,       # 0 = apply changes without the safety test
@@ -115,6 +115,11 @@ def merged_default(cfg):
 
 
 CFG = merged_default(load_json("config.json", {}))
+if CFG["geo"].get("block") and not CFG["rules"]:    # the old country blocklist becomes a rule
+    CFG["rules"] = [{"id": "c0untr", "name": "Blocked countries", "enabled": True, "countries": list(CFG["geo"]["block"]),
+                     "country_mode": "in", "ips": [], "ip_mode": "in", "proto": "any", "ports": "", "action": "block",
+                     "limit": {"rate": 10, "burst": 20, "ban": 0}}]
+    CFG["geo"]["block"] = []
 BANS = load_json("bans.json", {})            # ip -> {until, reason, source}: bans the agent made (for the panel)
 EVENTS = collections.deque(load_json("events.json", []), maxlen=400)
 F2B = load_json("f2b.json", {"default": {}, "jails": {}})   # fail2ban settings the panel manages
@@ -177,7 +182,12 @@ def ruleset(cfg=None):
     allow_extra = [{"ip": ip} for ip in admin_ips()] if cfg.get("trust_logged_in", True) else []
     view = dict(cfg, allow=cfg["allow"] + allow_extra)
     g4, g6, _ = geo.build(DATA, cfg.get("geo", {}).get("block", []), download=False)
-    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6)
+    zones = {}
+    for rule in cfg.get("rules") or []:
+        if rule.get("enabled", True) and rule.get("countries"):
+            z4, z6, _ = geo.build(DATA, rule["countries"], download=False)
+            zones[rule["id"]] = (z4, z6)
+    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones)
 
 
 def apply(cfg=None):
@@ -205,8 +215,13 @@ def change(mutator, rollback=True, what="config"):
         new = copy.deepcopy(CFG)
         mutator(new)
         validate(new)
-        if new["enabled"] and new["geo"]["block"]:
-            geo.build(DATA, new["geo"]["block"], download=True)   # raises before anything changes
+        if new["enabled"]:
+            codes = set(new["geo"]["block"])
+            for rule in new["rules"]:
+                if rule.get("enabled", True):
+                    codes.update(rule.get("countries") or [])
+            if codes:
+                geo.build(DATA, sorted(codes), download=True)   # raises before anything changes
         try:
             apply(new)
         except Exception as e:
@@ -308,6 +323,15 @@ def validate(cfg):
             e["note"] = str(e.get("note", ""))[:80]
         if len(cfg[lst]) > 100000:
             raise ValueError("list too long")
+    rules = cfg.get("rules") or []
+    if not isinstance(rules, list) or len(rules) > 300:
+        raise ValueError("At most 300 rules")
+    seen_ids = set()
+    for i, rule in enumerate(rules):
+        rules[i] = validate_rule(rule)
+        if rules[i]["id"] in seen_ids:
+            rules[i]["id"] = __import__("secrets").token_hex(3)
+        seen_ids.add(rules[i]["id"])
     codes = sorted({str(c).strip().lower() for c in cfg["geo"].get("block", [])})
     if len(codes) > 300 or not all(geo.CC_RE.match(c) for c in codes):
         raise ValueError("invalid country list")
@@ -329,6 +353,53 @@ def validate(cfg):
         if not isinstance(g.get(k), (int, float)) or not lo <= g[k] <= hi:
             raise ValueError(f"SSH guard {k}: must be between {lo} and {hi}")
         g[k] = int(g[k])
+
+
+RULE_ID = re.compile(r"^[a-z0-9]{6}$")
+PORTS_RE = re.compile(r"^\d{1,5}(-\d{1,5})?$")
+
+
+def validate_rule(r):
+    """A firewall rule: conditions (countries, addresses, protocol, ports; all must match) and one action."""
+    if not isinstance(r, dict):
+        raise ValueError("invalid rule")
+    import secrets as _s
+    out = {"id": r.get("id") if RULE_ID.match(str(r.get("id", ""))) else _s.token_hex(3),
+           "name": str(r.get("name") or "").strip()[:80] or "Rule", "enabled": bool(r.get("enabled", True))}
+    codes = sorted({str(c).strip().lower() for c in r.get("countries") or [] if str(c).strip()})
+    if not all(geo.CC_RE.match(c) for c in codes):
+        raise ValueError(f"{out['name']}: unknown country code")
+    out["countries"] = codes
+    out["country_mode"] = "not_in" if r.get("country_mode") == "not_in" else "in"
+    out["ips"] = [net_str(parse_net(x, allow_any=True)) for x in (r.get("ips") or []) if str(x).strip()][:20000]
+    out["ip_mode"] = "not_in" if r.get("ip_mode") == "not_in" else "in"
+    proto = r.get("proto", "any")
+    if proto not in ("any", "tcp", "udp", "icmp"):
+        raise ValueError(f"{out['name']}: unknown protocol")
+    out["proto"] = proto
+    ports = [p.strip() for p in str(r.get("ports") or "").replace(" ", "").split(",") if p.strip()]
+    for p in ports:
+        a, _, b = p.partition("-")
+        if not PORTS_RE.match(p) or not 1 <= int(a) <= 65535 or (b and not int(a) < int(b) <= 65535):
+            raise ValueError(f"{out['name']}: invalid port {p}")
+    if ports and proto == "icmp":
+        raise ValueError(f"{out['name']}: ping (ICMP) has no ports")
+    out["ports"] = ",".join(ports[:200])
+    if not (codes or out["ips"] or out["ports"] or proto != "any"):
+        raise ValueError(f"{out['name']}: a rule needs at least one condition (country, address, protocol or port)")
+    act = r.get("action", "block")
+    if act not in ("allow", "block", "limit", "log"):
+        raise ValueError(f"{out['name']}: unknown action")
+    out["action"] = act
+    lim = r.get("limit") or {}
+    try:
+        rate, burst, ban = int(lim.get("rate", 10)), int(lim.get("burst", 0) or 0), int(lim.get("ban", 0) or 0)
+    except (TypeError, ValueError):
+        raise ValueError(f"{out['name']}: invalid limit")
+    if not 1 <= rate <= 1_000_000 or not 0 <= ban <= 525600:
+        raise ValueError(f"{out['name']}: the limit must be 1 to 1000000 per second, the ban 0 to 525600 minutes")
+    out["limit"] = {"rate": rate, "burst": max(1, min(burst or rate * 2, 10_000_000)), "ban": ban}
+    return out
 
 
 def own_or_admin(ip):
@@ -633,7 +704,7 @@ def status():
             "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
             "effective": effective_limits(), "profiles": nftrules.PROFILES,
             "attack": {k: v for k, v in STATE["attack"].items()},
-            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced")},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules")},
             "allow": CFG["allow"], "block": CFG["block"],
             "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
             "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
@@ -710,6 +781,8 @@ def _cfg_patch(body):
             for k, v in body["advanced"].items():
                 if k in DEFAULT["advanced"]:
                     c["advanced"][k] = v
+        if isinstance(body.get("rules"), list):
+            c["rules"] = body["rules"]
         if "geo" in body and isinstance(body["geo"], dict) and "block" in body["geo"]:
             c["geo"]["block"] = [str(x) for x in body["geo"]["block"]][:200]
     return mut
@@ -954,6 +1027,22 @@ def api_f2b_bans(q):
     return {"rows": f2b.jail_bans(f2b_jail_name(q.get("jail"), must_run=True))}
 
 
+def api_fwrules(q):
+    """The rules with how many packets each one matched since the rules were last applied."""
+    hits = {}
+    if STATE["applied"]:
+        try:
+            data = json.loads(nft(["-j", "list", "counters", "table", "inet", "defender"]))
+            for item in data.get("nftables", []):
+                c = item.get("counter")
+                if c and c.get("name", "").startswith("c_r_"):
+                    hits[c["name"][4:]] = {"packets": c.get("packets", 0), "bytes": c.get("bytes", 0)}
+        except (RuntimeError, ValueError):
+            pass
+    codes = sorted({c for r in CFG["rules"] for c in r.get("countries") or []})
+    return {"rules": CFG["rules"], "hits": hits, "zones": geo.info(DATA, codes), "enabled": CFG["enabled"]}
+
+
 def api_geo(q):
     return {"block": CFG["geo"]["block"], "info": geo.info(DATA, CFG["geo"]["block"])}
 
@@ -963,7 +1052,7 @@ def geo_refresh_loop():
     while True:
         time.sleep(6 * 3600)
         try:
-            codes = CFG["geo"]["block"]
+            codes = sorted(set(CFG["geo"]["block"]) | {c for r in CFG["rules"] if r.get("enabled", True) for c in r.get("countries") or []})
             if not codes or not CFG["enabled"]:
                 continue
             before = geo.info(DATA, codes)
@@ -975,7 +1064,7 @@ def geo_refresh_loop():
 
 
 EXPORT_KEYS = ("enabled", "profile", "limits", "auto_escalate", "ddos", "firewall", "allow", "block", "ssh_guard",
-               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced")
+               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules")
 
 
 def api_export(q):
@@ -1026,6 +1115,7 @@ GET = {
     "/f2b/files": lambda q: {"rows": f2b.files(), "backups": f2b.BACKUPS},
     "/f2b/file": lambda q: f2b.file_read(q.get("path")),
     "/geo": api_geo,
+    "/fwrules": api_fwrules,
     "/export": api_export,
 }
 POST = {
@@ -1093,7 +1183,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             n = int(self.headers.get("Content-Length", 0))
-            body = json.loads(self.rfile.read(min(n, 1_000_000)) or b"{}")
+            if n > 8_000_000:
+                raise ValueError
+            body = json.loads(self.rfile.read(n) or b"{}")
             if not isinstance(body, dict):
                 raise ValueError
         except ValueError:

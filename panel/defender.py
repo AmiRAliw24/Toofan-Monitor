@@ -15,7 +15,7 @@ import monitor
 import store
 
 SOCK = os.environ.get("DEFENDER_SOCKET", "/defender/agent.sock")
-GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "rules", "ssh",
+GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "rules", "fwrules", "ssh",
              "f2b", "f2b/bans", "f2b/log", "f2b/jail", "f2b/files", "f2b/file", "geo", "export"}
 POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unallow", "unban", "sysctl",
               "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",

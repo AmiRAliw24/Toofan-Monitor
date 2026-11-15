@@ -827,3 +827,55 @@ label.btn input[type="file"] { display: none; }
 .f2b-jail .f2b-manage { border-top: 1px dashed var(--line); padding-top: 10px; }
 .sec-key { font: 600 18px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .08em; padding: 12px 14px; border-radius: 12px;
   background: var(--surface-2); border: 1px solid var(--line); overflow-wrap: anywhere; user-select: all; }
+
+/* theme switch: colours change in one frame, nothing animates between the two themes */
+.no-anim, .no-anim *, .no-anim *::before, .no-anim *::after { transition: none !important; }
+
+/* firewall rules */
+.fw-tpls { flex-wrap: wrap; }
+.fw-rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fw-rule { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); }
+.fw-rule.off { opacity: .62; }
+.fw-n { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); font-weight: 800; font-size: 13px; color: var(--muted); }
+.fw-main { min-width: 0; display: grid; gap: 4px; }
+.fw-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fw-top b { font-size: 15px; }
+.fw-sum { margin: 0; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.fw-act { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.fw-act .btn:disabled { opacity: .35; }
+.fw-h { margin: 18px 0 8px; font-size: 13px; letter-spacing: .02em; color: var(--muted); text-transform: uppercase; }
+.fw-cond { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); margin-bottom: 10px; }
+.fw-cond .field { margin-bottom: 8px; }
+.fw-cc[hidden], .fw-ips[hidden], .fw-limit[hidden], .fw-custom[hidden] { display: none; }
+.fw-cc .chips { margin-bottom: 8px; }
+.fw-cc .df-filter { width: 100%; margin-bottom: 8px; }
+.fw-cc-list { max-height: 240px; }
+.fw-cc-count { align-self: end; }
+.fw-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.fw-actopt { position: relative; display: block; cursor: pointer; }
+.fw-actopt input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.fw-actopt > span { display: grid; gap: 4px; height: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); --tone: var(--muted); }
+.fw-actopt.allow > span { --tone: var(--s-good); }
+.fw-actopt.block > span { --tone: var(--s-bad); }
+.fw-actopt.limit > span { --tone: var(--s-warn); }
+.fw-actopt b { color: var(--tone); font-size: 14px; }
+.fw-actopt small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.fw-actopt input:checked + span { border-color: var(--tone); background: color-mix(in srgb, var(--tone) 9%, var(--surface-2)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 16%, transparent); }
+.fw-actopt input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fw-limit { margin-top: 12px; padding: 12px 14px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--s-warn) 45%, var(--line)); }
+.fw-lbl { display: block; font-size: 13px; font-weight: 650; margin-bottom: 8px; }
+.fw-sensrow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.fw-sens { position: relative; cursor: pointer; }
+.fw-sens input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.fw-sens span { display: grid; gap: 2px; text-align: center; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-size: 13px; font-weight: 650; }
+.fw-sens small { color: var(--faint); font-weight: 500; font-size: 11px; }
+.fw-sens input:checked + span { border-color: var(--s-warn); color: var(--ink); background: color-mix(in srgb, var(--s-warn) 12%, var(--surface-2)); }
+.fw-sens input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fw-preview { margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--ink); font-size: 13px; }
+.fw-preview:empty { display: none; }
+@media (max-width: 699px) {
+  .fw-rule { grid-template-columns: auto minmax(0, 1fr); }
+  .fw-act { grid-column: 1 / -1; justify-content: space-between; }
+  .fw-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fw-sensrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

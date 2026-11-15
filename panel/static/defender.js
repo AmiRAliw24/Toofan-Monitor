@@ -186,7 +186,7 @@
   const tt = (k, i, vars) => { const v = t(k); const s = Array.isArray(v) ? v[i] : v; return vars ? Object.entries(vars).reduce((a, [x, y]) => a.replace(`{${x}}`, y), s) : s; };
 
   // ---------------------------------------------------------------- state
-  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["countries", "globe"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
+  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["rules", "rule"], ["lists", "list"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
   const store = { get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } } };
   const D = { tab: store.get("df_tab", "overview"), st: null, err: "", samples: [], lastT: 0, timer: null, ticks: 0, fw: null, talkers: [], events: [], root: null, heroKey: "" };
   if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
@@ -214,7 +214,6 @@
     root.addEventListener("submit", onSubmit);
     root.addEventListener("input", (e) => {
       if (e.target.id === "df-ban-filter") filterBans(e.target.value);
-      if (e.target.id === "df-geo-q") { D.geoQ = e.target.value; clearTimeout(D.geoT); D.geoT = setTimeout(() => repaintGeo(true), 120); }
     });
     if (D.st) { paintPending(D.st.pending); showTab(D.tab); }
     clearInterval(D.timer);
@@ -250,6 +249,10 @@
       if (D.tab === "overview") {
         paintLive();
         if (D.ticks % 5 === 0) refreshOverviewSlow();
+      }
+      if (D.tab === "rules" && D.ticks % 5 === 0 && !document.querySelector("dialog[open]")) {
+        const fr = await api("/api/defender/fwrules").catch(() => null);
+        if (fr && D.tab === "rules") { D.rules = fr.rules; D.ruleHits = fr.hits || {}; repaintRules(); }
       }
     } catch (e) { /* the next tick tries again */ }
   }
@@ -700,41 +703,6 @@
   const ccEnglish = (cc) => { try { enNames = enNames || new Intl.DisplayNames(["en"], { type: "region" }); return enNames.of(cc.toUpperCase()) || ""; } catch (e) { return ""; } };
   const flag = (cc) => String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e6 - 65 + c.charCodeAt(0)));
 
-  async function renderCountries() {
-    const g = await api("/api/defender/geo");
-    if (!D.geo) D.geo = [...g.block];
-    D.geoInfo = g.info || {};
-    return countriesHTML();
-  }
-  function countriesHTML() {
-    const sel = new Set(D.geo), saved = JSON.stringify([...(D.st.config.geo || { block: [] }).block].sort());
-    const dirty = JSON.stringify([...D.geo].sort()) !== saved;
-    const chips = D.geo.length ? D.geo.map((cc) => `<span class="chip">${flag(cc)} <b>${esc(ccName(cc))}</b>${D.geoInfo[cc] ? `<small class="muted">${esc(t("df_geo_ranges", { n: nf(D.geoInfo[cc].ranges, 0) }))}</small>` : ""}<button type="button" class="chip-x" data-a="geo-del" data-cc="${cc}" aria-label="${esc(t("df_remove"))} ${esc(ccName(cc))}">${icon("x")}</button></span>`).join("")
-      : `<span class="muted">${esc(t("df_geo_none"))}</span>`;
-    const q = (D.geoQ || "").trim().toLowerCase();
-    const list = COUNTRIES.map((cc) => [cc, ccName(cc)]).filter(([cc, n]) => !q || cc.includes(q) || n.toLowerCase().includes(q) || ccEnglish(cc).toLowerCase().includes(q)).sort((a, b) => a[1].localeCompare(b[1], P.state.lang))
-      .map(([cc, n]) => `<label class="geo-item${sel.has(cc) ? " on" : ""}"><input type="checkbox" data-geo="${cc}" ${sel.has(cc) ? "checked" : ""}><span class="geo-flag">${flag(cc)}</span><span>${esc(n)}</span><code>${cc.toUpperCase()}</code></label>`).join("");
-    return `<section class="sec"><div class="sec-head"><h3>${icon("globe")}${esc(t("df_geo_title"))}</h3><p class="muted">${esc(t("df_geo_sub"))}</p></div>
-        <div class="notice warn">${icon("alert")}<span>${esc(t("df_geo_warn"))}</span></div>
-        ${D.st.enabled ? "" : `<div class="notice">${icon("bell")}<span>${esc(t("df_geo_off"))}</span></div>`}
-        <h4 class="df-h4">${esc(t("df_geo_selected"))}</h4><div class="chips">${chips}</div></section>
-      <section class="sec"><div class="sec-head df-head-row"><h3>${icon("list")}${esc(t("df_geo_all"))}</h3>
-        <input type="search" class="df-filter" id="df-geo-q" value="${esc(D.geoQ || "")}" placeholder="${esc(t("df_geo_search"))}" aria-label="${esc(t("df_geo_search"))}"></div>
-        <div class="geo-grid" id="df-geo-list">${list}</div></section>
-      ${dirty ? `<div class="df-actions dirty"><span class="muted">${esc(t("df_dirty"))}</span>
-        <button type="button" class="btn" data-a="geo-reset">${esc(t("df_discard"))}</button>
-        <button type="button" class="btn primary" data-a="geo-apply">${icon("check")}<span>${esc(t("df_apply"))}</span></button></div>` : ""}`;
-  }
-  const repaintGeo = (keepFocus) => {
-    const b = D.root.querySelector("#df-body");
-    if (!b || D.tab !== "countries") return;
-    const scroll = b.querySelector("#df-geo-list") ? b.querySelector("#df-geo-list").scrollTop : 0;
-    b.innerHTML = countriesHTML();
-    const listEl = b.querySelector("#df-geo-list");
-    if (listEl) listEl.scrollTop = scroll;
-    if (keepFocus) { const inp = b.querySelector("#df-geo-q"); inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
-  };
-
   // ---------------------------------------------------------------- fail2ban
   const fmtSecs = (s) => {
     s = Number(s);
@@ -922,7 +890,7 @@
     try { data = JSON.parse(await file.text()); } catch (e) { return toast(t("df_import_bad"), "bad"); }
     if (!data || data.app !== "server-monitor-firewall") return toast(t("df_import_bad"), "bad");
     if (!(await confirmBox({ message: t("df_import_confirm", { name: file.name }), label: t("df_import"), danger: false }))) return;
-    if (await apply(null, "import", { data })) { D.fw = null; D.geo = null; rerender(); }
+    if (await apply(null, "import", { data })) { D.fw = null; D.adv = null; rerender(); }
   }
 
   // ---------------------------------------------------------------- full control: jail editor, files, advanced
@@ -1130,7 +1098,188 @@
     D.adv._cdn = el.trust_cdn.checked;
   }
 
-  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, countries: renderCountries, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
+  // ---------------------------------------------------------------- firewall rules (country / address / port → action)
+  P.addStrings({
+    df_t_rules: "Rules", df_r_title: "Firewall rules",
+    df_r_sub: "Decide what happens to new connections by country, address, protocol and port, like the firewall rules of Cloudflare or ArvanCloud. Rules run from top to bottom; the first Allow or Block that matches decides.",
+    df_r_exempt: "Logged-in SSH users, the allowlist and Cloudflare (when trusted) are never affected by these rules.", df_r_off: "Protection is off, so the rules are saved but not active. Turn it on in the Overview tab.",
+    df_r_new: "New rule", df_r_templates: "Start from a template", df_r_empty: "No rules yet. Pick a template above or create a rule.",
+    df_r_tpl_block: "Block countries", df_r_tpl_only: "Allow only some countries", df_r_tpl_strict: "Strict limit for countries", df_r_tpl_allow: "Always allow an address", df_r_tpl_port: "Close a port to everyone else",
+    df_r_name: "Rule name", df_r_when: "When the connection…", df_r_then: "Then", df_r_country: "Comes from", df_r_addr: "Comes from the address", df_r_proto: "Uses the protocol", df_r_ports: "Goes to ports",
+    df_r_any_country: "any country", df_r_in: "one of these", df_r_not_in: "none of these", df_r_any_addr: "any address", df_r_any_proto: "any protocol", df_r_ping: "Ping (ICMP)",
+    df_r_ports_hint: "For example 22 or 80,443 or 8000-8100. Empty = every port.", df_r_ips_hint: "One address or network per line (203.0.113.7, 203.0.113.0/24, 2001:db8::/32).",
+    df_r_search: "Search countries…", df_r_selected: "{n} selected",
+    df_r_a_allow: "Allow", df_r_a_block: "Block", df_r_a_limit: "Limit", df_r_a_log: "Count only",
+    df_r_a_allow_d: "Always let it through, past the flood limits and strict mode.", df_r_a_block_d: "Drop it. The sender gets no answer.",
+    df_r_a_limit_d: "Allow, but each address may only open a few new connections per second.", df_r_a_log_d: "Do nothing, only count the matching traffic (to test a rule first).",
+    df_r_sens: "Sensitivity", df_r_s_low: "Low", df_r_s_medium: "Medium", df_r_s_high: "High", df_r_s_vhigh: "Very high", df_r_s_custom: "Custom",
+    df_r_per_s: "new connections per second per address", df_r_burst: "Short bursts up to", df_r_ban: "Ban addresses that go over it", df_r_ban_no: "No, only slow them down",
+    df_r_need_cond: "Pick at least one condition (country, address, protocol or port).", df_r_need_country: "Pick at least one country.", df_r_need_ip: "Enter at least one address.",
+    df_r_hits: "{n} packets", df_r_hits_none: "no matches yet", df_r_up: "Move up", df_r_down: "Move down", df_r_dup: "Duplicate", df_r_delete_confirm: "Delete the rule \"{name}\"?", df_r_copy: "copy",
+    df_r_if: "If", df_r_and: "and", df_r_country_is: "country is {list}", df_r_country_not: "country is not {list}", df_r_addr_is: "address is {list}", df_r_addr_not: "address is not {list}",
+    df_r_proto_is: "protocol is {p}", df_r_ports_is: "port is {list}", df_r_arrow: "→", df_r_limit_sum: "limit to {rate}/s per address", df_r_ban_sum: "ban for {m} min",
+    df_r_saved: "Rules applied", df_r_disabled: "Off",
+  }, {
+    df_t_rules: "قوانین", df_r_title: "قوانین فایروال",
+    df_r_sub: "تعیین کنید با اتصال‌های جدید بر اساس کشور، آدرس، پروتکل و پورت چه شود؛ مثل قوانین فایروال Cloudflare یا ابر آروان. قوانین از بالا به پایین اجرا می‌شوند و اولین «اجازه» یا «مسدود» که بخورد تصمیم می‌گیرد.",
+    df_r_exempt: "کاربرهای واردشده با SSH، لیست سفید و Cloudflare (اگر مورد اعتماد باشد) هرگز تحت تأثیر این قوانین نیستند.", df_r_off: "محافظت خاموش است؛ قوانین ذخیره می‌شوند ولی فعال نیستند. از تب نمای کلی روشنش کنید.",
+    df_r_new: "قانون جدید", df_r_templates: "شروع از یک الگو", df_r_empty: "هنوز قانونی نیست. یک الگو از بالا انتخاب کنید یا قانون جدید بسازید.",
+    df_r_tpl_block: "مسدود کردن کشورها", df_r_tpl_only: "فقط چند کشور وصل شوند", df_r_tpl_strict: "محدودیت سخت برای کشورها", df_r_tpl_allow: "همیشه اجازه به یک آدرس", df_r_tpl_port: "بستن یک پورت برای بقیه",
+    df_r_name: "نام قانون", df_r_when: "وقتی اتصال…", df_r_then: "آن‌وقت", df_r_country: "از کشور", df_r_addr: "از آدرس", df_r_proto: "با پروتکل", df_r_ports: "به پورت",
+    df_r_any_country: "هر کشوری", df_r_in: "یکی از این‌ها", df_r_not_in: "هیچ‌کدام از این‌ها", df_r_any_addr: "هر آدرسی", df_r_any_proto: "هر پروتکلی", df_r_ping: "پینگ (ICMP)",
+    df_r_ports_hint: "مثلاً 22 یا 80,443 یا 8000-8100. خالی = همه‌ی پورت‌ها.", df_r_ips_hint: "هر خط یک آدرس یا شبکه (203.0.113.7، 203.0.113.0/24، 2001:db8::/32).",
+    df_r_search: "جستجوی کشور…", df_r_selected: "{n} انتخاب‌شده",
+    df_r_a_allow: "اجازه", df_r_a_block: "مسدود", df_r_a_limit: "محدود", df_r_a_log: "فقط شمارش",
+    df_r_a_allow_d: "همیشه رد شود، حتی از محدودیت‌های فلاد و حالت سخت‌گیر.", df_r_a_block_d: "دور ریخته شود. فرستنده هیچ جوابی نمی‌گیرد.",
+    df_r_a_limit_d: "اجازه، ولی هر آدرس فقط چند اتصال جدید در ثانیه.", df_r_a_log_d: "کاری نکن، فقط ترافیک منطبق را بشمار (برای آزمایش یک قانون).",
+    df_r_sens: "حساسیت", df_r_s_low: "کم", df_r_s_medium: "متوسط", df_r_s_high: "زیاد", df_r_s_vhigh: "خیلی زیاد", df_r_s_custom: "دلخواه",
+    df_r_per_s: "اتصال جدید در ثانیه برای هر آدرس", df_r_burst: "جهش کوتاه تا", df_r_ban: "آدرس‌هایی که از آن رد شوند مسدود شوند", df_r_ban_no: "نه، فقط کندشان کن",
+    df_r_need_cond: "حداقل یک شرط (کشور، آدرس، پروتکل یا پورت) انتخاب کنید.", df_r_need_country: "حداقل یک کشور انتخاب کنید.", df_r_need_ip: "حداقل یک آدرس وارد کنید.",
+    df_r_hits: "{n} بسته", df_r_hits_none: "هنوز منطبقی نبوده", df_r_up: "بالاتر", df_r_down: "پایین‌تر", df_r_dup: "کپی", df_r_delete_confirm: "قانون «{name}» حذف شود؟", df_r_copy: "کپی",
+    df_r_if: "اگر", df_r_and: "و", df_r_country_is: "کشور {list} باشد", df_r_country_not: "کشور {list} نباشد", df_r_addr_is: "آدرس {list} باشد", df_r_addr_not: "آدرس {list} نباشد",
+    df_r_proto_is: "پروتکل {p} باشد", df_r_ports_is: "پورت {list} باشد", df_r_arrow: "←", df_r_limit_sum: "محدود به {rate} در ثانیه برای هر آدرس", df_r_ban_sum: "مسدودی {m} دقیقه",
+    df_r_saved: "قوانین اعمال شد", df_r_disabled: "خاموش",
+  });
+  P.addIcons({ rule: '<path d="M4 5h16l-6 7.5V19l-4 1.5v-8L4 5z"/>', up: '<path d="m6 15 6-6 6 6"/>', down2: '<path d="m6 9 6 6 6-6"/>', dup: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>' });
+
+  const SENS = { low: [100, 200], medium: [30, 60], high: [10, 20], vhigh: [3, 6] };
+  const sensOf = (L) => Object.keys(SENS).find((k) => SENS[k][0] === L.rate && SENS[k][1] === L.burst) || "custom";
+  const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(3)), (b) => b.toString(16).padStart(2, "0")).join("");
+  const blankRule = (over = {}) => ({ id: newId(), name: "", enabled: true, countries: [], country_mode: "in", ips: [], ip_mode: "in", proto: "any", ports: "", action: "block", limit: { rate: 10, burst: 20, ban: 0 }, ...over });
+  const TEMPLATES = {
+    block: () => blankRule({ name: t("df_r_tpl_block"), action: "block", _c: true }),
+    only: () => blankRule({ name: t("df_r_tpl_only"), country_mode: "not_in", action: "block", _c: true }),
+    strict: () => blankRule({ name: t("df_r_tpl_strict"), action: "limit", limit: { rate: 3, burst: 6, ban: 60 }, _c: true }),
+    allow: () => blankRule({ name: t("df_r_tpl_allow"), action: "allow", _a: true }),
+    port: () => blankRule({ name: t("df_r_tpl_port"), ip_mode: "not_in", proto: "tcp", action: "block", _a: true }),
+  };
+
+  const shortList = (items, f = (x) => x) => (items.length > 3 ? `${items.slice(0, 3).map(f).join("، ")} +${items.length - 3}` : items.map(f).join("، "));
+  function summary(r) {
+    const c = [];
+    if (r.countries.length) c.push(t(r.country_mode === "not_in" ? "df_r_country_not" : "df_r_country_is", { list: shortList(r.countries, ccName) }));
+    if (r.ips.length) c.push(t(r.ip_mode === "not_in" ? "df_r_addr_not" : "df_r_addr_is", { list: shortList(r.ips) }));
+    if (r.proto !== "any") c.push(t("df_r_proto_is", { p: r.proto === "icmp" ? t("df_r_ping") : r.proto.toUpperCase() }));
+    if (r.ports) c.push(t("df_r_ports_is", { list: r.ports.replace(/,/g, "، ") }));
+    let act = t(`df_r_a_${r.action}`);
+    if (r.action === "limit") act = t("df_r_limit_sum", { rate: r.limit.rate }) + (r.limit.ban ? ` · ${t("df_r_ban_sum", { m: r.limit.ban })}` : "");
+    return `${t("df_r_if")} ${c.join(` ${t("df_r_and")} `)} ${t("df_r_arrow")} ${act}`;
+  }
+  const ACT_TONE = { allow: "ok", block: "bad", limit: "warn", log: "" };
+
+  async function renderRules() {
+    const r = await api("/api/defender/fwrules");
+    D.rules = r.rules;
+    D.ruleHits = r.hits || {};
+    return rulesHTML();
+  }
+  function rulesHTML() {
+    const tpl = Object.keys(TEMPLATES).map((k) => `<button type="button" class="btn small" data-a="r-tpl" data-tpl="${k}">${icon("plus")}<span>${esc(t(`df_r_tpl_${k}`))}</span></button>`).join("");
+    const list = D.rules.length ? `<ol class="fw-rules">${D.rules.map((r, i) => {
+      const hits = D.ruleHits[r.id];
+      return `<li class="fw-rule${r.enabled ? "" : " off"}"><span class="fw-n">${num(i + 1)}</span>
+        <div class="fw-main"><div class="fw-top"><b>${esc(r.name)}</b>${pill(ACT_TONE[r.action], t(`df_r_a_${r.action}`))}${r.enabled ? "" : pill("", t("df_r_disabled"), false)}</div>
+          <p class="fw-sum">${esc(summary(r))}</p>
+          <small class="muted">${hits && hits.packets ? esc(t("df_r_hits", { n: nf(hits.packets, 0) })) : esc(t("df_r_hits_none"))}</small></div>
+        <div class="fw-act"><label class="switch" title="${esc(r.enabled ? t("df_f2b_on") : t("df_f2b_off"))}"><input type="checkbox" data-rule-toggle="${i}" ${r.enabled ? "checked" : ""} aria-label="${esc(r.name)}"><span></span></label>
+          <div class="row-actions">${btnIcon("up", t("df_r_up"), `data-a="r-move" data-i="${i}" data-d="-1" ${i ? "" : "disabled"}`)}${btnIcon("down2", t("df_r_down"), `data-a="r-move" data-i="${i}" data-d="1" ${i < D.rules.length - 1 ? "" : "disabled"}`)}
+          ${btnIcon("sliders", t("df_j_edit"), `data-a="r-edit" data-i="${i}"`)}${btnIcon("dup", t("df_r_dup"), `data-a="r-dup" data-i="${i}"`)}${btnIcon("trash", t("df_j_delete"), `data-a="r-del" data-i="${i}"`, "danger")}</div></div></li>`;
+    }).join("")}</ol>` : `<div class="empty">${esc(t("df_r_empty"))}</div>`;
+    return `<section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("rule")}${esc(t("df_r_title"))}</h3><p class="muted">${esc(t("df_r_sub"))}</p></div>
+        <button type="button" class="btn primary" data-a="r-new">${icon("plus")}<span>${esc(t("df_r_new"))}</span></button></div>
+        <div class="notice">${icon("shield")}<span>${esc(t("df_r_exempt"))}</span></div>
+        ${D.st.enabled ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_r_off"))}</span></div>`}
+        <h4 class="df-h4">${esc(t("df_r_templates"))}</h4><div class="row-actions fw-tpls">${tpl}</div></section>
+      <section class="sec">${list}</section>`;
+  }
+  const repaintRules = () => { const b = D.root.querySelector("#df-body"); if (b && D.tab === "rules") b.innerHTML = rulesHTML(); };
+
+  async function saveRules(btn, rules) {
+    const ok = await apply(btn, "config", { rules, _what: "rules" }, t("df_r_saved"));
+    if (ok) { D.rules = rules; if (D.tab === "rules") showTab("rules"); }
+    return ok;
+  }
+
+  function ruleEditor(rule, index) {
+    const r = JSON.parse(JSON.stringify(rule));
+    const isNew = index == null;
+    let picked = new Set(r.countries);
+    const cmode = r.countries.length || r._c ? r.country_mode : "any";
+    const amode = r.ips.length || r._a ? r.ip_mode : "any";
+    delete r._c;
+    delete r._a;
+    const sens = sensOf(r.limit);
+    const actCard = (a) => `<label class="fw-actopt ${a}"><input type="radio" name="action" value="${a}" ${r.action === a ? "checked" : ""}><span><b>${esc(t(`df_r_a_${a}`))}</b><small>${esc(t(`df_r_a_${a}_d`))}</small></span></label>`;
+    const sensBtns = ["low", "medium", "high", "vhigh", "custom"].map((k) => `<label class="fw-sens"><input type="radio" name="sens" value="${k}" ${sens === k ? "checked" : ""}><span>${esc(t(`df_r_s_${k}`))}${SENS[k] ? `<small>${SENS[k][0]}/s</small>` : ""}</span></label>`).join("");
+    const dlg = openDialog({
+      title: isNew ? t("df_r_new") : `${r.name} · ${t("df_j_edit")}`, submit: t("df_save"), wide: true,
+      body: `${field(t("df_r_name"), `<input name="name" maxlength="80" value="${esc(r.name)}" required autocomplete="off">`)}
+        <h4 class="fw-h">${esc(t("df_r_when"))}</h4>
+        <div class="fw-cond"><div class="field-row">${field(t("df_r_country"), `<select name="cmode"><option value="any">${esc(t("df_r_any_country"))}</option><option value="in" ${cmode === "in" ? "selected" : ""}>${esc(t("df_r_in"))}</option><option value="not_in" ${cmode === "not_in" ? "selected" : ""}>${esc(t("df_r_not_in"))}</option></select>`)}
+          <div class="field fw-cc-count"><label>&nbsp;</label><span class="muted" data-cc-count></span></div></div>
+          <div class="fw-cc" ${cmode === "any" ? "hidden" : ""}><div class="chips" data-cc-chips></div>
+            <input type="search" class="df-filter" data-cc-q placeholder="${esc(t("df_r_search"))}" aria-label="${esc(t("df_r_search"))}"><div class="geo-grid fw-cc-list" data-cc-list></div></div></div>
+        <div class="fw-cond">${field(t("df_r_addr"), `<select name="amode"><option value="any">${esc(t("df_r_any_addr"))}</option><option value="in" ${amode === "in" ? "selected" : ""}>${esc(t("df_r_in"))}</option><option value="not_in" ${amode === "not_in" ? "selected" : ""}>${esc(t("df_r_not_in"))}</option></select>`)}
+          <div class="fw-ips" ${amode === "any" ? "hidden" : ""}>${field("", `<textarea name="ips" dir="ltr" rows="3" spellcheck="false" placeholder="203.0.113.7&#10;198.51.100.0/24">${esc(r.ips.join("\n"))}</textarea>`, t("df_r_ips_hint"))}</div></div>
+        <div class="fw-cond field-row">${field(t("df_r_proto"), `<select name="proto">${[["any", t("df_r_any_proto")], ["tcp", "TCP"], ["udp", "UDP"], ["icmp", t("df_r_ping")]].map(([v, l]) => `<option value="${v}" ${r.proto === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`)}
+          ${field(t("df_r_ports"), `<input name="ports" dir="ltr" value="${esc(r.ports)}" placeholder="22, 80,443, 8000-8100" autocomplete="off">`, t("df_r_ports_hint"))}</div>
+        <h4 class="fw-h">${esc(t("df_r_then"))}</h4><div class="fw-actions">${["allow", "block", "limit", "log"].map(actCard).join("")}</div>
+        <div class="fw-limit" ${r.action === "limit" ? "" : "hidden"}><label class="fw-lbl">${esc(t("df_r_sens"))}</label><div class="fw-sensrow">${sensBtns}</div>
+          <div class="field-row fw-custom" ${sens === "custom" ? "" : "hidden"}>${field(t("df_r_per_s"), `<input type="number" name="rate" min="1" value="${r.limit.rate}" dir="ltr">`)}${field(t("df_r_burst"), `<input type="number" name="burst" min="1" value="${r.limit.burst}" dir="ltr">`)}</div>
+          ${field(t("df_r_ban"), `<select name="ban">${[[0, t("df_r_ban_no")], [10, "10 min"], [60, "1 h"], [360, "6 h"], [1440, "1 d"], [10080, "1 w"]].map(([v, l]) => `<option value="${v}" ${+r.limit.ban === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`)}</div>
+        <p class="fw-preview" data-preview></p>`,
+      onSubmit: async () => {
+        const out = collect();
+        if (!out.countries.length && !out.ips.length && out.proto === "any" && !out.ports) throw new Error(t("df_r_need_cond"));
+        if (dlg.querySelector('[name="cmode"]').value !== "any" && !out.countries.length) throw new Error(t("df_r_need_country"));
+        if (dlg.querySelector('[name="amode"]').value !== "any" && !out.ips.length) throw new Error(t("df_r_need_ip"));
+        const rules = [...D.rules];
+        if (isNew) rules.push(out); else rules[index] = out;
+        if (!(await saveRules(null, rules))) throw new Error("");   // the reason is already shown as a message
+      },
+    });
+    const $q = (s) => dlg.querySelector(s);
+    function collect() {
+      const el = $q("form").elements;
+      const cm = el.cmode.value, am = el.amode.value, sens = el.sens.value;
+      const lim = sens === "custom" ? { rate: +el.rate.value || 1, burst: +el.burst.value || (+el.rate.value || 1) * 2 } : { rate: SENS[sens][0], burst: SENS[sens][1] };
+      return {
+        ...r, name: el.name.value.trim() || t("df_r_new"),
+        countries: cm === "any" ? [] : [...picked], country_mode: cm === "not_in" ? "not_in" : "in",
+        ips: am === "any" ? [] : el.ips.value.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean), ip_mode: am === "not_in" ? "not_in" : "in",
+        proto: el.proto.value, ports: el.proto.value === "icmp" ? "" : el.ports.value.replace(/\s+/g, ""),
+        action: el.action.value, limit: { ...lim, ban: +el.ban.value },
+      };
+    }
+    function paintCountries() {
+      const q = ($q("[data-cc-q]").value || "").trim().toLowerCase();
+      $q("[data-cc-chips]").innerHTML = [...picked].map((cc) => `<span class="chip">${flag(cc)} <b>${esc(ccName(cc))}</b><button type="button" class="chip-x" data-cc-del="${cc}" aria-label="${esc(t("df_remove"))} ${esc(ccName(cc))}">${icon("x")}</button></span>`).join("");
+      $q("[data-cc-count]").textContent = picked.size ? t("df_r_selected", { n: picked.size }) : "";
+      $q("[data-cc-list]").innerHTML = COUNTRIES.map((cc) => [cc, ccName(cc)]).filter(([cc, n]) => !q || cc.includes(q) || n.toLowerCase().includes(q) || ccEnglish(cc).toLowerCase().includes(q))
+        .sort((a, b) => a[1].localeCompare(b[1], P.state.lang))
+        .map(([cc, n]) => `<label class="geo-item${picked.has(cc) ? " on" : ""}"><input type="checkbox" data-cc="${cc}" ${picked.has(cc) ? "checked" : ""}><span class="geo-flag">${flag(cc)}</span><span>${esc(n)}</span><code>${cc.toUpperCase()}</code></label>`).join("");
+    }
+    function sync() {
+      const el = $q("form").elements;
+      $q(".fw-cc").hidden = el.cmode.value === "any";
+      $q(".fw-ips").hidden = el.amode.value === "any";
+      el.ports.disabled = el.proto.value === "icmp";
+      $q(".fw-limit").hidden = el.action.value !== "limit";
+      $q(".fw-custom").hidden = el.sens.value !== "custom";
+      const out = collect();
+      $q("[data-preview]").textContent = out.countries.length || out.ips.length || out.proto !== "any" || out.ports ? summary(out) : "";
+    }
+    $q("form").addEventListener("change", (e) => {
+      if (e.target.dataset.cc) { if (e.target.checked) picked.add(e.target.dataset.cc); else picked.delete(e.target.dataset.cc); paintCountries(); }
+      sync();
+    });
+    $q("form").addEventListener("input", (e) => { if (e.target.matches("[data-cc-q]")) paintCountries(); else if (e.target.name === "ips" || e.target.name === "ports" || e.target.name === "rate") sync(); });
+    $q("form").addEventListener("click", (e) => { const x = e.target.closest("[data-cc-del]"); if (x) { e.preventDefault(); picked.delete(x.dataset.ccDel); paintCountries(); sync(); } });
+    paintCountries();
+    sync();
+  }
+
+  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
   const rerender = () => showTab(D.tab);
 
   // ---------------------------------------------------------------- events
@@ -1176,11 +1325,26 @@
       if (await apply(b, "config", { firewall: D.fw, _what: "firewall" })) { D.fw = null; D.prefilled = false; rerender(); }
       return;
     }
-    if (a === "geo-del") { D.geo = D.geo.filter((c) => c !== b.dataset.cc); return repaintGeo(); }
-    if (a === "geo-reset") { D.geo = [...(D.st.config.geo || { block: [] }).block]; return repaintGeo(); }
-    if (a === "geo-apply") {
-      if (await apply(b, "config", { geo: { block: D.geo }, _what: "countries" })) { D.geo = null; rerender(); }
-      return;
+    if (a === "r-new") return ruleEditor(blankRule(), null);
+    if (a === "r-tpl") return ruleEditor(TEMPLATES[b.dataset.tpl](), null);
+    if (a === "r-edit") return ruleEditor(D.rules[+b.dataset.i], +b.dataset.i);
+    if (a === "r-dup") {
+      const src = D.rules[+b.dataset.i];
+      const rules = [...D.rules];
+      rules.splice(+b.dataset.i + 1, 0, { ...JSON.parse(JSON.stringify(src)), id: newId(), name: `${src.name} (${t("df_r_copy")})`, enabled: false });
+      return saveRules(b, rules);
+    }
+    if (a === "r-move") {
+      const i = +b.dataset.i, j = i + +b.dataset.d;
+      if (j < 0 || j >= D.rules.length) return;
+      const rules = [...D.rules];
+      [rules[i], rules[j]] = [rules[j], rules[i]];
+      return saveRules(b, rules);
+    }
+    if (a === "r-del") {
+      const r = D.rules[+b.dataset.i];
+      if (!(await confirmBox({ message: t("df_r_delete_confirm", { name: r.name }), label: t("df_j_delete") }))) return;
+      return saveRules(b, D.rules.filter((_, k) => k !== +b.dataset.i));
     }
     if (a === "f2b-install") {
       if (!(await confirmBox({ message: t("df_f2b_install_confirm"), label: t("df_f2b_install"), danger: false }))) return;
@@ -1242,10 +1406,11 @@
 
   async function onChange(e) {
     const el = e.target;
-    if (el.dataset.geo) {
-      const cc = el.dataset.geo;
-      D.geo = el.checked ? [...new Set([...D.geo, cc])] : D.geo.filter((c) => c !== cc);
-      return repaintGeo();
+    if (el.dataset.ruleToggle !== undefined) {
+      const rules = D.rules.map((r, k) => (k === +el.dataset.ruleToggle ? { ...r, enabled: el.checked } : r));
+      el.disabled = true;
+      if (!(await saveRules(el, rules))) { el.checked = !el.checked; el.disabled = false; }
+      return;
     }
     if (el.dataset.jailToggle) {
       const name = el.dataset.jailToggle, on = el.checked;

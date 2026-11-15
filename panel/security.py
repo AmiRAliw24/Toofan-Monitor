@@ -274,7 +274,8 @@ class Log:
 
     def known_ip(self, ip, days=30):
         cutoff = time.time() - days * 86400
-        return any(r["kind"] == "login" and r.get("ip") == ip and r["t"] > cutoff for r in list(self.rows)[:-1])
+        with _lock:   # called before this login is logged, so every earlier row counts
+            return any(r["kind"] == "login" and r.get("ip") == ip and r["t"] > cutoff for r in self.rows)
 
 
 class Settings:
