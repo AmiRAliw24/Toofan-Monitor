@@ -34,6 +34,8 @@ import f2b  # noqa: E402
 import geo  # noqa: E402
 import hostinfo  # noqa: E402
 import nftrules  # noqa: E402
+import sshmgr  # noqa: E402
+import threat  # noqa: E402
 
 VERSION = "1.0"
 DATA = os.environ.get("DATA_DIR", "/data")
@@ -61,6 +63,7 @@ DEFAULT = {
     "trust_cdn": True,
     "geo": {"block": []},     # replaced by "rules" (kept so old backups still import)
     "rules": [],              # user firewall rules, see validate_rule
+    "threat": {"feeds": []},  # threat-intelligence blocklists that are on (see threat.FEEDS)
     # Expert settings (Advanced tab). Everything that used to be fixed can be changed here.
     "advanced": {
         "rollback_seconds": 60,       # 0 = apply changes without the safety test
@@ -187,7 +190,9 @@ def ruleset(cfg=None):
         if rule.get("enabled", True) and rule.get("countries"):
             z4, z6, _ = geo.build(DATA, rule["countries"], download=False)
             zones[rule["id"]] = (z4, z6)
-    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones)
+    t4, t6 = threat.build(DATA, cfg.get("threat", {}).get("feeds", []), download=False)
+    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones,
+                          t4, t6, hostinfo.public_iface())
 
 
 def apply(cfg=None):
@@ -222,6 +227,8 @@ def change(mutator, rollback=True, what="config"):
                     codes.update(rule.get("countries") or [])
             if codes:
                 geo.build(DATA, sorted(codes), download=True)   # raises before anything changes
+            if new["threat"]["feeds"]:
+                threat.build(DATA, new["threat"]["feeds"], download=True)
         try:
             apply(new)
         except Exception as e:
@@ -323,6 +330,7 @@ def validate(cfg):
             e["note"] = str(e.get("note", ""))[:80]
         if len(cfg[lst]) > 100000:
             raise ValueError("list too long")
+    cfg["threat"]["feeds"] = [f for f in dict.fromkeys(cfg["threat"].get("feeds") or []) if f in threat.FEEDS]
     rules = cfg.get("rules") or []
     if not isinstance(rules, list) or len(rules) > 300:
         raise ValueError("At most 300 rules")
@@ -391,6 +399,22 @@ def validate_rule(r):
     if act not in ("allow", "block", "limit", "log"):
         raise ValueError(f"{out['name']}: unknown action")
     out["action"] = act
+    out["direction"] = "out" if r.get("direction") == "out" else "in"
+    if out["direction"] == "out" and act == "limit":
+        raise ValueError(f"{out['name']}: outgoing rules can allow, block or count, not limit")
+    sched = r.get("schedule")
+    if sched:
+        days = sorted({int(d) for d in sched.get("days") or [] if str(d).isdigit() and 0 <= int(d) <= 6})
+        frm, to = str(sched.get("from", "00:00")), str(sched.get("to", "23:59"))
+        if not days or not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", frm) or not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", to) or frm == to:
+            raise ValueError(f"{out['name']}: pick days and two different times (HH:MM)")
+        out["schedule"] = {"days": days, "from": frm, "to": to}
+    else:
+        out["schedule"] = None
+    try:
+        out["expires"] = max(0, int(r.get("expires") or 0))
+    except (TypeError, ValueError):
+        raise ValueError(f"{out['name']}: invalid expiry")
     lim = r.get("limit") or {}
     try:
         rate, burst, ban = int(lim.get("rate", 10)), int(lim.get("burst", 0) or 0), int(lim.get("ban", 0) or 0)
@@ -577,7 +601,7 @@ def ssh_stats():
 
 # ------------------------------------------------------------------ live statistics and attack detection
 
-DROP_KEYS = ("block", "ban", "geo", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc", "udp", "icmp", "autoban")
+DROP_KEYS = ("block", "ban", "geo", "threat", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc", "udp", "icmp", "autoban")
 
 
 def read_counters():
@@ -674,9 +698,34 @@ def stats_loop():
             p = STATE["pending"]
             if p and time.time() > p["until"]:
                 rollback("timeout")
+            if STATE.get("ssh_pending") and time.time() > STATE["ssh_pending"]["until"]:
+                try:
+                    ssh_revert("timeout")
+                except Exception as e:
+                    log("ssh revert", e)
+            if int(t0) % 30 == 0:
+                expire_rules()
         except Exception as e:  # never let the loop die
             log("stats error", type(e).__name__, e)
         time.sleep(max(0.05, 1 - (time.time() - t0)))
+
+
+def expire_rules():
+    """Temporary rules switch themselves off when their time is up."""
+    now = time.time()
+    if not any(r.get("enabled", True) and r.get("expires") and r["expires"] < now for r in CFG["rules"]):
+        return
+    names = [r["name"] for r in CFG["rules"] if r.get("enabled", True) and r.get("expires") and r["expires"] < now]
+
+    def mut(c):
+        for r in c["rules"]:
+            if r.get("enabled", True) and r.get("expires") and r["expires"] < now:
+                r["enabled"] = False
+    try:
+        change(mut, rollback=False, what="rules expired")
+        event("rule_expired", names=names)
+    except Exception as e:
+        log("expire rules", e)
 
 
 def admin_refresh_loop():
@@ -704,7 +753,7 @@ def status():
             "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
             "effective": effective_limits(), "profiles": nftrules.PROFILES,
             "attack": {k: v for k, v in STATE["attack"].items()},
-            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules")},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules", "threat")},
             "allow": CFG["allow"], "block": CFG["block"],
             "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
             "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
@@ -783,6 +832,8 @@ def _cfg_patch(body):
                     c["advanced"][k] = v
         if isinstance(body.get("rules"), list):
             c["rules"] = body["rules"]
+        if isinstance(body.get("threat"), dict) and isinstance(body["threat"].get("feeds"), list):
+            c["threat"]["feeds"] = [str(f) for f in body["threat"]["feeds"]]
         if "geo" in body and isinstance(body["geo"], dict) and "block" in body["geo"]:
             c["geo"]["block"] = [str(x) for x in body["geo"]["block"]][:200]
     return mut
@@ -1043,6 +1094,191 @@ def api_fwrules(q):
     return {"rules": CFG["rules"], "hits": hits, "zones": geo.info(DATA, codes), "enabled": CFG["enabled"]}
 
 
+# ------------------------------------------------------------------ SSH server management
+
+def ssh_busy_ports():
+    return {r["port"] for r in hostinfo.listening() if r["proto"] == "tcp" and r["process"] not in ("sshd", "systemd")}
+
+
+def _f2b_ssh_ports(ports):
+    """fail2ban's sshd jail bans on "port = ssh" (22): keep it on the real SSH ports."""
+    try:
+        if f2b.installed() and f2b.running() and "sshd" in f2b.jail_names():
+            f2b_save(lambda m: m["jails"].setdefault("sshd", {}).update({"port": ",".join(str(p) for p in ports)}), "ssh port")
+            return ""
+    except Exception as e:
+        return f"fail2ban could not be updated: {e}"
+    return ""
+
+
+def api_sshd(q):
+    return {**sshmgr.state(STATE.get("ssh_pending")), "confirm_seconds": sshmgr.CONFIRM_SECONDS}
+
+
+def api_sshd_apply(b):
+    if STATE.get("ssh_pending"):
+        raise ValueError("Keep or undo the previous SSH change first")
+    before = sshmgr.effective()
+    settings = sshmgr.validate(b, ssh_busy_ports())
+    hostinfo._ports_cache["at"] = 0
+
+    def open_ports():   # the firewall must let the new port in before sshd moves there
+        hostinfo._ports_cache["at"] = 0
+        if CFG["enabled"]:
+            apply()
+    with LOCK:
+        old = sshmgr.apply(settings, before_restart=open_ports)
+        STATE["ssh_pending"] = {"until": time.time() + sshmgr.CONFIRM_SECONDS, "old": old, "ports": settings["ports"],
+                                "old_ports": before.get("port", [22])}
+    warn = _f2b_ssh_ports(settings["ports"]) if settings["ports"] != before.get("port", [22]) else ""
+    event("ssh_change", ports=settings["ports"])
+    return {**api_sshd({}), "warning": warn}
+
+
+def api_sshd_confirm(b):
+    with LOCK:
+        if STATE.get("ssh_pending"):
+            STATE["ssh_pending"] = None
+            event("ssh_confirmed")
+    return api_sshd({})
+
+
+def ssh_revert(reason="manual"):
+    with LOCK:
+        p = STATE.get("ssh_pending")
+        if not p:
+            return
+        STATE["ssh_pending"] = None
+        sshmgr.restore(p["old"])
+        hostinfo._ports_cache["at"] = 0
+        if CFG["enabled"]:
+            apply()
+    if p["ports"] != p["old_ports"]:
+        _f2b_ssh_ports(p["old_ports"])
+    event("ssh_reverted", reason=reason)
+
+
+def api_sshd_revert(b):
+    ssh_revert("manual")
+    return api_sshd({})
+
+
+def api_sshd_key_add(b):
+    out = sshmgr.add_key(b.get("key", ""))
+    event("ssh_key", action="added")
+    return {"keys": out}
+
+
+def api_sshd_key_remove(b):
+    out = sshmgr.remove_key(int(b.get("index", -1)), sshmgr.effective().get("passwordauthentication"))
+    event("ssh_key", action="removed")
+    return {"keys": out}
+
+
+# ------------------------------------------------------------------ threat lists
+
+def api_threat(q):
+    hits = read_counters().get("threat")
+    return {"feeds": threat.info(DATA), "enabled": CFG["threat"]["feeds"], "blocked": hits, "protection": CFG["enabled"]}
+
+
+# ------------------------------------------------------------------ "what happens to this address?"
+
+def _in(ip, nets):
+    a = ipaddress.ip_address(ip)
+    for n in nets:
+        try:
+            if a in ipaddress.ip_network(n, strict=False):
+                return n
+        except ValueError:
+            pass
+    return None
+
+
+def country_of(ip):
+    """Country of an address, from the country lists already downloaded (None when not known)."""
+    a = ipaddress.ip_address(ip)
+    d = os.path.join(DATA, "geo")
+    try:
+        names = sorted(os.listdir(d))
+    except OSError:
+        return None
+    for n in names:
+        if n.endswith(f".{a.version}"):
+            for line in open(os.path.join(d, n)):
+                line = line.strip()
+                if line and a in ipaddress.ip_network(line):
+                    return n.split(".")[0]
+    return None
+
+
+def api_test(b):
+    ip = net_str(parse_net(b.get("ip", ""), allow_any=True))
+    if "/" in ip:
+        raise ValueError("Enter a single address")
+    port = int(b.get("port") or 0)
+    proto = b.get("proto") if b.get("proto") in ("tcp", "udp", "icmp") else "tcp"
+    steps, verdict = [], None
+
+    def step(kind, result, **kw):
+        steps.append({"kind": kind, "result": result, **kw})
+        return result
+
+    cc = country_of(ip)
+    if not CFG["enabled"]:
+        return {"ip": ip, "country": cc, "verdict": "allow", "steps": [{"kind": "off", "result": "allow"}]}
+    if CFG.get("trust_logged_in", True) and ip in admin_ips():
+        verdict = step("admin", "allow")
+    if not verdict and _in(ip, [a["ip"] for a in CFG["allow"]]):
+        verdict = step("allowlist", "allow", entry=_in(ip, [a["ip"] for a in CFG["allow"]]))
+    if not verdict and _in(ip, [x["ip"] for x in CFG["block"]]):
+        verdict = step("blocklist", "block", entry=_in(ip, [x["ip"] for x in CFG["block"]]))
+    if not verdict:
+        ban = next((r for r in ban_list() if r["ip"] == ip), None)
+        if ban:
+            verdict = step("fail2ban" if ban["source"] == "fail2ban" else "banned", "block", left=ban["left"], jail=ban.get("jail"), source=ban["source"])
+    adv = CFG["advanced"]
+    if not verdict and port in PANEL_PORTS and proto == "tcp" and adv.get("panel_allow") and not _in(ip, adv["panel_allow"]):
+        verdict = step("panel_allow", "block")
+    if not verdict and CFG.get("trust_cdn", True) and _in(ip, list(nftrules.CDN4) + list(nftrules.CDN6)):
+        verdict = step("cdn", "allow")
+    if not verdict:
+        feeds = threat.member(DATA, CFG["threat"]["feeds"], ip)
+        if feeds:
+            verdict = step("threat", "block", feeds=feeds)
+    if not verdict:
+        for r in CFG["rules"]:
+            if not r.get("enabled", True) or r.get("direction") == "out":
+                continue
+            if r["countries"]:
+                inside = cc in r["countries"] if cc else None
+                if inside is None and r["country_mode"] == "in":
+                    continue
+                if inside is not None and inside != (r["country_mode"] == "in"):
+                    continue
+            if r["ips"] and bool(_in(ip, r["ips"])) != (r["ip_mode"] == "in"):
+                continue
+            if r["proto"] != "any" and r["proto"] != proto:
+                continue
+            if r["ports"] and not any(int(x.split("-")[0]) <= port <= int(x.split("-")[-1]) for x in r["ports"].split(",")):
+                continue
+            res = {"allow": "allow", "block": "block", "limit": "limit", "log": "count"}[r["action"]]
+            step("rule", res, name=r["name"], schedule=r.get("schedule"), limit=r.get("limit") if r["action"] == "limit" else None)
+            if res in ("allow", "block"):
+                verdict = res
+                break
+    fw = CFG["firewall"]
+    if not verdict and fw["mode"] == "strict" and proto in ("tcp", "udp") and port:
+        locked = proto == "tcp" and adv.get("lock_ports", True) and (port in hostinfo.ssh_ports() or port in PANEL_PORTS)
+        listed = any(_port_match(p, {"proto": proto, "port": port}) for p in fw["ports"]) or any(
+            p.get("from") and _in(ip, [p["from"]]) and _port_match(dict(p, **{"from": ""}), {"proto": proto, "port": port}) for p in fw["ports"])
+        if not (locked or listed):
+            verdict = step("strict", "block", port=port)
+    if not verdict:
+        verdict = step("limits", "allow", limits=effective_limits())
+    return {"ip": ip, "country": cc, "port": port, "proto": proto, "verdict": verdict, "steps": steps}
+
+
 def api_geo(q):
     return {"block": CFG["geo"]["block"], "info": geo.info(DATA, CFG["geo"]["block"])}
 
@@ -1052,6 +1288,12 @@ def geo_refresh_loop():
     while True:
         time.sleep(6 * 3600)
         try:
+            feeds = CFG["threat"]["feeds"]
+            if feeds and CFG["enabled"]:
+                before_t = threat.info(DATA)
+                threat.build(DATA, feeds, download=True)
+                if threat.info(DATA) != before_t and not STATE["pending"]:
+                    apply()
             codes = sorted(set(CFG["geo"]["block"]) | {c for r in CFG["rules"] if r.get("enabled", True) for c in r.get("countries") or []})
             if not codes or not CFG["enabled"]:
                 continue
@@ -1064,7 +1306,7 @@ def geo_refresh_loop():
 
 
 EXPORT_KEYS = ("enabled", "profile", "limits", "auto_escalate", "ddos", "firewall", "allow", "block", "ssh_guard",
-               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules")
+               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules", "threat")
 
 
 def api_export(q):
@@ -1116,6 +1358,8 @@ GET = {
     "/f2b/file": lambda q: f2b.file_read(q.get("path")),
     "/geo": api_geo,
     "/fwrules": api_fwrules,
+    "/sshd": api_sshd,
+    "/threat": api_threat,
     "/export": api_export,
 }
 POST = {
@@ -1139,6 +1383,12 @@ POST = {
     "/f2b/ban": api_f2b_ban,
     "/f2b/unban": api_f2b_unban,
     "/import": api_import,
+    "/sshd/apply": api_sshd_apply,
+    "/sshd/confirm": api_sshd_confirm,
+    "/sshd/revert": api_sshd_revert,
+    "/sshd/key/add": api_sshd_key_add,
+    "/sshd/key/remove": api_sshd_key_remove,
+    "/test": api_test,
 }
 
 

@@ -350,7 +350,7 @@ __MONITORING_EOF__
 <td width="50%" valign="top">
 
 ### 🩺 هوشمند
-- 🛡️ **فایروال**: ضد DDoS، قوانین کشور/آدرس/پورت مثل Cloudflare، مدیریت کامل fail2ban، محافظ SSH و سخت‌سازی سرور با تشخیص خودکار حمله
+- 🛡️ **فایروال**: ضد DDoS، قوانین کشور/آدرس/پورت مثل Cloudflare، مدیریت کامل fail2ban، مدیریت SSH (پورت، کلیدها، ورود با رمز)، لیست‌های تهدید، قوانین خروجی و زمان‌دار، محافظ SSH و سخت‌سازی سرور با تشخیص خودکار حمله
 - 🔍 **«چرا این سایت خراب است؟»** با توضیح ساده
 - 🪄 **رفع خودکار** سایتی که چک استاندارد را رد می‌کند
 - ⏳ هشدار **انقضای SSL**
@@ -455,7 +455,7 @@ ssh root@SERVER 'bash install.sh'
 | 📡 | **شبکه** | کارت‌های شبکه و مصرف کامل آپلود/دانلود |
 | 🎯 | **تارگت‌ها** | وضعیت منابعی که Prometheus از آن‌ها داده می‌گیرد |
 | 🚨 | **هشدارها** | هشدارهای فعال و در انتظار |
-| 🛡️ | **فایروال** | ضد DDoS، قوانین، لیست آی‌پی‌ها، محافظ SSH، fail2ban و امتیاز امنیت (پایین‌تر کامل توضیح داده شده) |
+| 🛡️ | **فایروال** | ضد DDoS، قوانین، لیست آی‌پی‌ها و لیست‌های تهدید، مدیریت SSH، fail2ban و امتیاز امنیت (پایین‌تر کامل توضیح داده شده) |
 | 🖥️ | **سرورها** | افزودن و حذف سرورهای دیگر |
 | 🔔 | **اعلان‌ها** | اتصال و تست تلگرام |
 | 🎚️ | **قوانین هشدار** | روشن/خاموش و تغییر آستانه‌ها |
@@ -567,9 +567,9 @@ ssh root@SERVER 'bash install.sh'
 | 🔥 | **پورت‌ها و قوانین** | حالت **باز** (فقط ترافیک مخرب بسته می‌شود) یا **سخت‌گیر** (فقط پورت‌های مجاز)، لیست سرویس‌هایی که از اینترنت باز هستند، قانون پورت با محدودیت منبع («این پورت فقط از این آی‌پی»)، اینترفیس‌های مورد اعتماد (VPN و تانل)، دیدن قوانین nftables قبل از اعمال |
 | ⚡ | **ضد DDoS** | سه سطح آماده (عادی، سخت‌گیر، زیر حمله) و تنظیم دستی؛ برای هر آی‌پی: SYN فلاد، فلاد اتصال، اتصال هم‌زمان بیش از حد، UDP فلاد، پینگ فلاد، بسته‌های نامعتبر و اسکن پورت. هر کس ۳ برابر حد برود خودکار مسدود می‌شود |
 | 🚨 | **تشخیص حمله** | با دیدن حمله، خودکار به حالت «زیر حمله» می‌رود و ۱۰ دقیقه بعد از پایان برمی‌گردد؛ پیام تلگرام شروع و پایان حمله |
-| 🧭 | **قوانین** | قوانین فایروال مثل Cloudflare و ابر آروان: شرط بر اساس **کشور** (از / نه از این کشورها)، **آدرس** یا شبکه، **پروتکل** و **پورت**، و یکی از کارها: **اجازه** (حتی از محدودیت‌های فلاد رد شود)، **مسدود**، **محدود** با حساسیت کم/متوسط/زیاد/خیلی زیاد یا دلخواه و مسدودی خودکار، یا **فقط شمارش**. قوانین از بالا به پایین اجرا می‌شوند، هر قانون تعداد برخوردهایش را نشان می‌دهد و الگوهای آماده دارد (مسدود کردن کشورها، فقط چند کشور، محدودیت سخت برای کشورها، اجازه به یک آدرس، بستن یک پورت). لیست آی‌پی کشورها از ipdeny.com می‌آید و هر هفته بروز می‌شود؛ ادمین‌ها، لیست سفید و Cloudflare تحت تأثیر نیستند |
-| 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول همه‌ی مسدودها (فلاد، محافظ SSH، دستی و fail2ban با نام جیل) و رفع مسدودی از همان‌جا |
-| 🔑 | **محافظ SSH** | خواندن لاگ ورود و مسدود کردن آی‌پی‌هایی که مدام رمز اشتباه می‌زنند، به‌علاوه‌ی محدودیت اتصال جدید به SSH |
+| 🧭 | **قوانین** | قوانین فایروال مثل Cloudflare و ابر آروان: شرط بر اساس **کشور** (از / نه از این کشورها)، **آدرس** یا شبکه، **پروتکل** و **پورت**، و یکی از کارها: **اجازه** (حتی از محدودیت‌های فلاد رد شود)، **مسدود**، **محدود** با حساسیت کم/متوسط/زیاد/خیلی زیاد یا دلخواه و مسدودی خودکار، یا **فقط شمارش**. قوانین از بالا به پایین اجرا می‌شوند، هر قانون تعداد برخوردهایش را نشان می‌دهد و الگوهای آماده دارد (مسدود کردن کشورها، فقط چند کشور، محدودیت سخت برای کشورها، اجازه به یک آدرس، بستن یک پورت). لیست آی‌پی کشورها از ipdeny.com می‌آید و هر هفته بروز می‌شود؛ ادمین‌ها، لیست سفید و Cloudflare تحت تأثیر نیستند. هر قانون می‌تواند **ورودی یا خروجی** باشد (مثلاً بستن پورت‌های ایمیل خروجی یا ارتباط سرور با یک آدرس)، فقط در **روزها و ساعت‌های مشخص** فعال شود و **تاریخ انقضا** داشته باشد (۱ ساعت تا ۷ روز، بعد خودش خاموش می‌شود) |
+| 📋 | **لیست آی‌پی‌ها** | مسدود موقت (۱ ساعت تا ۷ روز) یا همیشگی، لیست سفید، جدول همه‌ی مسدودها (فلاد، محافظ SSH، دستی و fail2ban با نام جیل) و رفع مسدودی از همان‌جا؛ **بررسی آدرس** (این آی‌پی روی این پورت چه سرنوشتی دارد و کدام قانون تصمیم می‌گیرد، قدم به قدم)؛ **لیست‌های تهدید** با یک کلیک (Spamhaus DROP، FireHOL Level 1، blocklist.de، Emerging Threats، CINS Army) که هر ۱۲ ساعت بروز می‌شوند |
+| 🔑 | **SSH** | **مدیریت سرور SSH**: عوض کردن یا اضافه کردن پورت (تا ۵ پورت)، ورود root (آزاد / فقط با کلید / بسته)، خاموش کردن ورود با رمز، تعداد تلاش، زمان ورود، قطع نشست بی‌کار، فوروارد پورت و X11؛ **مدیریت کلیدهای SSH** کاربر root (افزودن، دیدن اثر انگشت، حذف)؛ و محافظ حمله‌ی رمز که آی‌پی‌هایی که مدام رمز اشتباه می‌زنند را مسدود می‌کند |
 | 🚔 | **fail2ban** | نصب و حذف با یک کلیک، شروع/توقف/ری‌استارت و اجرا هنگام بوت؛ **ساخت، ویرایش کامل (همه‌ی گزینه‌ها: فیلتر، لاگ، پورت، backend، روش مسدودی، …) و حذف جیل‌ها**، و **ویرایشگر همه‌ی فایل‌های /etc/fail2ban** با بررسی و برگشت خودکار؛ هر جیل یک کارت با کلید روشن/خاموش، آمار مسدودها و تنظیمات ساده («۳ خطا در ۳۰ دقیقه ← ۱ ساعت مسدودی»)؛ محافظت‌های آماده (Nginx، Apache، ایمیل، FTP، MySQL، متخلفان تکراری) فقط وقتی آن سرویس هست؛ مسدودی تکراری طولانی‌تر، لیست «هرگز مسدود نشود»، مسدود/رفع مسدودی دستی و لاگ |
 | 🧱 | **سخت‌سازی** | امتیاز امنیت و بررسی‌ها (ورود root با رمز، دیتابیس باز به اینترنت، آپدیت خودکار، ری‌بوت لازم، fail2ban متوقف، …) با راه رفع؛ تنظیمات شبکه‌ی کرنل با یک کلیک (و بازگشت به مقدار اصلی)؛ **پشتیبان‌گیری و بازگردانی** همه‌ی تنظیمات فایروال و fail2ban در یک فایل |
 | 🧪 | **پیشرفته** | دسترسی کامل بدون محدودیت: قوانین دلخواه nftables، محدود کردن پنل به آی‌پی‌های خودتان، آستانه‌های تشخیص حمله، ضریب مسدودی خودکار، محدودیت SSH، مدت آزمایش تغییرات (یا خاموش)، اعتماد به داکر و کاربران SSH، باز ماندن اجباری پورت SSH و پنل (قابل خاموش کردن برای حرفه‌ای‌ها) و تنظیمات دلخواه کرنل |
@@ -580,7 +580,9 @@ ssh root@SERVER 'bash install.sh'
 - آی‌پی کسانی که با SSH وارد شده‌اند (الان یا در ۷ روز اخیر، از جمله اسکریپت‌ها و ابزارهایی که با SSH فرمان می‌زنند) خودکار مجاز است و آدرس خود سرور هرگز مسدود نمی‌شود.
 - آی‌پی‌های **Cloudflare** از محدودیت هر آی‌پی معاف‌اند (قابل خاموش کردن در تب «پورت‌ها و قوانین»)، چون همه‌ی کاربران سایت یا پروکسی پشت Cloudflare از همین آی‌پی‌ها می‌آیند.
 - هر تغییر فایروال **۶۰ ثانیه آزمایش** می‌شود؛ مرورگر بلافاصله تأیید می‌کند و اگر پنل دیگر در دسترس نباشد، تغییر خودش برمی‌گردد.
-- همه‌ی قوانین در یک جدول جدا (`inet defender`) هستند و فقط می‌توانند **محدود کنند**؛ قوانین داکر، fail2ban و ufw دست نمی‌خورند.
+- تغییر **SSH** امن است: تنظیمات در فایل جدای `/etc/ssh/sshd_config.d/00-panel.conf` نوشته و با `sshd -t` بررسی می‌شود، پورت جدید پیش از ری‌استارت در فایروال باز می‌شود، پورت fail2ban هم هم‌زمان عوض می‌شود و نشست‌های باز قطع نمی‌شوند. اگر SSH روی همه‌ی پورت‌ها جواب ندهد همان لحظه برمی‌گردد؛ بعد از تغییر ۵ دقیقه فرصت دارید با تنظیمات جدید وارد شوید و «نگه دار» را بزنید، وگرنه خودکار به حالت قبل برمی‌گردد. خاموش کردن ورود با رمز بدون هیچ کلید SSH و حذف آخرین کلید در این حالت ممکن نیست.
+  > ⚠️ اگر فایروال دیتاسنتر (مثل Hetzner Cloud Firewall) دارید، پورت جدید SSH را اول آن‌جا هم باز کنید.
+- همه‌ی قوانین در یک جدول جدا (`inet defender`) هستند و فقط می‌توانند **محدود کنند** (قوانین خروجی هم فقط ترافیک خود سرور و کانتینرها به اینترنت را می‌بندند)؛ قوانین داکر، fail2ban و ufw دست نمی‌خورند.
 - رفتن به حالت سخت‌گیر، همه‌ی پورت‌هایی که الان استفاده می‌شوند را از قبل در لیست مجاز می‌گذارد.
 - تنظیمات fail2ban که از پنل عوض می‌شوند فقط در فایل جدای `/etc/fail2ban/jail.d/zzz-panel.local` نوشته می‌شوند (فایل‌های خودتان دست نمی‌خورند)؛ هر تغییر اول با `fail2ban-client -t` بررسی می‌شود، بعد از اعمال هم چک می‌شود که همه‌ی جیل‌های روشن واقعاً اجرا شده باشند، و اگر نه فایل‌های قبلی برمی‌گردند. قبل از ویرایش یا حذف هر فایل یک پشتیبان در `/etc/fail2ban/.panel-backup` ذخیره می‌شود.
 
@@ -3332,10 +3334,11 @@ import store
 
 SOCK = os.environ.get("DEFENDER_SOCKET", "/defender/agent.sock")
 GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "rules", "fwrules", "ssh",
-             "f2b", "f2b/bans", "f2b/log", "f2b/jail", "f2b/files", "f2b/file", "geo", "export"}
+             "f2b", "f2b/bans", "f2b/log", "f2b/jail", "f2b/files", "f2b/file", "geo", "export", "sshd", "threat"}
 POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unallow", "unban", "sysctl",
               "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
-              "f2b/file", "f2b/file/delete", "import"}
+              "f2b/file", "f2b/file/delete", "import", "sshd/apply", "sshd/confirm", "sshd/revert", "sshd/key/add",
+              "sshd/key/remove", "test"}
 NOT_RUNNING = ("The firewall service (defender) is not running. On the server run: "
                "cd /opt/server-monitoring && docker compose up -d --build defender")
 JAIL_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
@@ -3504,7 +3507,7 @@ __MONITORING_EOF__
   // ---------------------------------------------------------------- strings
   const EN = {
     df_nav: "Firewall", df_desc: "Firewall, DDoS protection, SSH brute-force guard and server hardening, all in one place. Changes are tested for 60 seconds and undone by themselves if the panel stops answering.",
-    df_t_overview: "Overview", df_t_firewall: "Ports & rules", df_t_ddos: "Anti-DDoS", df_t_lists: "IP lists", df_t_ssh: "SSH guard", df_t_hardening: "Hardening",
+    df_t_overview: "Overview", df_t_firewall: "Ports & rules", df_t_ddos: "Anti-DDoS", df_t_lists: "IP lists", df_t_ssh: "SSH", df_t_hardening: "Hardening",
     df_missing_title: "The firewall service is not running", df_missing_sub: "It is part of the monitoring stack. Re-run install.sh, or on the server run:",
     df_off_title: "Protection is off", df_off_sub: "The firewall is only watching. Turn protection on to block floods, scans and brute force. Nothing is closed: every port that works now keeps working.",
     df_on_title: "Your server is protected", df_on_sub: "Floods, scans and brute force are blocked automatically. Normal traffic is not touched.",
@@ -3588,7 +3591,7 @@ __MONITORING_EOF__
   };
   const FA = {
     df_nav: "فایروال", df_desc: "فایروال، محافظت در برابر DDoS، محافظ SSH و سخت‌سازی سرور در یک جا. هر تغییر ۶۰ ثانیه آزمایش می‌شود و اگر پنل دیگر جواب ندهد، خودش برمی‌گردد.",
-    df_t_overview: "نمای کلی", df_t_firewall: "پورت‌ها و قوانین", df_t_ddos: "ضد DDoS", df_t_lists: "لیست آی‌پی‌ها", df_t_ssh: "محافظ SSH", df_t_hardening: "سخت‌سازی",
+    df_t_overview: "نمای کلی", df_t_firewall: "پورت‌ها و قوانین", df_t_ddos: "ضد DDoS", df_t_lists: "لیست آی‌پی‌ها", df_t_ssh: "SSH", df_t_hardening: "سخت‌سازی",
     df_missing_title: "سرویس فایروال اجرا نمی‌شود", df_missing_sub: "بخشی از استک مانیتورینگ است. install.sh را دوباره اجرا کنید یا روی سرور بزنید:",
     df_off_title: "محافظت خاموش است", df_off_sub: "فایروال فقط نگاه می‌کند. محافظت را روشن کنید تا فلاد، اسکن و حمله‌ی رمز بسته شود. هیچ پورتی بسته نمی‌شود و هر چیزی که الان کار می‌کند، کار می‌کند.",
     df_on_title: "سرور شما محافظت می‌شود", df_on_sub: "فلاد، اسکن و حمله‌ی رمز خودکار بسته می‌شوند. ترافیک عادی دست نمی‌خورد.",
@@ -3732,6 +3735,12 @@ __MONITORING_EOF__
       if (D.tab === "overview") {
         paintLive();
         if (D.ticks % 5 === 0) refreshOverviewSlow();
+      }
+      if (D.tab === "ssh" && D.sv && D.sv.pending) {
+        D.sv.pending.left = Math.max(0, D.sv.pending.left - 2);
+        if (D.sv.pending.left === 0 || D.ticks % 10 === 0) { const fresh = await api("/api/defender/sshd").catch(() => null); if (fresh) D.sv = fresh; }
+        svFormToDraft();
+        repaintSv();
       }
       if (D.tab === "rules" && D.ticks % 5 === 0 && !document.querySelector("dialog[open]")) {
         const fr = await api("/api/defender/fwrules").catch(() => null);
@@ -4602,6 +4611,12 @@ __MONITORING_EOF__
     df_r_if: "If", df_r_and: "and", df_r_country_is: "country is {list}", df_r_country_not: "country is not {list}", df_r_addr_is: "address is {list}", df_r_addr_not: "address is not {list}",
     df_r_proto_is: "protocol is {p}", df_r_ports_is: "port is {list}", df_r_arrow: "→", df_r_limit_sum: "limit to {rate}/s per address", df_r_ban_sum: "ban for {m} min",
     df_r_saved: "Rules applied", df_r_disabled: "Off",
+    df_r_dir: "Direction", df_r_dir_in: "Incoming connections (to this server)", df_r_dir_out: "Outgoing connections (from this server, its containers and VPN users)",
+    df_r_to_country: "Goes to country", df_r_to_addr: "Goes to address", df_r_out_badge: "outgoing", df_r_out_sum: "Outgoing:",
+    df_r_when_active: "Active", df_r_always: "Always", df_r_sched: "Only at these times", df_r_days: "Days", df_r_sched_bad: "Pick at least one day and two different times.", df_r_from: "From", df_r_to: "To",
+    df_r_tz: "Server time (UTC), now {now}.", df_r_expires: "Remove after", df_r_never: "Never (permanent)", df_r_exp_in: "ends in {left}", df_r_expired: "ended",
+    df_r_sched_sum: "{days} {from}–{to}", df_r_every_day: "every day",
+    df_r_tpl_mail: "Block outgoing mail (spam)", df_r_tpl_temp: "Block an address for 24 hours",
   }, {
     df_t_rules: "قوانین", df_r_title: "قوانین فایروال",
     df_r_sub: "تعیین کنید با اتصال‌های جدید بر اساس کشور، آدرس، پروتکل و پورت چه شود؛ مثل قوانین فایروال Cloudflare یا ابر آروان. قوانین از بالا به پایین اجرا می‌شوند و اولین «اجازه» یا «مسدود» که بخورد تصمیم می‌گیرد.",
@@ -4622,19 +4637,28 @@ __MONITORING_EOF__
     df_r_if: "اگر", df_r_and: "و", df_r_country_is: "کشور {list} باشد", df_r_country_not: "کشور {list} نباشد", df_r_addr_is: "آدرس {list} باشد", df_r_addr_not: "آدرس {list} نباشد",
     df_r_proto_is: "پروتکل {p} باشد", df_r_ports_is: "پورت {list} باشد", df_r_arrow: "←", df_r_limit_sum: "محدود به {rate} در ثانیه برای هر آدرس", df_r_ban_sum: "مسدودی {m} دقیقه",
     df_r_saved: "قوانین اعمال شد", df_r_disabled: "خاموش",
+    df_r_dir: "جهت", df_r_dir_in: "اتصال‌های ورودی (به این سرور)", df_r_dir_out: "اتصال‌های خروجی (از این سرور، کانتینرها و کاربران VPN)",
+    df_r_to_country: "به کشور", df_r_to_addr: "به آدرس", df_r_out_badge: "خروجی", df_r_out_sum: "خروجی:",
+    df_r_when_active: "فعال بودن", df_r_always: "همیشه", df_r_sched: "فقط در این زمان‌ها", df_r_days: "روزها", df_r_sched_bad: "دست‌کم یک روز و دو ساعت متفاوت انتخاب کنید.", df_r_from: "از", df_r_to: "تا",
+    df_r_tz: "به وقت سرور (UTC)، الان {now}.", df_r_expires: "حذف خودکار بعد از", df_r_never: "هرگز (دائمی)", df_r_exp_in: "{left} مانده", df_r_expired: "تمام شده",
+    df_r_sched_sum: "{days} {from}–{to}", df_r_every_day: "هر روز",
+    df_r_tpl_mail: "مسدود کردن ایمیل خروجی (اسپم)", df_r_tpl_temp: "مسدود کردن یک آدرس برای ۲۴ ساعت",
   });
   P.addIcons({ rule: '<path d="M4 5h16l-6 7.5V19l-4 1.5v-8L4 5z"/>', up: '<path d="m6 15 6-6 6 6"/>', down2: '<path d="m6 9 6 6 6-6"/>', dup: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>' });
 
   const SENS = { low: [100, 200], medium: [30, 60], high: [10, 20], vhigh: [3, 6] };
   const sensOf = (L) => Object.keys(SENS).find((k) => SENS[k][0] === L.rate && SENS[k][1] === L.burst) || "custom";
   const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(3)), (b) => b.toString(16).padStart(2, "0")).join("");
-  const blankRule = (over = {}) => ({ id: newId(), name: "", enabled: true, countries: [], country_mode: "in", ips: [], ip_mode: "in", proto: "any", ports: "", action: "block", limit: { rate: 10, burst: 20, ban: 0 }, ...over });
+  const blankRule = (over = {}) => ({ id: newId(), name: "", enabled: true, direction: "in", countries: [], country_mode: "in", ips: [], ip_mode: "in", proto: "any", ports: "", action: "block",
+    limit: { rate: 10, burst: 20, ban: 0 }, schedule: null, expires: 0, ...over });
   const TEMPLATES = {
     block: () => blankRule({ name: t("df_r_tpl_block"), action: "block", _c: true }),
     only: () => blankRule({ name: t("df_r_tpl_only"), country_mode: "not_in", action: "block", _c: true }),
     strict: () => blankRule({ name: t("df_r_tpl_strict"), action: "limit", limit: { rate: 3, burst: 6, ban: 60 }, _c: true }),
     allow: () => blankRule({ name: t("df_r_tpl_allow"), action: "allow", _a: true }),
     port: () => blankRule({ name: t("df_r_tpl_port"), ip_mode: "not_in", proto: "tcp", action: "block", _a: true }),
+    mail: () => blankRule({ name: t("df_r_tpl_mail"), direction: "out", proto: "tcp", ports: "25,465,587", action: "block" }),
+    temp: () => blankRule({ name: t("df_r_tpl_temp"), action: "block", _a: true, expires: Math.floor(Date.now() / 1000) + 86400 }),
   };
 
   const shortList = (items, f = (x) => x) => (items.length > 3 ? `${items.slice(0, 3).map(f).join("، ")} +${items.length - 3}` : items.map(f).join("، "));
@@ -4646,8 +4670,13 @@ __MONITORING_EOF__
     if (r.ports) c.push(t("df_r_ports_is", { list: r.ports.replace(/,/g, "، ") }));
     let act = t(`df_r_a_${r.action}`);
     if (r.action === "limit") act = t("df_r_limit_sum", { rate: r.limit.rate }) + (r.limit.ban ? ` · ${t("df_r_ban_sum", { m: r.limit.ban })}` : "");
-    return `${t("df_r_if")} ${c.join(` ${t("df_r_and")} `)} ${t("df_r_arrow")} ${act}`;
+    let sum = `${r.direction === "out" ? `${t("df_r_out_sum")} ` : ""}${t("df_r_if")} ${c.join(` ${t("df_r_and")} `)} ${t("df_r_arrow")} ${act}`;
+    if (r.schedule) sum += ` · ⏰ ${schedText(r.schedule)}`;
+    return sum;
   }
+  const dayName = (d) => { try { return new Intl.DateTimeFormat(P.state.lang === "fa" ? "fa" : "en", { weekday: "short" }).format(new Date(Date.UTC(2024, 0, 7 + d, 12))); } catch (e) { return String(d); } };
+  const schedText = (sc) => t("df_r_sched_sum", { days: sc.days.length === 7 ? t("df_r_every_day") : sc.days.map(dayName).join("، "), from: sc.from, to: sc.to });
+  const leftText = (ts) => { const s = ts - Date.now() / 1000; return s <= 0 ? t("df_r_expired") : t("df_r_exp_in", { left: s > 86400 ? `${nf(s / 86400, 1)}d` : s > 3600 ? `${nf(s / 3600, 1)}h` : `${Math.ceil(s / 60)}m` }); };
   const ACT_TONE = { allow: "ok", block: "bad", limit: "warn", log: "" };
 
   async function renderRules() {
@@ -4661,7 +4690,7 @@ __MONITORING_EOF__
     const list = D.rules.length ? `<ol class="fw-rules">${D.rules.map((r, i) => {
       const hits = D.ruleHits[r.id];
       return `<li class="fw-rule${r.enabled ? "" : " off"}"><span class="fw-n">${num(i + 1)}</span>
-        <div class="fw-main"><div class="fw-top"><b>${esc(r.name)}</b>${pill(ACT_TONE[r.action], t(`df_r_a_${r.action}`))}${r.enabled ? "" : pill("", t("df_r_disabled"), false)}</div>
+        <div class="fw-main"><div class="fw-top"><b>${esc(r.name)}</b>${pill(ACT_TONE[r.action], t(`df_r_a_${r.action}`))}${r.direction === "out" ? `<span class="tag">↗ ${esc(t("df_r_out_badge"))}</span>` : ""}${r.expires ? `<span class="tag">⌛ ${esc(leftText(r.expires))}</span>` : ""}${r.enabled ? "" : pill("", t("df_r_disabled"), false)}</div>
           <p class="fw-sum">${esc(summary(r))}</p>
           <small class="muted">${hits && hits.packets ? esc(t("df_r_hits", { n: nf(hits.packets, 0) })) : esc(t("df_r_hits_none"))}</small></div>
         <div class="fw-act"><label class="switch" title="${esc(r.enabled ? t("df_f2b_on") : t("df_f2b_off"))}"><input type="checkbox" data-rule-toggle="${i}" ${r.enabled ? "checked" : ""} aria-label="${esc(r.name)}"><span></span></label>
@@ -4697,6 +4726,7 @@ __MONITORING_EOF__
     const dlg = openDialog({
       title: isNew ? t("df_r_new") : `${r.name} · ${t("df_j_edit")}`, submit: t("df_save"), wide: true,
       body: `${field(t("df_r_name"), `<input name="name" maxlength="80" value="${esc(r.name)}" required autocomplete="off">`)}
+        ${field(t("df_r_dir"), `<select name="direction"><option value="in">${esc(t("df_r_dir_in"))}</option><option value="out" ${r.direction === "out" ? "selected" : ""}>${esc(t("df_r_dir_out"))}</option></select>`)}
         <h4 class="fw-h">${esc(t("df_r_when"))}</h4>
         <div class="fw-cond"><div class="field-row">${field(t("df_r_country"), `<select name="cmode"><option value="any">${esc(t("df_r_any_country"))}</option><option value="in" ${cmode === "in" ? "selected" : ""}>${esc(t("df_r_in"))}</option><option value="not_in" ${cmode === "not_in" ? "selected" : ""}>${esc(t("df_r_not_in"))}</option></select>`)}
           <div class="field fw-cc-count"><label>&nbsp;</label><span class="muted" data-cc-count></span></div></div>
@@ -4706,6 +4736,11 @@ __MONITORING_EOF__
           <div class="fw-ips" ${amode === "any" ? "hidden" : ""}>${field("", `<textarea name="ips" dir="ltr" rows="3" spellcheck="false" placeholder="203.0.113.7&#10;198.51.100.0/24">${esc(r.ips.join("\n"))}</textarea>`, t("df_r_ips_hint"))}</div></div>
         <div class="fw-cond field-row">${field(t("df_r_proto"), `<select name="proto">${[["any", t("df_r_any_proto")], ["tcp", "TCP"], ["udp", "UDP"], ["icmp", t("df_r_ping")]].map(([v, l]) => `<option value="${v}" ${r.proto === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`)}
           ${field(t("df_r_ports"), `<input name="ports" dir="ltr" value="${esc(r.ports)}" placeholder="22, 80,443, 8000-8100" autocomplete="off">`, t("df_r_ports_hint"))}</div>
+        <div class="fw-cond"><div class="field-row">${field(t("df_r_when_active"), `<select name="smode"><option value="always">${esc(t("df_r_always"))}</option><option value="sched" ${r.schedule ? "selected" : ""}>${esc(t("df_r_sched"))}</option></select>`)}
+          ${field(t("df_r_expires"), `<select name="expires"><option value="0">${esc(t("df_r_never"))}</option>${[[3600, "1 h"], [21600, "6 h"], [86400, "24 h"], [259200, "3 d"], [604800, "7 d"]].map(([v, l]) => `<option value="+${v}">${l}</option>`).join("")}${r.expires ? `<option value="${r.expires}" selected>${esc(leftText(r.expires))}</option>` : ""}</select>`)}</div>
+          <div class="fw-sched" ${r.schedule ? "" : "hidden"}><label class="fw-lbl">${esc(t("df_r_days"))}</label><div class="fw-days">${[0, 1, 2, 3, 4, 5, 6].map((d) => `<label class="fw-sens"><input type="checkbox" name="day" value="${d}" ${!r.schedule || r.schedule.days.includes(d) ? "checked" : ""}><span>${esc(dayName(d))}</span></label>`).join("")}</div>
+            <div class="field-row">${field(t("df_r_from"), `<input type="time" name="tfrom" value="${esc(r.schedule ? r.schedule.from : "09:00")}" dir="ltr">`)}${field(t("df_r_to"), `<input type="time" name="tto" value="${esc(r.schedule ? r.schedule.to : "17:00")}" dir="ltr">`)}</div>
+            <p class="hint">${esc(t("df_r_tz", { now: new Date().toISOString().slice(11, 16) }))}</p></div></div>
         <h4 class="fw-h">${esc(t("df_r_then"))}</h4><div class="fw-actions">${["allow", "block", "limit", "log"].map(actCard).join("")}</div>
         <div class="fw-limit" ${r.action === "limit" ? "" : "hidden"}><label class="fw-lbl">${esc(t("df_r_sens"))}</label><div class="fw-sensrow">${sensBtns}</div>
           <div class="field-row fw-custom" ${sens === "custom" ? "" : "hidden"}>${field(t("df_r_per_s"), `<input type="number" name="rate" min="1" value="${r.limit.rate}" dir="ltr">`)}${field(t("df_r_burst"), `<input type="number" name="burst" min="1" value="${r.limit.burst}" dir="ltr">`)}</div>
@@ -4716,6 +4751,7 @@ __MONITORING_EOF__
         if (!out.countries.length && !out.ips.length && out.proto === "any" && !out.ports) throw new Error(t("df_r_need_cond"));
         if (dlg.querySelector('[name="cmode"]').value !== "any" && !out.countries.length) throw new Error(t("df_r_need_country"));
         if (dlg.querySelector('[name="amode"]').value !== "any" && !out.ips.length) throw new Error(t("df_r_need_ip"));
+        if (out.schedule && (!out.schedule.days.length || out.schedule.from === out.schedule.to)) throw new Error(t("df_r_sched_bad"));
         const rules = [...D.rules];
         if (isNew) rules.push(out); else rules[index] = out;
         if (!(await saveRules(null, rules))) throw new Error("");   // the reason is already shown as a message
@@ -4726,8 +4762,11 @@ __MONITORING_EOF__
       const el = $q("form").elements;
       const cm = el.cmode.value, am = el.amode.value, sens = el.sens.value;
       const lim = sens === "custom" ? { rate: +el.rate.value || 1, burst: +el.burst.value || (+el.rate.value || 1) * 2 } : { rate: SENS[sens][0], burst: SENS[sens][1] };
+      const dayVals = [...$q("form").querySelectorAll('input[name="day"]:checked')].map((x) => +x.value);
+      const exp = el.expires.value.startsWith("+") ? Math.floor(Date.now() / 1000) + +el.expires.value.slice(1) : +el.expires.value;
       return {
-        ...r, name: el.name.value.trim() || t("df_r_new"),
+        ...r, name: el.name.value.trim() || t("df_r_new"), direction: el.direction.value,
+        schedule: el.smode.value === "sched" ? { days: dayVals, from: el.tfrom.value || "00:00", to: el.tto.value || "23:59" } : null, expires: exp,
         countries: cm === "any" ? [] : [...picked], country_mode: cm === "not_in" ? "not_in" : "in",
         ips: am === "any" ? [] : el.ips.value.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean), ip_mode: am === "not_in" ? "not_in" : "in",
         proto: el.proto.value, ports: el.proto.value === "icmp" ? "" : el.ports.value.replace(/\s+/g, ""),
@@ -4747,22 +4786,163 @@ __MONITORING_EOF__
       $q(".fw-cc").hidden = el.cmode.value === "any";
       $q(".fw-ips").hidden = el.amode.value === "any";
       el.ports.disabled = el.proto.value === "icmp";
+      const out = el.direction.value === "out";
+      $q(".fw-sched").hidden = el.smode.value !== "sched";
+      dlg.querySelector('.fw-actopt.limit').hidden = out;
+      if (out && el.action.value === "limit") dlg.querySelector('input[name="action"][value="block"]').checked = true;
+      dlg.querySelectorAll(".fw-cond")[0].querySelector("label").textContent = t(out ? "df_r_to_country" : "df_r_country");
+      dlg.querySelectorAll(".fw-cond")[1].querySelector("label").textContent = t(out ? "df_r_to_addr" : "df_r_addr");
       $q(".fw-limit").hidden = el.action.value !== "limit";
       $q(".fw-custom").hidden = el.sens.value !== "custom";
-      const out = collect();
-      $q("[data-preview]").textContent = out.countries.length || out.ips.length || out.proto !== "any" || out.ports ? summary(out) : "";
+      const preview = collect();
+      $q("[data-preview]").textContent = preview.countries.length || preview.ips.length || preview.proto !== "any" || preview.ports ? summary(preview) : "";
     }
     $q("form").addEventListener("change", (e) => {
       if (e.target.dataset.cc) { if (e.target.checked) picked.add(e.target.dataset.cc); else picked.delete(e.target.dataset.cc); paintCountries(); }
       sync();
     });
-    $q("form").addEventListener("input", (e) => { if (e.target.matches("[data-cc-q]")) paintCountries(); else if (e.target.name === "ips" || e.target.name === "ports" || e.target.name === "rate") sync(); });
+    $q("form").addEventListener("input", (e) => { if (e.target.matches("[data-cc-q]")) paintCountries(); else if (["ips", "ports", "rate", "tfrom", "tto"].includes(e.target.name)) sync(); });
     $q("form").addEventListener("click", (e) => { const x = e.target.closest("[data-cc-del]"); if (x) { e.preventDefault(); picked.delete(x.dataset.ccDel); paintCountries(); sync(); } });
     paintCountries();
     sync();
   }
 
-  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
+  // ---------------------------------------------------------------- SSH server, address tester, threat lists
+  P.addStrings({
+    df_sv_title: "SSH server", df_sv_sub: "Port, login options and keys of the SSH server itself. Every change is tested: if SSH does not answer on every port, the old settings come back at once; otherwise you have {m} minutes to log in again and keep it, or it is undone by itself. Open sessions stay connected.",
+    df_sv_ports: "SSH ports", df_sv_ports_hint: "During a move keep both ports: add the new one, keep the change after you logged in through it, then remove the old one.",
+    df_sv_add_port: "Add port", df_sv_root: "Root login", df_sv_root_yes: "Allowed (password or key)", df_sv_root_key: "Only with a key", df_sv_root_no: "Not allowed",
+    df_sv_password: "Password login", df_sv_password_sub: "Off: only SSH keys work. Much safer; add your key below first.", df_sv_tries: "Wrong passwords per connection", df_sv_grace: "Seconds to log in",
+    df_sv_idle: "Disconnect idle sessions after", df_sv_idle_never: "Never", df_sv_x11: "X11 forwarding", df_sv_tcpfwd: "TCP forwarding (tunnels)", df_sv_save: "Apply to SSH",
+    df_sv_confirm: "Apply these SSH settings? SSH restarts (this session stays open). Ports: {ports}. If your hosting provider has its own firewall (for example the Hetzner Cloud Firewall), allow the new port there too.",
+    df_sv_pending: "Log in again now with the new settings, for example: {cmd}. If it works press Keep; otherwise they are undone in {left}.", df_sv_kept: "SSH settings kept", df_sv_undone: "SSH settings undone",
+    df_sv_applied: "Applied. SSH answers on every port; now test a new login.", df_sv_socket: "systemd socket", df_sv_last_port: "SSH needs at least one port",
+    df_sv_keys: "SSH keys of root", df_sv_keys_sub: "Public keys that may log in as root (/root/.ssh/authorized_keys).", df_sv_key_add: "Add key", df_sv_key_ph: "ssh-ed25519 AAAA… you@laptop",
+    df_sv_key_hint: "Paste the content of your id_ed25519.pub (or id_rsa.pub). On your computer: ssh-keygen -t ed25519 creates one.", df_sv_key_del: "Remove key {name}?", df_sv_no_keys: "No key yet: only passwords work.",
+    df_sv_type: "Type", df_sv_comment: "Name", df_sv_fp: "Fingerprint",
+    df_tt_title: "Check an address", df_tt_sub: "What happens to a connection from this address, step by step through every layer of the firewall.",
+    df_tt_ip: "Address", df_tt_port: "Port (optional)", df_tt_check: "Check", df_tt_country: "Country: {c}", df_tt_country_unknown: "Country: unknown (no list downloaded for it)",
+    df_tt_allow: "Allowed", df_tt_block: "Blocked", df_tt_limit: "Limited",
+    df_tt_off: "Protection is off: everything is allowed.", df_tt_admin: "Trusted: it logged in over SSH.", df_tt_allowlist: "On the allowlist ({entry}).", df_tt_blocklist: "On the blocklist ({entry}).",
+    df_tt_banned: "Banned by the firewall, {left} left.", df_tt_fail2ban: "Banned by fail2ban ({jail}).", df_tt_panel_allow: "Only the listed addresses may open the panel.", df_tt_cdn: "A Cloudflare address (trusted).",
+    df_tt_threat: "Listed in: {feeds}.", df_tt_rule_allow: "Rule \"{name}\": allow.", df_tt_rule_block: "Rule \"{name}\": block.", df_tt_rule_limit: "Rule \"{name}\": limited to {rate}/s.", df_tt_rule_count: "Rule \"{name}\": counted.",
+    df_tt_strict: "Strict mode: port {port} is not open.", df_tt_limits: "Allowed, within the flood limits ({syn} SYN/s, {conc} connections).", df_tt_sched: " (only at its scheduled times)",
+    df_th_title: "Threat blocklists", df_th_sub: "Public lists of attacking, hijacked and spamming addresses, blocked before anything else and refreshed every 12 hours. Private networks are always left out.",
+    df_th_entries: "{n} addresses / networks", df_th_never: "not downloaded yet", df_th_blocked: "{n} packets blocked by these lists since the rules were applied",
+    df_th_spamhaus: "Hijacked networks used by spammers and criminals. Very safe to turn on.", df_th_firehol: "A curated mix of the worst lists (attacks, malware, hijacked networks).",
+    df_th_blocklistde: "Addresses that attacked servers in the last 48 hours (SSH, mail, web).", df_th_et: "Compromised hosts tracked by Emerging Threats.", df_th_cins: "Addresses with a bad reputation from the CINS Army sensors.",
+  }, {
+    df_sv_title: "سرور SSH", df_sv_sub: "پورت، گزینه‌های ورود و کلیدهای خود سرور SSH. هر تغییر آزمایش می‌شود: اگر SSH روی همه‌ی پورت‌ها جواب ندهد، تنظیمات قبلی فوراً برمی‌گردد؛ وگرنه {m} دقیقه وقت دارید دوباره وارد شوید و آن را نگه دارید، وگرنه خودش برمی‌گردد. نشست‌های باز وصل می‌مانند.",
+    df_sv_ports: "پورت‌های SSH", df_sv_ports_hint: "هنگام جابه‌جایی هر دو پورت را نگه دارید: پورت جدید را اضافه کنید، بعد از ورود موفق با آن تغییر را نگه دارید، و بعد پورت قدیمی را حذف کنید.",
+    df_sv_add_port: "افزودن پورت", df_sv_root: "ورود root", df_sv_root_yes: "مجاز (با رمز یا کلید)", df_sv_root_key: "فقط با کلید", df_sv_root_no: "ممنوع",
+    df_sv_password: "ورود با رمز", df_sv_password_sub: "خاموش: فقط کلید SSH کار می‌کند. خیلی امن‌تر؛ اول کلیدتان را پایین اضافه کنید.", df_sv_tries: "رمز اشتباه در هر اتصال", df_sv_grace: "ثانیه برای ورود",
+    df_sv_idle: "قطع نشست بی‌کار بعد از", df_sv_idle_never: "هرگز", df_sv_x11: "X11 forwarding", df_sv_tcpfwd: "TCP forwarding (تانل)", df_sv_save: "اعمال روی SSH",
+    df_sv_confirm: "این تنظیمات روی SSH اعمال شود؟ SSH ری‌استارت می‌شود (این نشست باز می‌ماند). پورت‌ها: {ports}. اگر هاستینگ شما فایروال جدا دارد (مثل Hetzner Cloud Firewall)، پورت جدید را آن‌جا هم باز کنید.",
+    df_sv_pending: "همین حالا با تنظیمات جدید دوباره وارد شوید، مثلاً: {cmd}. اگر کار کرد «نگه دار» را بزنید؛ وگرنه {left} دیگر خودش برمی‌گردد.", df_sv_kept: "تنظیمات SSH ماند", df_sv_undone: "تنظیمات SSH برگشت",
+    df_sv_applied: "اعمال شد. SSH روی همه‌ی پورت‌ها جواب می‌دهد؛ حالا یک ورود جدید را امتحان کنید.", df_sv_socket: "systemd socket", df_sv_last_port: "SSH حداقل یک پورت لازم دارد",
+    df_sv_keys: "کلیدهای SSH کاربر root", df_sv_keys_sub: "کلیدهای عمومی که می‌توانند با root وارد شوند (/root/.ssh/authorized_keys).", df_sv_key_add: "افزودن کلید", df_sv_key_ph: "ssh-ed25519 AAAA… you@laptop",
+    df_sv_key_hint: "محتوای فایل id_ed25519.pub (یا id_rsa.pub) را بچسبانید. روی کامپیوترتان ssh-keygen -t ed25519 یکی می‌سازد.", df_sv_key_del: "کلید {name} حذف شود؟", df_sv_no_keys: "هنوز کلیدی نیست: فقط رمز کار می‌کند.",
+    df_sv_type: "نوع", df_sv_comment: "نام", df_sv_fp: "اثر انگشت",
+    df_tt_title: "بررسی یک آدرس", df_tt_sub: "با اتصالی از این آدرس چه می‌شود، قدم‌به‌قدم در همه‌ی لایه‌های فایروال.",
+    df_tt_ip: "آدرس", df_tt_port: "پورت (اختیاری)", df_tt_check: "بررسی", df_tt_country: "کشور: {c}", df_tt_country_unknown: "کشور: نامعلوم (لیستی برایش دانلود نشده)",
+    df_tt_allow: "مجاز", df_tt_block: "مسدود", df_tt_limit: "محدود",
+    df_tt_off: "محافظت خاموش است: همه چیز مجاز است.", df_tt_admin: "مورد اعتماد: با SSH وارد شده.", df_tt_allowlist: "در لیست سفید ({entry}).", df_tt_blocklist: "در لیست سیاه ({entry}).",
+    df_tt_banned: "توسط فایروال مسدود است، {left} مانده.", df_tt_fail2ban: "توسط fail2ban مسدود است ({jail}).", df_tt_panel_allow: "فقط آدرس‌های مشخص اجازه‌ی باز کردن پنل دارند.", df_tt_cdn: "آدرس Cloudflare (مورد اعتماد).",
+    df_tt_threat: "در این لیست‌ها: {feeds}.", df_tt_rule_allow: "قانون «{name}»: اجازه.", df_tt_rule_block: "قانون «{name}»: مسدود.", df_tt_rule_limit: "قانون «{name}»: محدود به {rate} در ثانیه.", df_tt_rule_count: "قانون «{name}»: شمرده می‌شود.",
+    df_tt_strict: "حالت سخت‌گیر: پورت {port} باز نیست.", df_tt_limits: "مجاز، در حد محدودیت‌های فلاد ({syn} SYN در ثانیه، {conc} اتصال).", df_tt_sched: " (فقط در زمان‌بندی‌اش)",
+    df_th_title: "لیست‌های تهدید", df_th_sub: "لیست‌های عمومی آدرس‌های مهاجم، ربوده‌شده و اسپمر؛ قبل از هر چیز مسدود و هر ۱۲ ساعت بروز می‌شوند. شبکه‌های خصوصی همیشه کنار گذاشته می‌شوند.",
+    df_th_entries: "{n} آدرس / شبکه", df_th_never: "هنوز دانلود نشده", df_th_blocked: "{n} بسته از وقتی قوانین اعمال شده توسط این لیست‌ها مسدود شده",
+    df_th_spamhaus: "شبکه‌های ربوده‌شده که اسپمرها و مجرمان استفاده می‌کنند. روشن کردنش خیلی امن است.", df_th_firehol: "ترکیب دست‌چین بدترین لیست‌ها (حمله، بدافزار، شبکه‌های ربوده‌شده).",
+    df_th_blocklistde: "آدرس‌هایی که در ۴۸ ساعت اخیر به سرورها حمله کرده‌اند (SSH، ایمیل، وب).", df_th_et: "میزبان‌های آلوده‌ای که Emerging Threats رصد می‌کند.", df_th_cins: "آدرس‌های بدنام از حسگرهای CINS Army.",
+  });
+
+  // ---- SSH server
+  const portsChips = (ports, removable) => ports.map((p, i) => `<span class="chip">${icon("terminal")}<b>${num(p)}</b>${removable && ports.length > 1 ? `<button type="button" class="chip-x" data-a="sv-port-del" data-i="${i}" aria-label="${esc(t("df_remove"))} ${p}">${icon("x")}</button>` : ""}</span>`).join("");
+  const fmtLeft = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  async function renderSshAll() {
+    const sv = await api("/api/defender/sshd").catch((e) => ({ error: e.message }));
+    D.sv = sv;
+    if (!sv.error && !D.svDraft) D.svDraft = { ports: [...sv.ports], permit_root: sv.permit_root, password: sv.password, max_auth_tries: sv.max_auth_tries, login_grace: sv.login_grace, idle_timeout: sv.idle_timeout, x11: sv.x11, tcp_forwarding: sv.tcp_forwarding };
+    return `<div id="df-sv">${svHTML()}</div>` + (await renderSsh());
+  }
+  function svHTML() {
+    const sv = D.sv;
+    if (sv.error) return `<div class="notice bad">${icon("alert")}<span>${esc(sv.error)}</span></div>`;
+    const d = D.svDraft, ip = ((P.state.overview && P.state.overview.public_ip && P.state.overview.public_ip.v4) || location.hostname);
+    const pend = sv.pending ? `<div class="notice warn df-pend">${icon("clock")}<span>${esc(t("df_sv_pending", { cmd: `ssh -p ${sv.pending.ports[sv.pending.ports.length - 1]} root@${ip}`, left: fmtLeft(sv.pending.left) }))}</span>
+      <button type="button" class="btn small primary" data-a="sv-keep">${esc(t("df_keep"))}</button><button type="button" class="btn small" data-a="sv-undo">${esc(t("df_undo"))}</button></div>` : "";
+    const sel = (name, opts) => `<select name="${name}">${opts.map(([v, l]) => `<option value="${v}" ${String(d[name]) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+    const keys = sv.keys.length ? table([
+      { h: "df_sv_type", cell: (k) => `<code dir="ltr">${esc(k.type)}</code>` },
+      { h: "df_sv_comment", cls: "strong", cell: (k) => esc(k.comment || "—") },
+      { h: "df_sv_fp", cls: "wrap-cell", cell: (k) => `<code dir="ltr" class="muted">${esc(k.fingerprint)}</code>` },
+      { h: "actions", cell: (k) => btnIcon("trash", `${t("df_remove")} ${k.comment}`, `data-a="sv-key-del" data-i="${k.index}" data-name="${esc(k.comment || k.type)}"`, "danger") },
+    ], sv.keys) : `<div class="empty">${esc(t("df_sv_no_keys"))}</div>`;
+    return `${pend}<section class="sec"><div class="sec-head"><h3>${icon("terminal")}${esc(t("df_sv_title"))}${sv.socket ? `<span class="tag">${esc(t("df_sv_socket"))}</span>` : ""}</h3><p class="muted">${esc(t("df_sv_sub", { m: Math.round(D.sv.confirm_seconds / 60) }))}</p></div>
+      <form class="subcard" data-f="sv">
+        <div class="field"><label>${esc(t("df_sv_ports"))}</label><div class="chips">${portsChips(d.ports, true)}</div>
+          <div class="inline-field df-inline"><input name="newport" type="number" min="1" max="65535" dir="ltr" placeholder="2222" aria-label="${esc(t("df_sv_add_port"))}"><button type="button" class="btn small" data-a="sv-port-add">${icon("plus")}<span>${esc(t("df_sv_add_port"))}</span></button></div>
+          <p class="hint">${esc(t("df_sv_ports_hint"))}</p></div>
+        <div class="df-form-grid">
+          ${field(t("df_sv_root"), sel("permit_root", [["yes", t("df_sv_root_yes")], ["prohibit-password", t("df_sv_root_key")], ["no", t("df_sv_root_no")]]))}
+          ${field(t("df_sv_tries"), `<input type="number" name="max_auth_tries" min="1" max="50" value="${esc(d.max_auth_tries)}" dir="ltr">`)}
+          ${field(t("df_sv_grace"), `<input type="number" name="login_grace" min="5" max="600" value="${esc(d.login_grace)}" dir="ltr">`)}
+          ${field(t("df_sv_idle"), sel("idle_timeout", [[0, t("df_sv_idle_never")], [300, "5 min"], [900, "15 min"], [1800, "30 min"], [3600, "1 h"]].concat([[0, 300, 900, 1800, 3600].includes(+d.idle_timeout) ? [] : [[d.idle_timeout, `${d.idle_timeout} s`]]])))}
+          ${field(t("df_sv_tcpfwd"), sel("tcp_forwarding", [["yes", t("df_j_on")], ["no", t("df_j_off")], ["local", "local"], ["remote", "remote"]]))}
+          ${field(t("df_sv_x11"), sel("x11", [["yes", t("df_j_on")], ["no", t("df_j_off")]]))}</div>
+        <label class="df-switch"><span class="switch"><input type="checkbox" name="password" ${d.password === "yes" ? "checked" : ""}><span></span></span><span><b>${esc(t("df_sv_password"))}</b><small>${esc(t("df_sv_password_sub"))}</small></span></label>
+        <div class="actions-row"><button type="submit" class="btn primary" ${sv.pending ? "disabled" : ""}>${icon("check")}<span>${esc(t("df_sv_save"))}</span></button></div></form></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("key")}${esc(t("df_sv_keys"))}</h3><p class="muted">${esc(t("df_sv_keys_sub"))}</p></div>${keys}
+        <form class="subcard" data-f="sv-key" style="margin-top:12px">${field(t("df_sv_key_add"), `<textarea name="key" dir="ltr" rows="3" spellcheck="false" placeholder="${esc(t("df_sv_key_ph"))}" required></textarea>`, t("df_sv_key_hint"))}
+          <div class="actions-row"><button type="submit" class="btn">${icon("plus")}<span>${esc(t("df_sv_key_add"))}</span></button></div></form></section>`;
+  }
+  const repaintSv = () => { const box = D.root.querySelector("#df-sv"); if (box) box.innerHTML = svHTML(); };
+  function svFormToDraft() {
+    const f = D.root.querySelector('form[data-f="sv"]');
+    if (!f) return;
+    const el = f.elements;
+    Object.assign(D.svDraft, { permit_root: el.permit_root.value, max_auth_tries: +el.max_auth_tries.value, login_grace: +el.login_grace.value,
+      idle_timeout: +el.idle_timeout.value, tcp_forwarding: el.tcp_forwarding.value, x11: el.x11.value, password: el.password.checked ? "yes" : "no" });
+  }
+
+  // ---- address tester + threat lists (IP lists tab)
+  function testerHTML() {
+    return `<section class="sec"><div class="sec-head"><h3>${icon("search")}${esc(t("df_tt_title"))}</h3><p class="muted">${esc(t("df_tt_sub"))}</p></div>
+      <form class="subcard" data-f="tt"><div class="df-form-grid">${field(t("df_tt_ip"), '<input name="ip" dir="ltr" required placeholder="203.0.113.7" autocomplete="off">')}
+        ${field(t("df_tt_port"), '<input name="port" type="number" min="0" max="65535" dir="ltr" placeholder="443">')}
+        ${field(t("df_r_proto"), '<select name="proto"><option value="tcp">TCP</option><option value="udp">UDP</option><option value="icmp">ICMP</option></select>')}</div>
+        <div class="actions-row"><button type="submit" class="btn primary">${icon("search")}<span>${esc(t("df_tt_check"))}</span></button></div><div id="df-tt-out"></div></form></section>`;
+  }
+  function testResult(r) {
+    const tone = { allow: "ok", block: "bad", limit: "warn", count: "" };
+    const text = (s) => {
+      if (s.kind === "rule") return t(`df_tt_rule_${s.result}`, { name: s.name, rate: s.limit ? s.limit.rate : "" }) + (s.schedule ? t("df_tt_sched") : "");
+      if (s.kind === "banned") return t("df_tt_banned", { left: s.left ? fmtLeft(s.left) : "–" });
+      if (s.kind === "fail2ban") return t("df_tt_fail2ban", { jail: s.jail || "fail2ban" });
+      if (s.kind === "threat") return t("df_tt_threat", { feeds: s.feeds.join("، ") });
+      if (s.kind === "limits") return t("df_tt_limits", { syn: s.limits.syn, conc: s.limits.conc });
+      return t(`df_tt_${s.kind}`, s);
+    };
+    return `<div class="tt-verdict ${tone[r.verdict] || ""}">${pill(tone[r.verdict] || "", t(`df_tt_${r.verdict === "count" ? "allow" : r.verdict}`))}
+      <span dir="ltr"><b>${esc(r.ip)}</b>${r.port ? `:${r.port}/${r.proto}` : ""}</span><span class="muted">${esc(r.country ? t("df_tt_country", { c: `${flag(r.country)} ${ccName(r.country)}` }) : t("df_tt_country_unknown"))}</span></div>
+      <ol class="tt-steps">${r.steps.map((s) => `<li class="${tone[s.result] || ""}">${pill(tone[s.result] || "", t(`df_tt_${s.result === "count" ? "allow" : s.result}`), false)}<span>${esc(text(s))}</span></li>`).join("")}</ol>`;
+  }
+  async function threatHTML() {
+    const th = await api("/api/defender/threat").catch(() => null);
+    if (!th) return "";
+    const on = new Set(th.enabled);
+    const rows = Object.entries(th.feeds).map(([id, f]) => `<label class="th-feed${on.has(id) ? " on" : ""}"><span class="switch"><input type="checkbox" data-feed="${id}" ${on.has(id) ? "checked" : ""}><span></span></span>
+      <span class="th-body"><b>${esc(f.name)}</b><small>${esc(t(`df_th_${id}`))}</small><small class="muted">${esc(f.updated ? `${t("df_th_entries", { n: nf(f.entries, 0) })} · ${ago(f.updated)}` : t("df_th_never"))} · <span dir="ltr">${esc(f.site)}</span></small></span></label>`).join("");
+    return `<section class="sec"><div class="sec-head"><h3>${icon("shield")}${esc(t("df_th_title"))}</h3><p class="muted">${esc(t("df_th_sub"))}</p></div>
+      ${th.protection ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_r_off"))}</span></div>`}
+      <div class="th-grid">${rows}</div>${th.blocked ? `<p class="muted">${esc(t("df_th_blocked", { n: nf(th.blocked, 0) }))}</p>` : ""}</section>`;
+  }
+  async function renderListsAll() {
+    const [lists, th] = await Promise.all([renderLists(), threatHTML()]);
+    return testerHTML() + th + lists;
+  }
+
+  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderListsAll, ssh: renderSshAll, f2b: renderF2b, hardening: renderHardening };
   const rerender = () => showTab(D.tab);
 
   // ---------------------------------------------------------------- events
@@ -4806,6 +4986,26 @@ __MONITORING_EOF__
     if (a === "rules") return rulesDialog();
     if (a === "fw-apply") {
       if (await apply(b, "config", { firewall: D.fw, _what: "firewall" })) { D.fw = null; D.prefilled = false; rerender(); }
+      return;
+    }
+    if (a === "sv-port-add" || a === "sv-port-del") {
+      svFormToDraft();
+      if (a === "sv-port-del") D.svDraft.ports.splice(+b.dataset.i, 1);
+      else {
+        const v = +D.root.querySelector('form[data-f="sv"] [name="newport"]').value;
+        if (v >= 1 && v <= 65535 && !D.svDraft.ports.includes(v)) D.svDraft.ports.push(v);
+      }
+      return repaintSv();
+    }
+    if (a === "sv-keep" || a === "sv-undo") {
+      const r = await act(b, () => post(`/api/defender/sshd/${a === "sv-keep" ? "confirm" : "revert"}`, {}), t(a === "sv-keep" ? "df_sv_kept" : "df_sv_undone"));
+      if (r) { D.sv = { ...D.sv, ...r }; D.svDraft = null; showTab("ssh"); }
+      return;
+    }
+    if (a === "sv-key-del") {
+      if (!(await confirmBox({ message: t("df_sv_key_del", { name: b.dataset.name }), label: t("df_remove") }))) return;
+      const r = await act(b, () => post("/api/defender/sshd/key/remove", { index: +b.dataset.i }), t("saved"));
+      if (r) { D.sv.keys = r.keys; svFormToDraft(); repaintSv(); }
       return;
     }
     if (a === "r-new") return ruleEditor(blankRule(), null);
@@ -4889,6 +5089,15 @@ __MONITORING_EOF__
 
   async function onChange(e) {
     const el = e.target;
+    if (el.dataset.feed) {
+      const feeds = [...D.root.querySelectorAll("[data-feed]")].filter((x) => x.checked).map((x) => x.dataset.feed);
+      el.disabled = true;
+      const ok = await apply(el, "config", { threat: { feeds }, _what: "threat lists" }, t("df_r_saved"));
+      if (!ok) el.checked = !el.checked;
+      el.disabled = false;
+      if (ok && D.tab === "lists") showTab("lists");
+      return;
+    }
     if (el.dataset.ruleToggle !== undefined) {
       const rules = D.rules.map((r, k) => (k === +el.dataset.ruleToggle ? { ...r, enabled: el.checked } : r));
       el.disabled = true;
@@ -4930,6 +5139,25 @@ __MONITORING_EOF__
     if (f === "ssh") {
       const g = { enabled: el.enabled.checked, l4: el.l4.checked, exempt_private: el.exempt_private.checked, failures: +el.failures.value, window: +el.window.value, ban: +el.ban.value };
       if (await apply(btn, "config", { ssh_guard: g, _what: "ssh guard" }, t("saved"))) rerender();
+      return;
+    }
+    if (f === "sv") {
+      svFormToDraft();
+      if (!D.svDraft.ports.length) return toast(t("df_sv_last_port"), "bad");
+      if (!(await confirmBox({ message: t("df_sv_confirm", { ports: D.svDraft.ports.join(", ") }), label: t("df_sv_save"), danger: false }))) return;
+      const r = await act(btn, () => post("/api/defender/sshd/apply", D.svDraft), t("df_sv_applied"));
+      if (r) { D.sv = { ...D.sv, ...r }; D.svDraft = null; if (r.warning) toast(r.warning, "warn"); showTab("ssh"); }
+      return;
+    }
+    if (f === "sv-key") {
+      const r = await act(btn, () => post("/api/defender/sshd/key/add", { key: el.key.value }), t("saved"));
+      if (r) { D.sv.keys = r.keys; svFormToDraft(); repaintSv(); }
+      return;
+    }
+    if (f === "tt") {
+      const out = D.root.querySelector("#df-tt-out");
+      const r = await act(btn, () => post("/api/defender/test", { ip: el.ip.value.trim(), port: +el.port.value || 0, proto: el.proto.value }));
+      if (r && out) out.innerHTML = testResult(r);
       return;
     }
     if (f === "adv") {
@@ -5493,6 +5721,8 @@ import f2b  # noqa: E402
 import geo  # noqa: E402
 import hostinfo  # noqa: E402
 import nftrules  # noqa: E402
+import sshmgr  # noqa: E402
+import threat  # noqa: E402
 
 VERSION = "1.0"
 DATA = os.environ.get("DATA_DIR", "/data")
@@ -5520,6 +5750,7 @@ DEFAULT = {
     "trust_cdn": True,
     "geo": {"block": []},     # replaced by "rules" (kept so old backups still import)
     "rules": [],              # user firewall rules, see validate_rule
+    "threat": {"feeds": []},  # threat-intelligence blocklists that are on (see threat.FEEDS)
     # Expert settings (Advanced tab). Everything that used to be fixed can be changed here.
     "advanced": {
         "rollback_seconds": 60,       # 0 = apply changes without the safety test
@@ -5646,7 +5877,9 @@ def ruleset(cfg=None):
         if rule.get("enabled", True) and rule.get("countries"):
             z4, z6, _ = geo.build(DATA, rule["countries"], download=False)
             zones[rule["id"]] = (z4, z6)
-    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones)
+    t4, t6 = threat.build(DATA, cfg.get("threat", {}).get("feeds", []), download=False)
+    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6, zones,
+                          t4, t6, hostinfo.public_iface())
 
 
 def apply(cfg=None):
@@ -5681,6 +5914,8 @@ def change(mutator, rollback=True, what="config"):
                     codes.update(rule.get("countries") or [])
             if codes:
                 geo.build(DATA, sorted(codes), download=True)   # raises before anything changes
+            if new["threat"]["feeds"]:
+                threat.build(DATA, new["threat"]["feeds"], download=True)
         try:
             apply(new)
         except Exception as e:
@@ -5782,6 +6017,7 @@ def validate(cfg):
             e["note"] = str(e.get("note", ""))[:80]
         if len(cfg[lst]) > 100000:
             raise ValueError("list too long")
+    cfg["threat"]["feeds"] = [f for f in dict.fromkeys(cfg["threat"].get("feeds") or []) if f in threat.FEEDS]
     rules = cfg.get("rules") or []
     if not isinstance(rules, list) or len(rules) > 300:
         raise ValueError("At most 300 rules")
@@ -5850,6 +6086,22 @@ def validate_rule(r):
     if act not in ("allow", "block", "limit", "log"):
         raise ValueError(f"{out['name']}: unknown action")
     out["action"] = act
+    out["direction"] = "out" if r.get("direction") == "out" else "in"
+    if out["direction"] == "out" and act == "limit":
+        raise ValueError(f"{out['name']}: outgoing rules can allow, block or count, not limit")
+    sched = r.get("schedule")
+    if sched:
+        days = sorted({int(d) for d in sched.get("days") or [] if str(d).isdigit() and 0 <= int(d) <= 6})
+        frm, to = str(sched.get("from", "00:00")), str(sched.get("to", "23:59"))
+        if not days or not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", frm) or not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", to) or frm == to:
+            raise ValueError(f"{out['name']}: pick days and two different times (HH:MM)")
+        out["schedule"] = {"days": days, "from": frm, "to": to}
+    else:
+        out["schedule"] = None
+    try:
+        out["expires"] = max(0, int(r.get("expires") or 0))
+    except (TypeError, ValueError):
+        raise ValueError(f"{out['name']}: invalid expiry")
     lim = r.get("limit") or {}
     try:
         rate, burst, ban = int(lim.get("rate", 10)), int(lim.get("burst", 0) or 0), int(lim.get("ban", 0) or 0)
@@ -6036,7 +6288,7 @@ def ssh_stats():
 
 # ------------------------------------------------------------------ live statistics and attack detection
 
-DROP_KEYS = ("block", "ban", "geo", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc", "udp", "icmp", "autoban")
+DROP_KEYS = ("block", "ban", "geo", "threat", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc", "udp", "icmp", "autoban")
 
 
 def read_counters():
@@ -6133,9 +6385,34 @@ def stats_loop():
             p = STATE["pending"]
             if p and time.time() > p["until"]:
                 rollback("timeout")
+            if STATE.get("ssh_pending") and time.time() > STATE["ssh_pending"]["until"]:
+                try:
+                    ssh_revert("timeout")
+                except Exception as e:
+                    log("ssh revert", e)
+            if int(t0) % 30 == 0:
+                expire_rules()
         except Exception as e:  # never let the loop die
             log("stats error", type(e).__name__, e)
         time.sleep(max(0.05, 1 - (time.time() - t0)))
+
+
+def expire_rules():
+    """Temporary rules switch themselves off when their time is up."""
+    now = time.time()
+    if not any(r.get("enabled", True) and r.get("expires") and r["expires"] < now for r in CFG["rules"]):
+        return
+    names = [r["name"] for r in CFG["rules"] if r.get("enabled", True) and r.get("expires") and r["expires"] < now]
+
+    def mut(c):
+        for r in c["rules"]:
+            if r.get("enabled", True) and r.get("expires") and r["expires"] < now:
+                r["enabled"] = False
+    try:
+        change(mut, rollback=False, what="rules expired")
+        event("rule_expired", names=names)
+    except Exception as e:
+        log("expire rules", e)
 
 
 def admin_refresh_loop():
@@ -6163,7 +6440,7 @@ def status():
             "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
             "effective": effective_limits(), "profiles": nftrules.PROFILES,
             "attack": {k: v for k, v in STATE["attack"].items()},
-            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules")},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules", "threat")},
             "allow": CFG["allow"], "block": CFG["block"],
             "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
             "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
@@ -6242,6 +6519,8 @@ def _cfg_patch(body):
                     c["advanced"][k] = v
         if isinstance(body.get("rules"), list):
             c["rules"] = body["rules"]
+        if isinstance(body.get("threat"), dict) and isinstance(body["threat"].get("feeds"), list):
+            c["threat"]["feeds"] = [str(f) for f in body["threat"]["feeds"]]
         if "geo" in body and isinstance(body["geo"], dict) and "block" in body["geo"]:
             c["geo"]["block"] = [str(x) for x in body["geo"]["block"]][:200]
     return mut
@@ -6502,6 +6781,191 @@ def api_fwrules(q):
     return {"rules": CFG["rules"], "hits": hits, "zones": geo.info(DATA, codes), "enabled": CFG["enabled"]}
 
 
+# ------------------------------------------------------------------ SSH server management
+
+def ssh_busy_ports():
+    return {r["port"] for r in hostinfo.listening() if r["proto"] == "tcp" and r["process"] not in ("sshd", "systemd")}
+
+
+def _f2b_ssh_ports(ports):
+    """fail2ban's sshd jail bans on "port = ssh" (22): keep it on the real SSH ports."""
+    try:
+        if f2b.installed() and f2b.running() and "sshd" in f2b.jail_names():
+            f2b_save(lambda m: m["jails"].setdefault("sshd", {}).update({"port": ",".join(str(p) for p in ports)}), "ssh port")
+            return ""
+    except Exception as e:
+        return f"fail2ban could not be updated: {e}"
+    return ""
+
+
+def api_sshd(q):
+    return {**sshmgr.state(STATE.get("ssh_pending")), "confirm_seconds": sshmgr.CONFIRM_SECONDS}
+
+
+def api_sshd_apply(b):
+    if STATE.get("ssh_pending"):
+        raise ValueError("Keep or undo the previous SSH change first")
+    before = sshmgr.effective()
+    settings = sshmgr.validate(b, ssh_busy_ports())
+    hostinfo._ports_cache["at"] = 0
+
+    def open_ports():   # the firewall must let the new port in before sshd moves there
+        hostinfo._ports_cache["at"] = 0
+        if CFG["enabled"]:
+            apply()
+    with LOCK:
+        old = sshmgr.apply(settings, before_restart=open_ports)
+        STATE["ssh_pending"] = {"until": time.time() + sshmgr.CONFIRM_SECONDS, "old": old, "ports": settings["ports"],
+                                "old_ports": before.get("port", [22])}
+    warn = _f2b_ssh_ports(settings["ports"]) if settings["ports"] != before.get("port", [22]) else ""
+    event("ssh_change", ports=settings["ports"])
+    return {**api_sshd({}), "warning": warn}
+
+
+def api_sshd_confirm(b):
+    with LOCK:
+        if STATE.get("ssh_pending"):
+            STATE["ssh_pending"] = None
+            event("ssh_confirmed")
+    return api_sshd({})
+
+
+def ssh_revert(reason="manual"):
+    with LOCK:
+        p = STATE.get("ssh_pending")
+        if not p:
+            return
+        STATE["ssh_pending"] = None
+        sshmgr.restore(p["old"])
+        hostinfo._ports_cache["at"] = 0
+        if CFG["enabled"]:
+            apply()
+    if p["ports"] != p["old_ports"]:
+        _f2b_ssh_ports(p["old_ports"])
+    event("ssh_reverted", reason=reason)
+
+
+def api_sshd_revert(b):
+    ssh_revert("manual")
+    return api_sshd({})
+
+
+def api_sshd_key_add(b):
+    out = sshmgr.add_key(b.get("key", ""))
+    event("ssh_key", action="added")
+    return {"keys": out}
+
+
+def api_sshd_key_remove(b):
+    out = sshmgr.remove_key(int(b.get("index", -1)), sshmgr.effective().get("passwordauthentication"))
+    event("ssh_key", action="removed")
+    return {"keys": out}
+
+
+# ------------------------------------------------------------------ threat lists
+
+def api_threat(q):
+    hits = read_counters().get("threat")
+    return {"feeds": threat.info(DATA), "enabled": CFG["threat"]["feeds"], "blocked": hits, "protection": CFG["enabled"]}
+
+
+# ------------------------------------------------------------------ "what happens to this address?"
+
+def _in(ip, nets):
+    a = ipaddress.ip_address(ip)
+    for n in nets:
+        try:
+            if a in ipaddress.ip_network(n, strict=False):
+                return n
+        except ValueError:
+            pass
+    return None
+
+
+def country_of(ip):
+    """Country of an address, from the country lists already downloaded (None when not known)."""
+    a = ipaddress.ip_address(ip)
+    d = os.path.join(DATA, "geo")
+    try:
+        names = sorted(os.listdir(d))
+    except OSError:
+        return None
+    for n in names:
+        if n.endswith(f".{a.version}"):
+            for line in open(os.path.join(d, n)):
+                line = line.strip()
+                if line and a in ipaddress.ip_network(line):
+                    return n.split(".")[0]
+    return None
+
+
+def api_test(b):
+    ip = net_str(parse_net(b.get("ip", ""), allow_any=True))
+    if "/" in ip:
+        raise ValueError("Enter a single address")
+    port = int(b.get("port") or 0)
+    proto = b.get("proto") if b.get("proto") in ("tcp", "udp", "icmp") else "tcp"
+    steps, verdict = [], None
+
+    def step(kind, result, **kw):
+        steps.append({"kind": kind, "result": result, **kw})
+        return result
+
+    cc = country_of(ip)
+    if not CFG["enabled"]:
+        return {"ip": ip, "country": cc, "verdict": "allow", "steps": [{"kind": "off", "result": "allow"}]}
+    if CFG.get("trust_logged_in", True) and ip in admin_ips():
+        verdict = step("admin", "allow")
+    if not verdict and _in(ip, [a["ip"] for a in CFG["allow"]]):
+        verdict = step("allowlist", "allow", entry=_in(ip, [a["ip"] for a in CFG["allow"]]))
+    if not verdict and _in(ip, [x["ip"] for x in CFG["block"]]):
+        verdict = step("blocklist", "block", entry=_in(ip, [x["ip"] for x in CFG["block"]]))
+    if not verdict:
+        ban = next((r for r in ban_list() if r["ip"] == ip), None)
+        if ban:
+            verdict = step("fail2ban" if ban["source"] == "fail2ban" else "banned", "block", left=ban["left"], jail=ban.get("jail"), source=ban["source"])
+    adv = CFG["advanced"]
+    if not verdict and port in PANEL_PORTS and proto == "tcp" and adv.get("panel_allow") and not _in(ip, adv["panel_allow"]):
+        verdict = step("panel_allow", "block")
+    if not verdict and CFG.get("trust_cdn", True) and _in(ip, list(nftrules.CDN4) + list(nftrules.CDN6)):
+        verdict = step("cdn", "allow")
+    if not verdict:
+        feeds = threat.member(DATA, CFG["threat"]["feeds"], ip)
+        if feeds:
+            verdict = step("threat", "block", feeds=feeds)
+    if not verdict:
+        for r in CFG["rules"]:
+            if not r.get("enabled", True) or r.get("direction") == "out":
+                continue
+            if r["countries"]:
+                inside = cc in r["countries"] if cc else None
+                if inside is None and r["country_mode"] == "in":
+                    continue
+                if inside is not None and inside != (r["country_mode"] == "in"):
+                    continue
+            if r["ips"] and bool(_in(ip, r["ips"])) != (r["ip_mode"] == "in"):
+                continue
+            if r["proto"] != "any" and r["proto"] != proto:
+                continue
+            if r["ports"] and not any(int(x.split("-")[0]) <= port <= int(x.split("-")[-1]) for x in r["ports"].split(",")):
+                continue
+            res = {"allow": "allow", "block": "block", "limit": "limit", "log": "count"}[r["action"]]
+            step("rule", res, name=r["name"], schedule=r.get("schedule"), limit=r.get("limit") if r["action"] == "limit" else None)
+            if res in ("allow", "block"):
+                verdict = res
+                break
+    fw = CFG["firewall"]
+    if not verdict and fw["mode"] == "strict" and proto in ("tcp", "udp") and port:
+        locked = proto == "tcp" and adv.get("lock_ports", True) and (port in hostinfo.ssh_ports() or port in PANEL_PORTS)
+        listed = any(_port_match(p, {"proto": proto, "port": port}) for p in fw["ports"]) or any(
+            p.get("from") and _in(ip, [p["from"]]) and _port_match(dict(p, **{"from": ""}), {"proto": proto, "port": port}) for p in fw["ports"])
+        if not (locked or listed):
+            verdict = step("strict", "block", port=port)
+    if not verdict:
+        verdict = step("limits", "allow", limits=effective_limits())
+    return {"ip": ip, "country": cc, "port": port, "proto": proto, "verdict": verdict, "steps": steps}
+
+
 def api_geo(q):
     return {"block": CFG["geo"]["block"], "info": geo.info(DATA, CFG["geo"]["block"])}
 
@@ -6511,6 +6975,12 @@ def geo_refresh_loop():
     while True:
         time.sleep(6 * 3600)
         try:
+            feeds = CFG["threat"]["feeds"]
+            if feeds and CFG["enabled"]:
+                before_t = threat.info(DATA)
+                threat.build(DATA, feeds, download=True)
+                if threat.info(DATA) != before_t and not STATE["pending"]:
+                    apply()
             codes = sorted(set(CFG["geo"]["block"]) | {c for r in CFG["rules"] if r.get("enabled", True) for c in r.get("countries") or []})
             if not codes or not CFG["enabled"]:
                 continue
@@ -6523,7 +6993,7 @@ def geo_refresh_loop():
 
 
 EXPORT_KEYS = ("enabled", "profile", "limits", "auto_escalate", "ddos", "firewall", "allow", "block", "ssh_guard",
-               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules")
+               "trust_logged_in", "trust_cdn", "geo", "notify", "advanced", "rules", "threat")
 
 
 def api_export(q):
@@ -6575,6 +7045,8 @@ GET = {
     "/f2b/file": lambda q: f2b.file_read(q.get("path")),
     "/geo": api_geo,
     "/fwrules": api_fwrules,
+    "/sshd": api_sshd,
+    "/threat": api_threat,
     "/export": api_export,
 }
 POST = {
@@ -6598,6 +7070,12 @@ POST = {
     "/f2b/ban": api_f2b_ban,
     "/f2b/unban": api_f2b_unban,
     "/import": api_import,
+    "/sshd/apply": api_sshd_apply,
+    "/sshd/confirm": api_sshd_confirm,
+    "/sshd/revert": api_sshd_revert,
+    "/sshd/key/add": api_sshd_key_add,
+    "/sshd/key/remove": api_sshd_key_remove,
+    "/test": api_test,
 }
 
 
@@ -6719,7 +7197,7 @@ LIMIT_KEYS = {"syn": (1, 100000), "conn": (1, 100000), "conc": (5, 1000000), "ud
               "icmp": (1, 10000), "ban": (1, 10080)}
 AUTOBAN_FACTOR = 3        # a source going this many times over a limit is banned, not just slowed down
 SSH_NEW_PER_MIN = 12      # new SSH connections per source and minute before the source is banned
-COUNTERS = ("allow", "block", "ban", "geo", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
+COUNTERS = ("allow", "block", "ban", "geo", "threat", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
             "udp", "icmp", "autoban", "new", "all")
 ALWAYS_TRUSTED = ("lo", "docker*", "br-*", "veth*")
 # Cloudflare's edge (https://www.cloudflare.com/ips/). A site or proxy behind Cloudflare receives all of its
@@ -6776,9 +7254,29 @@ def set_block(name, family, items, extra=""):
     return f"    set {name} {{ type {family}_addr; flags interval;{extra}{elements} }}"
 
 
+DAYS = ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+
+
+def schedule_parts(sched):
+    """[[nft time matches], ...] for a rule's schedule; a range over midnight becomes two ranges."""
+    if not sched:
+        return [[]]
+    day = f'meta day {{ {", ".join(f'"{DAYS[d]}"' for d in sched["days"])} }}' if sched.get("days") and len(sched["days"]) < 7 else ""
+    a, b = sched.get("from", "00:00"), sched.get("to", "23:59")
+    ranges = [(a, b)] if a < b else [(a, "23:59:59"), ("00:00", b)]
+    out = []
+    for x, y in ranges:
+        hour = f'meta hour "{x}"-"{y}"' if (x, y) != ("00:00", "23:59") else ""
+        out.append([m for m in (day, hour) if m])
+    return out
+
+
 def rule_parts(rule, zones):
-    """Set declarations and chain lines for one user rule (see agent.validate_rule for its fields)."""
+    """Set declarations and chain lines for one user rule (see agent.validate_rule for its fields).
+    Incoming rules match the source; outgoing rules (direction "out") match the destination."""
     rid = rule["id"]
+    out_dir = rule.get("direction") == "out"
+    who = "daddr" if out_dir else "saddr"
     sets, lines = [f"    counter c_r_{rid} {{ }}"], []
     c4, c6 = zones.get(rid, ([], []))
     i4, i6 = split_ips(rule.get("ips") or [])
@@ -6798,9 +7296,9 @@ def rule_parts(rule, zones):
                 continue
             if not items:          # nothing of this family in the list
                 if mode == "in":
-                    skip = True    # "from these" can never match this family
-                continue           # "not from these" matches every address of this family
-            parts.append(f"{fam} saddr {'!= ' if mode == 'not_in' else ''}@r_{rid}_{kind}{v}")
+                    skip = True    # "these" can never match this family
+                continue           # "none of these" matches every address of this family
+            parts.append(f"{fam} {who} {'!= ' if mode == 'not_in' else ''}@r_{rid}_{kind}{v}")
         if skip:
             continue
         proto, ports = rule.get("proto", "any"), rule.get("ports", "")
@@ -6812,22 +7310,24 @@ def rule_parts(rule, zones):
             parts.append("meta l4proto { tcp, udp }")
         if ports:
             parts.append(f"th dport {{ {', '.join(ports.split(','))} }}")
-        parts.append(f"counter name c_r_{rid}")
+        tail = [f"counter name c_r_{rid}"]
         if act == "allow":
-            parts.append("accept")
+            tail.append("accept")
         elif act == "block":
-            parts.append("drop")
+            tail.append("drop")
         elif act == "limit":
             L = rule["limit"]
-            parts.append(f"update @r_{rid}_m{v} {{ {fam} saddr limit rate over {L['rate']}/second burst {L['burst']} packets }}")
+            tail.append(f"update @r_{rid}_m{v} {{ {fam} saddr limit rate over {L['rate']}/second burst {L['burst']} packets }}")
             if L.get("ban"):
-                parts.append(f"add @ban{v} {{ {fam} saddr timeout {L['ban']}m }}")
-            parts.append("drop")
-        lines.append("        " + " ".join(parts))
+                tail.append(f"add @ban{v} {{ {fam} saddr timeout {L['ban']}m }}")
+            tail.append("drop")
+        for when in schedule_parts(rule.get("schedule")):
+            lines.append("        " + " ".join(parts + when + tail))
     return sets, lines
 
 
-def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=(), rule_zones=None):
+def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=(), rule_zones=None,
+          threat4=(), threat6=(), wan=None):
     """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table)."""
     fw = cfg["firewall"]
     adv = cfg.get("advanced") or {}
@@ -6843,7 +7343,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
               set_block("cdn4", "ipv4", list(CDN4) if cfg.get("trust_cdn", True) else []),
               set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else []),
               set_block("geo4", "ipv4", list(geo4), " auto-merge;"), set_block("geo6", "ipv6", list(geo6), " auto-merge;"),
-              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6)]
+              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6),
+              set_block("threat4", "ipv4", list(threat4), " auto-merge;"), set_block("threat6", "ipv6", list(threat6), " auto-merge;")]
     for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
         els = ban_elements.get(name) or []
         body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
@@ -6873,6 +7374,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
             if adv.get("panel_allow") and panel_ports else []),   # panel only for listed addresses (admins pass above)
           "        ip saddr @cdn4 accept",   # blocklist and bans above still apply to the CDN
           "        ip6 saddr @cdn6 accept",
+          "        ip saddr @threat4 counter name c_threat drop",   # threat-intelligence blocklists
+          "        ip6 saddr @threat6 counter name c_threat drop",
           "        ip saddr @geo4 counter name c_geo drop",    # blocked countries (allowlist, admins, CDN pass above)
           "        ip6 saddr @geo6 counter name c_geo drop",
           "        counter name c_all",
@@ -6887,11 +7390,15 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     for ln in (adv.get("custom_rules") or "").split("\n"):
         if ln.strip():
             r.append(f"        {ln.strip()}")
+    out_lines = []
     for rule in cfg.get("rules") or []:      # the user's rules, top to bottom, for new connections
         if rule.get("enabled", True):
             rsets, rlines = rule_parts(rule, rule_zones or {})
             lines[3:3] = rsets               # declarations go into the table (after its opening lines)
-            r += rlines
+            if rule.get("direction") == "out":
+                out_lines += rlines
+            else:
+                r += rlines
     ssh_rate = int(adv.get("ssh_rate", SSH_NEW_PER_MIN))
     if cfg["ssh_guard"].get("l4", True) and ssh_rate > 0:
         for fam, suffix in (("ip", "4"), ("ip6", "6")):
@@ -6921,6 +7428,12 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
             f"        {icmp} update @m_icmp{suffix} {{ {fam} saddr limit rate over {L['icmp']}/second burst {L['icmp'] * 2} packets }} counter name c_icmp drop",
         ]
     r.append("    }")
+    if out_lines:   # outgoing rules: the server itself, and containers / VPN clients leaving through the internet side
+        r += ["", "    chain local_out {", "        type filter hook output priority 0; policy accept;", '        oif "lo" accept',
+              "        ct state established,related accept"] + out_lines + ["    }"]
+        if wan:
+            r += ["", "    chain fwd_out {", "        type filter hook forward priority 0; policy accept;",
+                  "        ct state established,related accept", f'        oifname != "{wan}" accept'] + out_lines + ["    }"]
     lines += r
     lines.append("}")
     return "\n".join(lines) + "\n"
@@ -8119,6 +8632,384 @@ def info(data, codes):
                 n = sum(1 for _ in f)
             out[cc] = {"ranges": n, "updated": round(os.path.getmtime(p))}
     return out
+__MONITORING_EOF__
+  write_file defender/sshmgr.py 644 <<'__MONITORING_EOF__'
+"""SSH server management for the Firewall page: port, login options and root's authorized keys.
+
+Every change is written to /etc/ssh/sshd_config.d/00-panel.conf (read first, so its values win), checked
+with `sshd -t`, applied, and then every SSH port must answer with an SSH banner, or the previous files
+come back at once. After that the change stays "pending" until the user confirms, from a new login,
+that it works; without a confirmation it is undone after CONFIRM_SECONDS. Open sessions are never cut
+(the ssh unit uses KillMode=process).
+"""
+import base64
+import hashlib
+import os
+import re
+import socket
+import subprocess
+import time
+
+import hostinfo
+
+HOSTCMD = ["nsenter", "-t", "1", "-m", "-u", "-i", "-n", "-p", "--", "env",
+           "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL=C"]
+PANEL_CONF = "/etc/ssh/sshd_config.d/00-panel.conf"
+MAIN_CONF = "/etc/ssh/sshd_config"
+KEYS = "/root/.ssh/authorized_keys"
+CONFIRM_SECONDS = int(os.environ.get("SSH_CONFIRM_SECONDS", "300"))   # time to log in again and keep a change
+KEY_RE = re.compile(r"^(?:(?:[a-z0-9-]+(?:=\"[^\"]*\")?,?)+\s+)?((?:ssh-(?:ed25519|rsa|dss)|ecdsa-sha2-nistp(?:256|384|521)|sk-(?:ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com))\s+([A-Za-z0-9+/=]{40,})(?:\s+(.*))?$")
+OPTIONS = {   # field -> (sshd keyword, allowed values or (min, max))
+    "permit_root": ("PermitRootLogin", ("yes", "prohibit-password", "no")),
+    "password": ("PasswordAuthentication", ("yes", "no")),
+    "max_auth_tries": ("MaxAuthTries", (1, 50)),
+    "login_grace": ("LoginGraceTime", (5, 600)),
+    "idle_timeout": ("ClientAliveInterval", (0, 86400)),
+    "x11": ("X11Forwarding", ("yes", "no")),
+    "tcp_forwarding": ("AllowTcpForwarding", ("yes", "no", "local", "remote")),
+}
+
+
+def host(args, timeout=60):
+    p = subprocess.run(HOSTCMD + args, capture_output=True, text=True, timeout=timeout)
+    return p.returncode, (p.stdout + p.stderr).strip()
+
+
+def _sshd(args, timeout=20):
+    """sshd -t / -T need /run/sshd, which a socket-activated sshd only creates on its first connection."""
+    host(["mkdir", "-p", "-m", "0755", "/run/sshd"], timeout=10)
+    return host(["sshd"] + args, timeout=timeout)
+
+
+def _read(rel):
+    p = hostinfo.host_path(rel)
+    return open(p).read() if os.path.exists(p) else None
+
+
+def _write(rel, text):
+    p = hostinfo.host_path(rel)
+    if text is None:
+        if os.path.exists(p):
+            os.unlink(p)
+        return
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, "w") as f:
+        f.write(text)
+
+
+# ------------------------------------------------------------------ state
+
+def effective():
+    """`sshd -T`: what sshd really uses after every file and default."""
+    rc, out = _sshd(["-T"])
+    if rc != 0:
+        raise ValueError(f"sshd -T failed: {out[-300:]}")
+    conf = {}
+    for line in out.splitlines():
+        k, _, v = line.partition(" ")
+        if k == "port":
+            conf.setdefault("port", []).append(int(v))
+        else:
+            conf[k] = v
+    return conf
+
+
+def socket_mode():
+    rc, out = host(["systemctl", "is-active", "ssh.socket"], timeout=10)
+    return out.strip().splitlines()[-1:] == ["active"] if out else False
+
+
+def keys():
+    text = _read(KEYS) or ""
+    out = []
+    for i, line in enumerate(text.splitlines()):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = KEY_RE.match(line)
+        if not m:
+            out.append({"index": i, "type": "?", "comment": line[:40], "fingerprint": "", "valid": False})
+            continue
+        try:
+            blob = base64.b64decode(m.group(2))
+            fp = "SHA256:" + base64.b64encode(hashlib.sha256(blob).digest()).decode().rstrip("=")
+        except ValueError:
+            fp = ""
+        out.append({"index": i, "type": m.group(1), "comment": (m.group(3) or "").strip()[:80], "fingerprint": fp, "valid": bool(fp)})
+    return out
+
+
+def state(pending):
+    try:
+        eff = effective()
+    except Exception as e:
+        return {"error": str(e)}
+    return {
+        "ports": eff.get("port", [22]), "permit_root": eff.get("permitrootlogin"), "password": eff.get("passwordauthentication"),
+        "max_auth_tries": int(eff.get("maxauthtries", 6)), "login_grace": int(eff.get("logingracetime", 120)),
+        "idle_timeout": int(eff.get("clientaliveinterval", 0)), "x11": eff.get("x11forwarding"), "tcp_forwarding": eff.get("allowtcpforwarding"),
+        "socket": socket_mode(), "keys": keys(), "panel_file": _read(PANEL_CONF) is not None,
+        "pending": {"left": max(0, int(pending["until"] - time.time())), "ports": pending.get("ports")} if pending else None,
+    }
+
+
+# ------------------------------------------------------------------ applying
+
+def render(settings):
+    lines = ["# Managed by the Server Monitor panel (Firewall > SSH). Change these settings there.",
+             "# Read before the other files, so these values win. Remove this file to go back to them."]
+    for p in settings.get("ports") or []:
+        lines.append(f"Port {int(p)}")
+    for field, (kw, _) in OPTIONS.items():
+        if settings.get(field) not in (None, ""):
+            lines.append(f"{kw} {settings[field]}")
+    if settings.get("password") == "no":
+        lines.append("KbdInteractiveAuthentication no")
+    return "\n".join(lines) + "\n"
+
+
+def _comment_ports(text):
+    """Other files' `Port` lines would add ports (they are cumulative), so they are commented out."""
+    return re.sub(r"(?mi)^(\s*)(port\s+\d+)", r"\1# \2   # moved to 00-panel.conf by the panel", text)
+
+
+def validate(settings, listening_ports):
+    out = {}
+    ports = sorted({int(p) for p in settings.get("ports") or []})
+    if not ports or len(ports) > 5 or not all(1 <= p <= 65535 for p in ports):
+        raise ValueError("Give one to five SSH ports between 1 and 65535")
+    busy = [p for p in ports if p in listening_ports]
+    if busy:
+        raise ValueError(f"Port {busy[0]} is already used by another program")
+    out["ports"] = ports
+    for field, (_, allowed) in OPTIONS.items():
+        v = settings.get(field)
+        if v in (None, ""):
+            continue
+        if isinstance(allowed, tuple) and isinstance(allowed[0], int):
+            v = int(v)
+            if not allowed[0] <= v <= allowed[1]:
+                raise ValueError(f"{field}: {allowed[0]} to {allowed[1]}")
+        elif str(v) not in allowed:
+            raise ValueError(f"{field}: one of {', '.join(allowed)}")
+        out[field] = v
+    if out.get("password") == "no" and not any(k["valid"] for k in keys()):
+        raise ValueError("Add an SSH key first: without a key and without passwords nobody could log in")
+    return out
+
+
+def _restart():
+    if socket_mode():   # Ubuntu 22.10+: ports live in ssh.socket, generated from sshd_config
+        for cmd in (["systemctl", "stop", "ssh.service"], ["systemctl", "daemon-reload"], ["systemctl", "restart", "ssh.socket"]):
+            rc, out = host(cmd, timeout=60)
+            if rc != 0:
+                return False, out
+        return True, ""
+    for unit in ("ssh", "sshd"):
+        rc, out = host(["systemctl", "restart", unit], timeout=60)
+        if rc == 0:
+            return True, ""
+    return False, out
+
+
+def answers(port, timeout=8):
+    """True when something on this port greets us like an SSH server."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=3) as s:
+                if s.recv(64).startswith(b"SSH-"):
+                    return True
+        except OSError:
+            pass
+        time.sleep(0.5)
+    return False
+
+
+def apply(settings, before_restart=None):
+    """Write + test + restart + check every port. Returns the files as they were (for a later undo)."""
+    old = {rel: _read(rel) for rel in [PANEL_CONF, MAIN_CONF] + _dropins()}
+    new = {PANEL_CONF: render(settings)}
+    for rel in [MAIN_CONF] + _dropins():
+        if old.get(rel) and re.search(r"(?mi)^\s*port\s+\d+", old[rel]):
+            new[rel] = _comment_ports(old[rel])
+    for rel, text in new.items():
+        _write(rel, text)
+    rc, out = _sshd(["-t"])
+    if rc != 0:
+        restore(old, restart=False)
+        raise ValueError(f"sshd rejected the settings, nothing changed: {out[-400:]}")
+    if before_restart:
+        before_restart()    # the firewall opens the new ports first
+    ok, err = _restart()
+    bad = [p for p in settings["ports"] if not answers(p)] if ok else settings["ports"]
+    if not ok or bad:
+        restore(old)
+        raise ValueError(f"SSH did not answer on port {bad[0] if bad else '?'} ({err[-200:] if err else 'no answer'}); "
+                         "the previous settings are back")
+    return old
+
+
+def restore(old, restart=True):
+    for rel, text in old.items():
+        _write(rel, text)
+    if restart:
+        _restart()
+
+
+def _dropins():
+    d = hostinfo.host_path("/etc/ssh/sshd_config.d")
+    try:
+        return [f"/etc/ssh/sshd_config.d/{n}" for n in sorted(os.listdir(d)) if n.endswith(".conf") and n != "00-panel.conf"]
+    except OSError:
+        return []
+
+
+# ------------------------------------------------------------------ authorized keys (root)
+
+def add_key(line):
+    line = " ".join(str(line).strip().split())
+    m = KEY_RE.match(line)
+    if not m:
+        raise ValueError("This is not an SSH public key (it starts with ssh-ed25519, ssh-rsa or ecdsa-…)")
+    try:
+        base64.b64decode(m.group(2), validate=True)
+    except ValueError:
+        raise ValueError("The key is damaged (not valid base64)")
+    text = _read(KEYS) or ""
+    if m.group(2) in text:
+        raise ValueError("This key is already there")
+    d = hostinfo.host_path("/root/.ssh")
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    _write(KEYS, (text if text.endswith("\n") or not text else text + "\n") + line + "\n")
+    os.chmod(hostinfo.host_path(KEYS), 0o600)
+    os.chmod(d, 0o700)
+    return keys()
+
+
+def remove_key(index, password_login):
+    text = _read(KEYS) or ""
+    lines = text.splitlines()
+    if not 0 <= index < len(lines):
+        raise ValueError("unknown key")
+    remaining = [k for k in keys() if k["index"] != index and k["valid"]]
+    if not remaining and password_login == "no":
+        raise ValueError("This is the last key and password login is off: removing it would lock everyone out")
+    del lines[index]
+    _write(KEYS, "\n".join(lines) + ("\n" if lines else ""))
+    return keys()
+__MONITORING_EOF__
+  write_file defender/threat.py 644 <<'__MONITORING_EOF__'
+"""Threat-intelligence blocklists: public lists of attacking / hijacked addresses, refreshed every 12 hours.
+
+Private, loopback and other reserved ranges are always removed from the lists (some include them as
+"bogons"), so Docker, VPN tunnels and the LAN are never affected.
+"""
+import ipaddress
+import os
+import time
+from urllib.request import Request, urlopen
+
+FEEDS = {
+    "spamhaus": {"name": "Spamhaus DROP", "urls": ["https://www.spamhaus.org/drop/drop.txt", "https://www.spamhaus.org/drop/dropv6.txt"],
+                 "site": "spamhaus.org"},
+    "firehol": {"name": "FireHOL Level 1", "urls": ["https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"],
+                "site": "iplists.firehol.org"},
+    "blocklistde": {"name": "blocklist.de", "urls": ["https://lists.blocklist.de/lists/all.txt"], "site": "blocklist.de"},
+    "et": {"name": "Emerging Threats", "urls": ["https://rules.emergingthreats.net/blockrules/compromised-ips.txt"], "site": "emergingthreats.net"},
+    "cins": {"name": "CINS Army", "urls": ["https://cinsscore.com/list/ci-badguys.txt"], "site": "cinsscore.com"},
+}
+MAX_AGE = 12 * 3600
+RESERVED = [ipaddress.ip_network(n) for n in ("0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+                                               "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/3", "::/8", "fc00::/7", "fe80::/10", "ff00::/8")]
+
+
+def _dir(data):
+    d = os.path.join(data, "threat")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _clean(text):
+    v4, v6 = [], []
+    for line in text.splitlines():
+        token = line.split(";")[0].split("#")[0].strip().split()
+        if not token:
+            continue
+        try:
+            net = ipaddress.ip_network(token[0], strict=False)
+        except ValueError:
+            continue
+        if net.prefixlen == 0 or any(net.version == r.version and net.overlaps(r) for r in RESERVED):
+            continue
+        (v4 if net.version == 4 else v6).append(str(net))
+    return v4, v6
+
+
+def fetch(data, fid, force=False):
+    """Download one feed when it is older than MAX_AGE; returns (v4, v6) from the cache."""
+    feed = FEEDS[fid]
+    path4, path6 = (os.path.join(_dir(data), f"{fid}.{v}") for v in (4, 6))
+    fresh = os.path.exists(path4) and time.time() - os.path.getmtime(path4) < MAX_AGE
+    if force or not fresh:
+        v4, v6 = [], []
+        for url in feed["urls"]:
+            req = Request(url, headers={"User-Agent": "server-monitor-firewall/1.0"})
+            try:
+                with urlopen(req, timeout=30) as r:
+                    a, b = _clean(r.read(30_000_000).decode("utf-8", "replace"))
+            except Exception as e:
+                if not os.path.exists(path4):
+                    raise ValueError(f"Cannot download {feed['name']}: {e}")
+                return cached(data, fid)
+            v4 += a
+            v6 += b
+        for path, items in ((path4, v4), (path6, v6)):
+            with open(path + ".tmp", "w") as f:
+                f.write("\n".join(sorted(set(items))))
+            os.replace(path + ".tmp", path)
+    return cached(data, fid)
+
+
+def cached(data, fid):
+    out = []
+    for v in (4, 6):
+        p = os.path.join(_dir(data), f"{fid}.{v}")
+        out.append([ln for ln in open(p).read().splitlines() if ln] if os.path.exists(p) else [])
+    return out[0], out[1]
+
+
+def build(data, ids, download=False):
+    v4, v6 = set(), set()
+    for fid in ids:
+        if fid not in FEEDS:
+            continue
+        a, b = fetch(data, fid) if download else cached(data, fid)
+        v4.update(a)
+        v6.update(b)
+    return sorted(v4), sorted(v6)
+
+
+def info(data):
+    out = {}
+    for fid, f in FEEDS.items():
+        p = os.path.join(_dir(data), f"{fid}.4")
+        v4, v6 = cached(data, fid)
+        out[fid] = {"name": f["name"], "site": f["site"], "entries": len(v4) + len(v6), "updated": round(os.path.getmtime(p)) if os.path.exists(p) else None}
+    return out
+
+
+def member(data, ids, ip):
+    """Which of the enabled feeds list this address."""
+    addr = ipaddress.ip_address(ip)
+    hits = []
+    for fid in ids:
+        a, b = cached(data, fid)
+        for n in (a if addr.version == 4 else b):
+            if addr in ipaddress.ip_network(n):
+                hits.append(FEEDS[fid]["name"])
+                break
+    return hits
 __MONITORING_EOF__
   write_file panel/static/index.html 644 <<'__MONITORING_EOF__'
 <!doctype html>
@@ -10834,6 +11725,29 @@ label.btn input[type="file"] { display: none; }
   .fw-act { grid-column: 1 / -1; justify-content: space-between; }
   .fw-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fw-sensrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* address tester, threat lists, rule schedules */
+.tt-verdict { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.tt-verdict.ok { border-color: color-mix(in srgb, var(--s-good) 40%, var(--line)); }
+.tt-verdict.bad { border-color: color-mix(in srgb, var(--s-bad) 45%, var(--line)); }
+.tt-verdict.warn { border-color: color-mix(in srgb, var(--s-warn) 45%, var(--line)); }
+.tt-steps { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; counter-reset: s; }
+.tt-steps li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; padding: 6px 2px; border-bottom: 1px dashed var(--line); }
+.tt-steps li:last-child { border-bottom: 0; }
+.tt-steps li .pill { flex: none; }
+.th-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.th-feed { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; }
+.th-feed.on { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.th-body { display: grid; gap: 3px; min-width: 0; }
+.th-body small { font-size: 12px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
+.fw-sched[hidden] { display: none; }
+.fw-sched { margin-top: 10px; }
+.fw-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.fw-actopt[hidden] { display: none; }
+@media (max-width: 699px) {
+  .fw-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .th-grid { grid-template-columns: minmax(0, 1fr); }
 }
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'

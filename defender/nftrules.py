@@ -29,7 +29,7 @@ LIMIT_KEYS = {"syn": (1, 100000), "conn": (1, 100000), "conc": (5, 1000000), "ud
               "icmp": (1, 10000), "ban": (1, 10080)}
 AUTOBAN_FACTOR = 3        # a source going this many times over a limit is banned, not just slowed down
 SSH_NEW_PER_MIN = 12      # new SSH connections per source and minute before the source is banned
-COUNTERS = ("allow", "block", "ban", "geo", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
+COUNTERS = ("allow", "block", "ban", "geo", "threat", "panel", "custom", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
             "udp", "icmp", "autoban", "new", "all")
 ALWAYS_TRUSTED = ("lo", "docker*", "br-*", "veth*")
 # Cloudflare's edge (https://www.cloudflare.com/ips/). A site or proxy behind Cloudflare receives all of its
@@ -86,9 +86,29 @@ def set_block(name, family, items, extra=""):
     return f"    set {name} {{ type {family}_addr; flags interval;{extra}{elements} }}"
 
 
+DAYS = ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+
+
+def schedule_parts(sched):
+    """[[nft time matches], ...] for a rule's schedule; a range over midnight becomes two ranges."""
+    if not sched:
+        return [[]]
+    day = f'meta day {{ {", ".join(f'"{DAYS[d]}"' for d in sched["days"])} }}' if sched.get("days") and len(sched["days"]) < 7 else ""
+    a, b = sched.get("from", "00:00"), sched.get("to", "23:59")
+    ranges = [(a, b)] if a < b else [(a, "23:59:59"), ("00:00", b)]
+    out = []
+    for x, y in ranges:
+        hour = f'meta hour "{x}"-"{y}"' if (x, y) != ("00:00", "23:59") else ""
+        out.append([m for m in (day, hour) if m])
+    return out
+
+
 def rule_parts(rule, zones):
-    """Set declarations and chain lines for one user rule (see agent.validate_rule for its fields)."""
+    """Set declarations and chain lines for one user rule (see agent.validate_rule for its fields).
+    Incoming rules match the source; outgoing rules (direction "out") match the destination."""
     rid = rule["id"]
+    out_dir = rule.get("direction") == "out"
+    who = "daddr" if out_dir else "saddr"
     sets, lines = [f"    counter c_r_{rid} {{ }}"], []
     c4, c6 = zones.get(rid, ([], []))
     i4, i6 = split_ips(rule.get("ips") or [])
@@ -108,9 +128,9 @@ def rule_parts(rule, zones):
                 continue
             if not items:          # nothing of this family in the list
                 if mode == "in":
-                    skip = True    # "from these" can never match this family
-                continue           # "not from these" matches every address of this family
-            parts.append(f"{fam} saddr {'!= ' if mode == 'not_in' else ''}@r_{rid}_{kind}{v}")
+                    skip = True    # "these" can never match this family
+                continue           # "none of these" matches every address of this family
+            parts.append(f"{fam} {who} {'!= ' if mode == 'not_in' else ''}@r_{rid}_{kind}{v}")
         if skip:
             continue
         proto, ports = rule.get("proto", "any"), rule.get("ports", "")
@@ -122,22 +142,24 @@ def rule_parts(rule, zones):
             parts.append("meta l4proto { tcp, udp }")
         if ports:
             parts.append(f"th dport {{ {', '.join(ports.split(','))} }}")
-        parts.append(f"counter name c_r_{rid}")
+        tail = [f"counter name c_r_{rid}"]
         if act == "allow":
-            parts.append("accept")
+            tail.append("accept")
         elif act == "block":
-            parts.append("drop")
+            tail.append("drop")
         elif act == "limit":
             L = rule["limit"]
-            parts.append(f"update @r_{rid}_m{v} {{ {fam} saddr limit rate over {L['rate']}/second burst {L['burst']} packets }}")
+            tail.append(f"update @r_{rid}_m{v} {{ {fam} saddr limit rate over {L['rate']}/second burst {L['burst']} packets }}")
             if L.get("ban"):
-                parts.append(f"add @ban{v} {{ {fam} saddr timeout {L['ban']}m }}")
-            parts.append("drop")
-        lines.append("        " + " ".join(parts))
+                tail.append(f"add @ban{v} {{ {fam} saddr timeout {L['ban']}m }}")
+            tail.append("drop")
+        for when in schedule_parts(rule.get("schedule")):
+            lines.append("        " + " ".join(parts + when + tail))
     return sets, lines
 
 
-def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=(), rule_zones=None):
+def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=(), rule_zones=None,
+          threat4=(), threat6=(), wan=None):
     """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table)."""
     fw = cfg["firewall"]
     adv = cfg.get("advanced") or {}
@@ -153,7 +175,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
               set_block("cdn4", "ipv4", list(CDN4) if cfg.get("trust_cdn", True) else []),
               set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else []),
               set_block("geo4", "ipv4", list(geo4), " auto-merge;"), set_block("geo6", "ipv6", list(geo6), " auto-merge;"),
-              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6)]
+              set_block("pallow4", "ipv4", pallow4), set_block("pallow6", "ipv6", pallow6),
+              set_block("threat4", "ipv4", list(threat4), " auto-merge;"), set_block("threat6", "ipv6", list(threat6), " auto-merge;")]
     for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
         els = ban_elements.get(name) or []
         body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
@@ -183,6 +206,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
             if adv.get("panel_allow") and panel_ports else []),   # panel only for listed addresses (admins pass above)
           "        ip saddr @cdn4 accept",   # blocklist and bans above still apply to the CDN
           "        ip6 saddr @cdn6 accept",
+          "        ip saddr @threat4 counter name c_threat drop",   # threat-intelligence blocklists
+          "        ip6 saddr @threat6 counter name c_threat drop",
           "        ip saddr @geo4 counter name c_geo drop",    # blocked countries (allowlist, admins, CDN pass above)
           "        ip6 saddr @geo6 counter name c_geo drop",
           "        counter name c_all",
@@ -197,11 +222,15 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
     for ln in (adv.get("custom_rules") or "").split("\n"):
         if ln.strip():
             r.append(f"        {ln.strip()}")
+    out_lines = []
     for rule in cfg.get("rules") or []:      # the user's rules, top to bottom, for new connections
         if rule.get("enabled", True):
             rsets, rlines = rule_parts(rule, rule_zones or {})
             lines[3:3] = rsets               # declarations go into the table (after its opening lines)
-            r += rlines
+            if rule.get("direction") == "out":
+                out_lines += rlines
+            else:
+                r += rlines
     ssh_rate = int(adv.get("ssh_rate", SSH_NEW_PER_MIN))
     if cfg["ssh_guard"].get("l4", True) and ssh_rate > 0:
         for fam, suffix in (("ip", "4"), ("ip6", "6")):
@@ -231,6 +260,12 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(),
             f"        {icmp} update @m_icmp{suffix} {{ {fam} saddr limit rate over {L['icmp']}/second burst {L['icmp'] * 2} packets }} counter name c_icmp drop",
         ]
     r.append("    }")
+    if out_lines:   # outgoing rules: the server itself, and containers / VPN clients leaving through the internet side
+        r += ["", "    chain local_out {", "        type filter hook output priority 0; policy accept;", '        oif "lo" accept',
+              "        ct state established,related accept"] + out_lines + ["    }"]
+        if wan:
+            r += ["", "    chain fwd_out {", "        type filter hook forward priority 0; policy accept;",
+                  "        ct state established,related accept", f'        oifname != "{wan}" accept'] + out_lines + ["    }"]
     lines += r
     lines.append("}")
     return "\n".join(lines) + "\n"

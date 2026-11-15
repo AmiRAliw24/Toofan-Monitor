@@ -21,7 +21,7 @@
   // ---------------------------------------------------------------- strings
   const EN = {
     df_nav: "Firewall", df_desc: "Firewall, DDoS protection, SSH brute-force guard and server hardening, all in one place. Changes are tested for 60 seconds and undone by themselves if the panel stops answering.",
-    df_t_overview: "Overview", df_t_firewall: "Ports & rules", df_t_ddos: "Anti-DDoS", df_t_lists: "IP lists", df_t_ssh: "SSH guard", df_t_hardening: "Hardening",
+    df_t_overview: "Overview", df_t_firewall: "Ports & rules", df_t_ddos: "Anti-DDoS", df_t_lists: "IP lists", df_t_ssh: "SSH", df_t_hardening: "Hardening",
     df_missing_title: "The firewall service is not running", df_missing_sub: "It is part of the monitoring stack. Re-run install.sh, or on the server run:",
     df_off_title: "Protection is off", df_off_sub: "The firewall is only watching. Turn protection on to block floods, scans and brute force. Nothing is closed: every port that works now keeps working.",
     df_on_title: "Your server is protected", df_on_sub: "Floods, scans and brute force are blocked automatically. Normal traffic is not touched.",
@@ -105,7 +105,7 @@
   };
   const FA = {
     df_nav: "فایروال", df_desc: "فایروال، محافظت در برابر DDoS، محافظ SSH و سخت‌سازی سرور در یک جا. هر تغییر ۶۰ ثانیه آزمایش می‌شود و اگر پنل دیگر جواب ندهد، خودش برمی‌گردد.",
-    df_t_overview: "نمای کلی", df_t_firewall: "پورت‌ها و قوانین", df_t_ddos: "ضد DDoS", df_t_lists: "لیست آی‌پی‌ها", df_t_ssh: "محافظ SSH", df_t_hardening: "سخت‌سازی",
+    df_t_overview: "نمای کلی", df_t_firewall: "پورت‌ها و قوانین", df_t_ddos: "ضد DDoS", df_t_lists: "لیست آی‌پی‌ها", df_t_ssh: "SSH", df_t_hardening: "سخت‌سازی",
     df_missing_title: "سرویس فایروال اجرا نمی‌شود", df_missing_sub: "بخشی از استک مانیتورینگ است. install.sh را دوباره اجرا کنید یا روی سرور بزنید:",
     df_off_title: "محافظت خاموش است", df_off_sub: "فایروال فقط نگاه می‌کند. محافظت را روشن کنید تا فلاد، اسکن و حمله‌ی رمز بسته شود. هیچ پورتی بسته نمی‌شود و هر چیزی که الان کار می‌کند، کار می‌کند.",
     df_on_title: "سرور شما محافظت می‌شود", df_on_sub: "فلاد، اسکن و حمله‌ی رمز خودکار بسته می‌شوند. ترافیک عادی دست نمی‌خورد.",
@@ -249,6 +249,12 @@
       if (D.tab === "overview") {
         paintLive();
         if (D.ticks % 5 === 0) refreshOverviewSlow();
+      }
+      if (D.tab === "ssh" && D.sv && D.sv.pending) {
+        D.sv.pending.left = Math.max(0, D.sv.pending.left - 2);
+        if (D.sv.pending.left === 0 || D.ticks % 10 === 0) { const fresh = await api("/api/defender/sshd").catch(() => null); if (fresh) D.sv = fresh; }
+        svFormToDraft();
+        repaintSv();
       }
       if (D.tab === "rules" && D.ticks % 5 === 0 && !document.querySelector("dialog[open]")) {
         const fr = await api("/api/defender/fwrules").catch(() => null);
@@ -1119,6 +1125,12 @@
     df_r_if: "If", df_r_and: "and", df_r_country_is: "country is {list}", df_r_country_not: "country is not {list}", df_r_addr_is: "address is {list}", df_r_addr_not: "address is not {list}",
     df_r_proto_is: "protocol is {p}", df_r_ports_is: "port is {list}", df_r_arrow: "→", df_r_limit_sum: "limit to {rate}/s per address", df_r_ban_sum: "ban for {m} min",
     df_r_saved: "Rules applied", df_r_disabled: "Off",
+    df_r_dir: "Direction", df_r_dir_in: "Incoming connections (to this server)", df_r_dir_out: "Outgoing connections (from this server, its containers and VPN users)",
+    df_r_to_country: "Goes to country", df_r_to_addr: "Goes to address", df_r_out_badge: "outgoing", df_r_out_sum: "Outgoing:",
+    df_r_when_active: "Active", df_r_always: "Always", df_r_sched: "Only at these times", df_r_days: "Days", df_r_sched_bad: "Pick at least one day and two different times.", df_r_from: "From", df_r_to: "To",
+    df_r_tz: "Server time (UTC), now {now}.", df_r_expires: "Remove after", df_r_never: "Never (permanent)", df_r_exp_in: "ends in {left}", df_r_expired: "ended",
+    df_r_sched_sum: "{days} {from}–{to}", df_r_every_day: "every day",
+    df_r_tpl_mail: "Block outgoing mail (spam)", df_r_tpl_temp: "Block an address for 24 hours",
   }, {
     df_t_rules: "قوانین", df_r_title: "قوانین فایروال",
     df_r_sub: "تعیین کنید با اتصال‌های جدید بر اساس کشور، آدرس، پروتکل و پورت چه شود؛ مثل قوانین فایروال Cloudflare یا ابر آروان. قوانین از بالا به پایین اجرا می‌شوند و اولین «اجازه» یا «مسدود» که بخورد تصمیم می‌گیرد.",
@@ -1139,19 +1151,28 @@
     df_r_if: "اگر", df_r_and: "و", df_r_country_is: "کشور {list} باشد", df_r_country_not: "کشور {list} نباشد", df_r_addr_is: "آدرس {list} باشد", df_r_addr_not: "آدرس {list} نباشد",
     df_r_proto_is: "پروتکل {p} باشد", df_r_ports_is: "پورت {list} باشد", df_r_arrow: "←", df_r_limit_sum: "محدود به {rate} در ثانیه برای هر آدرس", df_r_ban_sum: "مسدودی {m} دقیقه",
     df_r_saved: "قوانین اعمال شد", df_r_disabled: "خاموش",
+    df_r_dir: "جهت", df_r_dir_in: "اتصال‌های ورودی (به این سرور)", df_r_dir_out: "اتصال‌های خروجی (از این سرور، کانتینرها و کاربران VPN)",
+    df_r_to_country: "به کشور", df_r_to_addr: "به آدرس", df_r_out_badge: "خروجی", df_r_out_sum: "خروجی:",
+    df_r_when_active: "فعال بودن", df_r_always: "همیشه", df_r_sched: "فقط در این زمان‌ها", df_r_days: "روزها", df_r_sched_bad: "دست‌کم یک روز و دو ساعت متفاوت انتخاب کنید.", df_r_from: "از", df_r_to: "تا",
+    df_r_tz: "به وقت سرور (UTC)، الان {now}.", df_r_expires: "حذف خودکار بعد از", df_r_never: "هرگز (دائمی)", df_r_exp_in: "{left} مانده", df_r_expired: "تمام شده",
+    df_r_sched_sum: "{days} {from}–{to}", df_r_every_day: "هر روز",
+    df_r_tpl_mail: "مسدود کردن ایمیل خروجی (اسپم)", df_r_tpl_temp: "مسدود کردن یک آدرس برای ۲۴ ساعت",
   });
   P.addIcons({ rule: '<path d="M4 5h16l-6 7.5V19l-4 1.5v-8L4 5z"/>', up: '<path d="m6 15 6-6 6 6"/>', down2: '<path d="m6 9 6 6 6-6"/>', dup: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>' });
 
   const SENS = { low: [100, 200], medium: [30, 60], high: [10, 20], vhigh: [3, 6] };
   const sensOf = (L) => Object.keys(SENS).find((k) => SENS[k][0] === L.rate && SENS[k][1] === L.burst) || "custom";
   const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(3)), (b) => b.toString(16).padStart(2, "0")).join("");
-  const blankRule = (over = {}) => ({ id: newId(), name: "", enabled: true, countries: [], country_mode: "in", ips: [], ip_mode: "in", proto: "any", ports: "", action: "block", limit: { rate: 10, burst: 20, ban: 0 }, ...over });
+  const blankRule = (over = {}) => ({ id: newId(), name: "", enabled: true, direction: "in", countries: [], country_mode: "in", ips: [], ip_mode: "in", proto: "any", ports: "", action: "block",
+    limit: { rate: 10, burst: 20, ban: 0 }, schedule: null, expires: 0, ...over });
   const TEMPLATES = {
     block: () => blankRule({ name: t("df_r_tpl_block"), action: "block", _c: true }),
     only: () => blankRule({ name: t("df_r_tpl_only"), country_mode: "not_in", action: "block", _c: true }),
     strict: () => blankRule({ name: t("df_r_tpl_strict"), action: "limit", limit: { rate: 3, burst: 6, ban: 60 }, _c: true }),
     allow: () => blankRule({ name: t("df_r_tpl_allow"), action: "allow", _a: true }),
     port: () => blankRule({ name: t("df_r_tpl_port"), ip_mode: "not_in", proto: "tcp", action: "block", _a: true }),
+    mail: () => blankRule({ name: t("df_r_tpl_mail"), direction: "out", proto: "tcp", ports: "25,465,587", action: "block" }),
+    temp: () => blankRule({ name: t("df_r_tpl_temp"), action: "block", _a: true, expires: Math.floor(Date.now() / 1000) + 86400 }),
   };
 
   const shortList = (items, f = (x) => x) => (items.length > 3 ? `${items.slice(0, 3).map(f).join("، ")} +${items.length - 3}` : items.map(f).join("، "));
@@ -1163,8 +1184,13 @@
     if (r.ports) c.push(t("df_r_ports_is", { list: r.ports.replace(/,/g, "، ") }));
     let act = t(`df_r_a_${r.action}`);
     if (r.action === "limit") act = t("df_r_limit_sum", { rate: r.limit.rate }) + (r.limit.ban ? ` · ${t("df_r_ban_sum", { m: r.limit.ban })}` : "");
-    return `${t("df_r_if")} ${c.join(` ${t("df_r_and")} `)} ${t("df_r_arrow")} ${act}`;
+    let sum = `${r.direction === "out" ? `${t("df_r_out_sum")} ` : ""}${t("df_r_if")} ${c.join(` ${t("df_r_and")} `)} ${t("df_r_arrow")} ${act}`;
+    if (r.schedule) sum += ` · ⏰ ${schedText(r.schedule)}`;
+    return sum;
   }
+  const dayName = (d) => { try { return new Intl.DateTimeFormat(P.state.lang === "fa" ? "fa" : "en", { weekday: "short" }).format(new Date(Date.UTC(2024, 0, 7 + d, 12))); } catch (e) { return String(d); } };
+  const schedText = (sc) => t("df_r_sched_sum", { days: sc.days.length === 7 ? t("df_r_every_day") : sc.days.map(dayName).join("، "), from: sc.from, to: sc.to });
+  const leftText = (ts) => { const s = ts - Date.now() / 1000; return s <= 0 ? t("df_r_expired") : t("df_r_exp_in", { left: s > 86400 ? `${nf(s / 86400, 1)}d` : s > 3600 ? `${nf(s / 3600, 1)}h` : `${Math.ceil(s / 60)}m` }); };
   const ACT_TONE = { allow: "ok", block: "bad", limit: "warn", log: "" };
 
   async function renderRules() {
@@ -1178,7 +1204,7 @@
     const list = D.rules.length ? `<ol class="fw-rules">${D.rules.map((r, i) => {
       const hits = D.ruleHits[r.id];
       return `<li class="fw-rule${r.enabled ? "" : " off"}"><span class="fw-n">${num(i + 1)}</span>
-        <div class="fw-main"><div class="fw-top"><b>${esc(r.name)}</b>${pill(ACT_TONE[r.action], t(`df_r_a_${r.action}`))}${r.enabled ? "" : pill("", t("df_r_disabled"), false)}</div>
+        <div class="fw-main"><div class="fw-top"><b>${esc(r.name)}</b>${pill(ACT_TONE[r.action], t(`df_r_a_${r.action}`))}${r.direction === "out" ? `<span class="tag">↗ ${esc(t("df_r_out_badge"))}</span>` : ""}${r.expires ? `<span class="tag">⌛ ${esc(leftText(r.expires))}</span>` : ""}${r.enabled ? "" : pill("", t("df_r_disabled"), false)}</div>
           <p class="fw-sum">${esc(summary(r))}</p>
           <small class="muted">${hits && hits.packets ? esc(t("df_r_hits", { n: nf(hits.packets, 0) })) : esc(t("df_r_hits_none"))}</small></div>
         <div class="fw-act"><label class="switch" title="${esc(r.enabled ? t("df_f2b_on") : t("df_f2b_off"))}"><input type="checkbox" data-rule-toggle="${i}" ${r.enabled ? "checked" : ""} aria-label="${esc(r.name)}"><span></span></label>
@@ -1214,6 +1240,7 @@
     const dlg = openDialog({
       title: isNew ? t("df_r_new") : `${r.name} · ${t("df_j_edit")}`, submit: t("df_save"), wide: true,
       body: `${field(t("df_r_name"), `<input name="name" maxlength="80" value="${esc(r.name)}" required autocomplete="off">`)}
+        ${field(t("df_r_dir"), `<select name="direction"><option value="in">${esc(t("df_r_dir_in"))}</option><option value="out" ${r.direction === "out" ? "selected" : ""}>${esc(t("df_r_dir_out"))}</option></select>`)}
         <h4 class="fw-h">${esc(t("df_r_when"))}</h4>
         <div class="fw-cond"><div class="field-row">${field(t("df_r_country"), `<select name="cmode"><option value="any">${esc(t("df_r_any_country"))}</option><option value="in" ${cmode === "in" ? "selected" : ""}>${esc(t("df_r_in"))}</option><option value="not_in" ${cmode === "not_in" ? "selected" : ""}>${esc(t("df_r_not_in"))}</option></select>`)}
           <div class="field fw-cc-count"><label>&nbsp;</label><span class="muted" data-cc-count></span></div></div>
@@ -1223,6 +1250,11 @@
           <div class="fw-ips" ${amode === "any" ? "hidden" : ""}>${field("", `<textarea name="ips" dir="ltr" rows="3" spellcheck="false" placeholder="203.0.113.7&#10;198.51.100.0/24">${esc(r.ips.join("\n"))}</textarea>`, t("df_r_ips_hint"))}</div></div>
         <div class="fw-cond field-row">${field(t("df_r_proto"), `<select name="proto">${[["any", t("df_r_any_proto")], ["tcp", "TCP"], ["udp", "UDP"], ["icmp", t("df_r_ping")]].map(([v, l]) => `<option value="${v}" ${r.proto === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`)}
           ${field(t("df_r_ports"), `<input name="ports" dir="ltr" value="${esc(r.ports)}" placeholder="22, 80,443, 8000-8100" autocomplete="off">`, t("df_r_ports_hint"))}</div>
+        <div class="fw-cond"><div class="field-row">${field(t("df_r_when_active"), `<select name="smode"><option value="always">${esc(t("df_r_always"))}</option><option value="sched" ${r.schedule ? "selected" : ""}>${esc(t("df_r_sched"))}</option></select>`)}
+          ${field(t("df_r_expires"), `<select name="expires"><option value="0">${esc(t("df_r_never"))}</option>${[[3600, "1 h"], [21600, "6 h"], [86400, "24 h"], [259200, "3 d"], [604800, "7 d"]].map(([v, l]) => `<option value="+${v}">${l}</option>`).join("")}${r.expires ? `<option value="${r.expires}" selected>${esc(leftText(r.expires))}</option>` : ""}</select>`)}</div>
+          <div class="fw-sched" ${r.schedule ? "" : "hidden"}><label class="fw-lbl">${esc(t("df_r_days"))}</label><div class="fw-days">${[0, 1, 2, 3, 4, 5, 6].map((d) => `<label class="fw-sens"><input type="checkbox" name="day" value="${d}" ${!r.schedule || r.schedule.days.includes(d) ? "checked" : ""}><span>${esc(dayName(d))}</span></label>`).join("")}</div>
+            <div class="field-row">${field(t("df_r_from"), `<input type="time" name="tfrom" value="${esc(r.schedule ? r.schedule.from : "09:00")}" dir="ltr">`)}${field(t("df_r_to"), `<input type="time" name="tto" value="${esc(r.schedule ? r.schedule.to : "17:00")}" dir="ltr">`)}</div>
+            <p class="hint">${esc(t("df_r_tz", { now: new Date().toISOString().slice(11, 16) }))}</p></div></div>
         <h4 class="fw-h">${esc(t("df_r_then"))}</h4><div class="fw-actions">${["allow", "block", "limit", "log"].map(actCard).join("")}</div>
         <div class="fw-limit" ${r.action === "limit" ? "" : "hidden"}><label class="fw-lbl">${esc(t("df_r_sens"))}</label><div class="fw-sensrow">${sensBtns}</div>
           <div class="field-row fw-custom" ${sens === "custom" ? "" : "hidden"}>${field(t("df_r_per_s"), `<input type="number" name="rate" min="1" value="${r.limit.rate}" dir="ltr">`)}${field(t("df_r_burst"), `<input type="number" name="burst" min="1" value="${r.limit.burst}" dir="ltr">`)}</div>
@@ -1233,6 +1265,7 @@
         if (!out.countries.length && !out.ips.length && out.proto === "any" && !out.ports) throw new Error(t("df_r_need_cond"));
         if (dlg.querySelector('[name="cmode"]').value !== "any" && !out.countries.length) throw new Error(t("df_r_need_country"));
         if (dlg.querySelector('[name="amode"]').value !== "any" && !out.ips.length) throw new Error(t("df_r_need_ip"));
+        if (out.schedule && (!out.schedule.days.length || out.schedule.from === out.schedule.to)) throw new Error(t("df_r_sched_bad"));
         const rules = [...D.rules];
         if (isNew) rules.push(out); else rules[index] = out;
         if (!(await saveRules(null, rules))) throw new Error("");   // the reason is already shown as a message
@@ -1243,8 +1276,11 @@
       const el = $q("form").elements;
       const cm = el.cmode.value, am = el.amode.value, sens = el.sens.value;
       const lim = sens === "custom" ? { rate: +el.rate.value || 1, burst: +el.burst.value || (+el.rate.value || 1) * 2 } : { rate: SENS[sens][0], burst: SENS[sens][1] };
+      const dayVals = [...$q("form").querySelectorAll('input[name="day"]:checked')].map((x) => +x.value);
+      const exp = el.expires.value.startsWith("+") ? Math.floor(Date.now() / 1000) + +el.expires.value.slice(1) : +el.expires.value;
       return {
-        ...r, name: el.name.value.trim() || t("df_r_new"),
+        ...r, name: el.name.value.trim() || t("df_r_new"), direction: el.direction.value,
+        schedule: el.smode.value === "sched" ? { days: dayVals, from: el.tfrom.value || "00:00", to: el.tto.value || "23:59" } : null, expires: exp,
         countries: cm === "any" ? [] : [...picked], country_mode: cm === "not_in" ? "not_in" : "in",
         ips: am === "any" ? [] : el.ips.value.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean), ip_mode: am === "not_in" ? "not_in" : "in",
         proto: el.proto.value, ports: el.proto.value === "icmp" ? "" : el.ports.value.replace(/\s+/g, ""),
@@ -1264,22 +1300,163 @@
       $q(".fw-cc").hidden = el.cmode.value === "any";
       $q(".fw-ips").hidden = el.amode.value === "any";
       el.ports.disabled = el.proto.value === "icmp";
+      const out = el.direction.value === "out";
+      $q(".fw-sched").hidden = el.smode.value !== "sched";
+      dlg.querySelector('.fw-actopt.limit').hidden = out;
+      if (out && el.action.value === "limit") dlg.querySelector('input[name="action"][value="block"]').checked = true;
+      dlg.querySelectorAll(".fw-cond")[0].querySelector("label").textContent = t(out ? "df_r_to_country" : "df_r_country");
+      dlg.querySelectorAll(".fw-cond")[1].querySelector("label").textContent = t(out ? "df_r_to_addr" : "df_r_addr");
       $q(".fw-limit").hidden = el.action.value !== "limit";
       $q(".fw-custom").hidden = el.sens.value !== "custom";
-      const out = collect();
-      $q("[data-preview]").textContent = out.countries.length || out.ips.length || out.proto !== "any" || out.ports ? summary(out) : "";
+      const preview = collect();
+      $q("[data-preview]").textContent = preview.countries.length || preview.ips.length || preview.proto !== "any" || preview.ports ? summary(preview) : "";
     }
     $q("form").addEventListener("change", (e) => {
       if (e.target.dataset.cc) { if (e.target.checked) picked.add(e.target.dataset.cc); else picked.delete(e.target.dataset.cc); paintCountries(); }
       sync();
     });
-    $q("form").addEventListener("input", (e) => { if (e.target.matches("[data-cc-q]")) paintCountries(); else if (e.target.name === "ips" || e.target.name === "ports" || e.target.name === "rate") sync(); });
+    $q("form").addEventListener("input", (e) => { if (e.target.matches("[data-cc-q]")) paintCountries(); else if (["ips", "ports", "rate", "tfrom", "tto"].includes(e.target.name)) sync(); });
     $q("form").addEventListener("click", (e) => { const x = e.target.closest("[data-cc-del]"); if (x) { e.preventDefault(); picked.delete(x.dataset.ccDel); paintCountries(); sync(); } });
     paintCountries();
     sync();
   }
 
-  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderLists, ssh: renderSsh, f2b: renderF2b, hardening: renderHardening };
+  // ---------------------------------------------------------------- SSH server, address tester, threat lists
+  P.addStrings({
+    df_sv_title: "SSH server", df_sv_sub: "Port, login options and keys of the SSH server itself. Every change is tested: if SSH does not answer on every port, the old settings come back at once; otherwise you have {m} minutes to log in again and keep it, or it is undone by itself. Open sessions stay connected.",
+    df_sv_ports: "SSH ports", df_sv_ports_hint: "During a move keep both ports: add the new one, keep the change after you logged in through it, then remove the old one.",
+    df_sv_add_port: "Add port", df_sv_root: "Root login", df_sv_root_yes: "Allowed (password or key)", df_sv_root_key: "Only with a key", df_sv_root_no: "Not allowed",
+    df_sv_password: "Password login", df_sv_password_sub: "Off: only SSH keys work. Much safer; add your key below first.", df_sv_tries: "Wrong passwords per connection", df_sv_grace: "Seconds to log in",
+    df_sv_idle: "Disconnect idle sessions after", df_sv_idle_never: "Never", df_sv_x11: "X11 forwarding", df_sv_tcpfwd: "TCP forwarding (tunnels)", df_sv_save: "Apply to SSH",
+    df_sv_confirm: "Apply these SSH settings? SSH restarts (this session stays open). Ports: {ports}. If your hosting provider has its own firewall (for example the Hetzner Cloud Firewall), allow the new port there too.",
+    df_sv_pending: "Log in again now with the new settings, for example: {cmd}. If it works press Keep; otherwise they are undone in {left}.", df_sv_kept: "SSH settings kept", df_sv_undone: "SSH settings undone",
+    df_sv_applied: "Applied. SSH answers on every port; now test a new login.", df_sv_socket: "systemd socket", df_sv_last_port: "SSH needs at least one port",
+    df_sv_keys: "SSH keys of root", df_sv_keys_sub: "Public keys that may log in as root (/root/.ssh/authorized_keys).", df_sv_key_add: "Add key", df_sv_key_ph: "ssh-ed25519 AAAA… you@laptop",
+    df_sv_key_hint: "Paste the content of your id_ed25519.pub (or id_rsa.pub). On your computer: ssh-keygen -t ed25519 creates one.", df_sv_key_del: "Remove key {name}?", df_sv_no_keys: "No key yet: only passwords work.",
+    df_sv_type: "Type", df_sv_comment: "Name", df_sv_fp: "Fingerprint",
+    df_tt_title: "Check an address", df_tt_sub: "What happens to a connection from this address, step by step through every layer of the firewall.",
+    df_tt_ip: "Address", df_tt_port: "Port (optional)", df_tt_check: "Check", df_tt_country: "Country: {c}", df_tt_country_unknown: "Country: unknown (no list downloaded for it)",
+    df_tt_allow: "Allowed", df_tt_block: "Blocked", df_tt_limit: "Limited",
+    df_tt_off: "Protection is off: everything is allowed.", df_tt_admin: "Trusted: it logged in over SSH.", df_tt_allowlist: "On the allowlist ({entry}).", df_tt_blocklist: "On the blocklist ({entry}).",
+    df_tt_banned: "Banned by the firewall, {left} left.", df_tt_fail2ban: "Banned by fail2ban ({jail}).", df_tt_panel_allow: "Only the listed addresses may open the panel.", df_tt_cdn: "A Cloudflare address (trusted).",
+    df_tt_threat: "Listed in: {feeds}.", df_tt_rule_allow: "Rule \"{name}\": allow.", df_tt_rule_block: "Rule \"{name}\": block.", df_tt_rule_limit: "Rule \"{name}\": limited to {rate}/s.", df_tt_rule_count: "Rule \"{name}\": counted.",
+    df_tt_strict: "Strict mode: port {port} is not open.", df_tt_limits: "Allowed, within the flood limits ({syn} SYN/s, {conc} connections).", df_tt_sched: " (only at its scheduled times)",
+    df_th_title: "Threat blocklists", df_th_sub: "Public lists of attacking, hijacked and spamming addresses, blocked before anything else and refreshed every 12 hours. Private networks are always left out.",
+    df_th_entries: "{n} addresses / networks", df_th_never: "not downloaded yet", df_th_blocked: "{n} packets blocked by these lists since the rules were applied",
+    df_th_spamhaus: "Hijacked networks used by spammers and criminals. Very safe to turn on.", df_th_firehol: "A curated mix of the worst lists (attacks, malware, hijacked networks).",
+    df_th_blocklistde: "Addresses that attacked servers in the last 48 hours (SSH, mail, web).", df_th_et: "Compromised hosts tracked by Emerging Threats.", df_th_cins: "Addresses with a bad reputation from the CINS Army sensors.",
+  }, {
+    df_sv_title: "سرور SSH", df_sv_sub: "پورت، گزینه‌های ورود و کلیدهای خود سرور SSH. هر تغییر آزمایش می‌شود: اگر SSH روی همه‌ی پورت‌ها جواب ندهد، تنظیمات قبلی فوراً برمی‌گردد؛ وگرنه {m} دقیقه وقت دارید دوباره وارد شوید و آن را نگه دارید، وگرنه خودش برمی‌گردد. نشست‌های باز وصل می‌مانند.",
+    df_sv_ports: "پورت‌های SSH", df_sv_ports_hint: "هنگام جابه‌جایی هر دو پورت را نگه دارید: پورت جدید را اضافه کنید، بعد از ورود موفق با آن تغییر را نگه دارید، و بعد پورت قدیمی را حذف کنید.",
+    df_sv_add_port: "افزودن پورت", df_sv_root: "ورود root", df_sv_root_yes: "مجاز (با رمز یا کلید)", df_sv_root_key: "فقط با کلید", df_sv_root_no: "ممنوع",
+    df_sv_password: "ورود با رمز", df_sv_password_sub: "خاموش: فقط کلید SSH کار می‌کند. خیلی امن‌تر؛ اول کلیدتان را پایین اضافه کنید.", df_sv_tries: "رمز اشتباه در هر اتصال", df_sv_grace: "ثانیه برای ورود",
+    df_sv_idle: "قطع نشست بی‌کار بعد از", df_sv_idle_never: "هرگز", df_sv_x11: "X11 forwarding", df_sv_tcpfwd: "TCP forwarding (تانل)", df_sv_save: "اعمال روی SSH",
+    df_sv_confirm: "این تنظیمات روی SSH اعمال شود؟ SSH ری‌استارت می‌شود (این نشست باز می‌ماند). پورت‌ها: {ports}. اگر هاستینگ شما فایروال جدا دارد (مثل Hetzner Cloud Firewall)، پورت جدید را آن‌جا هم باز کنید.",
+    df_sv_pending: "همین حالا با تنظیمات جدید دوباره وارد شوید، مثلاً: {cmd}. اگر کار کرد «نگه دار» را بزنید؛ وگرنه {left} دیگر خودش برمی‌گردد.", df_sv_kept: "تنظیمات SSH ماند", df_sv_undone: "تنظیمات SSH برگشت",
+    df_sv_applied: "اعمال شد. SSH روی همه‌ی پورت‌ها جواب می‌دهد؛ حالا یک ورود جدید را امتحان کنید.", df_sv_socket: "systemd socket", df_sv_last_port: "SSH حداقل یک پورت لازم دارد",
+    df_sv_keys: "کلیدهای SSH کاربر root", df_sv_keys_sub: "کلیدهای عمومی که می‌توانند با root وارد شوند (/root/.ssh/authorized_keys).", df_sv_key_add: "افزودن کلید", df_sv_key_ph: "ssh-ed25519 AAAA… you@laptop",
+    df_sv_key_hint: "محتوای فایل id_ed25519.pub (یا id_rsa.pub) را بچسبانید. روی کامپیوترتان ssh-keygen -t ed25519 یکی می‌سازد.", df_sv_key_del: "کلید {name} حذف شود؟", df_sv_no_keys: "هنوز کلیدی نیست: فقط رمز کار می‌کند.",
+    df_sv_type: "نوع", df_sv_comment: "نام", df_sv_fp: "اثر انگشت",
+    df_tt_title: "بررسی یک آدرس", df_tt_sub: "با اتصالی از این آدرس چه می‌شود، قدم‌به‌قدم در همه‌ی لایه‌های فایروال.",
+    df_tt_ip: "آدرس", df_tt_port: "پورت (اختیاری)", df_tt_check: "بررسی", df_tt_country: "کشور: {c}", df_tt_country_unknown: "کشور: نامعلوم (لیستی برایش دانلود نشده)",
+    df_tt_allow: "مجاز", df_tt_block: "مسدود", df_tt_limit: "محدود",
+    df_tt_off: "محافظت خاموش است: همه چیز مجاز است.", df_tt_admin: "مورد اعتماد: با SSH وارد شده.", df_tt_allowlist: "در لیست سفید ({entry}).", df_tt_blocklist: "در لیست سیاه ({entry}).",
+    df_tt_banned: "توسط فایروال مسدود است، {left} مانده.", df_tt_fail2ban: "توسط fail2ban مسدود است ({jail}).", df_tt_panel_allow: "فقط آدرس‌های مشخص اجازه‌ی باز کردن پنل دارند.", df_tt_cdn: "آدرس Cloudflare (مورد اعتماد).",
+    df_tt_threat: "در این لیست‌ها: {feeds}.", df_tt_rule_allow: "قانون «{name}»: اجازه.", df_tt_rule_block: "قانون «{name}»: مسدود.", df_tt_rule_limit: "قانون «{name}»: محدود به {rate} در ثانیه.", df_tt_rule_count: "قانون «{name}»: شمرده می‌شود.",
+    df_tt_strict: "حالت سخت‌گیر: پورت {port} باز نیست.", df_tt_limits: "مجاز، در حد محدودیت‌های فلاد ({syn} SYN در ثانیه، {conc} اتصال).", df_tt_sched: " (فقط در زمان‌بندی‌اش)",
+    df_th_title: "لیست‌های تهدید", df_th_sub: "لیست‌های عمومی آدرس‌های مهاجم، ربوده‌شده و اسپمر؛ قبل از هر چیز مسدود و هر ۱۲ ساعت بروز می‌شوند. شبکه‌های خصوصی همیشه کنار گذاشته می‌شوند.",
+    df_th_entries: "{n} آدرس / شبکه", df_th_never: "هنوز دانلود نشده", df_th_blocked: "{n} بسته از وقتی قوانین اعمال شده توسط این لیست‌ها مسدود شده",
+    df_th_spamhaus: "شبکه‌های ربوده‌شده که اسپمرها و مجرمان استفاده می‌کنند. روشن کردنش خیلی امن است.", df_th_firehol: "ترکیب دست‌چین بدترین لیست‌ها (حمله، بدافزار، شبکه‌های ربوده‌شده).",
+    df_th_blocklistde: "آدرس‌هایی که در ۴۸ ساعت اخیر به سرورها حمله کرده‌اند (SSH، ایمیل، وب).", df_th_et: "میزبان‌های آلوده‌ای که Emerging Threats رصد می‌کند.", df_th_cins: "آدرس‌های بدنام از حسگرهای CINS Army.",
+  });
+
+  // ---- SSH server
+  const portsChips = (ports, removable) => ports.map((p, i) => `<span class="chip">${icon("terminal")}<b>${num(p)}</b>${removable && ports.length > 1 ? `<button type="button" class="chip-x" data-a="sv-port-del" data-i="${i}" aria-label="${esc(t("df_remove"))} ${p}">${icon("x")}</button>` : ""}</span>`).join("");
+  const fmtLeft = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  async function renderSshAll() {
+    const sv = await api("/api/defender/sshd").catch((e) => ({ error: e.message }));
+    D.sv = sv;
+    if (!sv.error && !D.svDraft) D.svDraft = { ports: [...sv.ports], permit_root: sv.permit_root, password: sv.password, max_auth_tries: sv.max_auth_tries, login_grace: sv.login_grace, idle_timeout: sv.idle_timeout, x11: sv.x11, tcp_forwarding: sv.tcp_forwarding };
+    return `<div id="df-sv">${svHTML()}</div>` + (await renderSsh());
+  }
+  function svHTML() {
+    const sv = D.sv;
+    if (sv.error) return `<div class="notice bad">${icon("alert")}<span>${esc(sv.error)}</span></div>`;
+    const d = D.svDraft, ip = ((P.state.overview && P.state.overview.public_ip && P.state.overview.public_ip.v4) || location.hostname);
+    const pend = sv.pending ? `<div class="notice warn df-pend">${icon("clock")}<span>${esc(t("df_sv_pending", { cmd: `ssh -p ${sv.pending.ports[sv.pending.ports.length - 1]} root@${ip}`, left: fmtLeft(sv.pending.left) }))}</span>
+      <button type="button" class="btn small primary" data-a="sv-keep">${esc(t("df_keep"))}</button><button type="button" class="btn small" data-a="sv-undo">${esc(t("df_undo"))}</button></div>` : "";
+    const sel = (name, opts) => `<select name="${name}">${opts.map(([v, l]) => `<option value="${v}" ${String(d[name]) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+    const keys = sv.keys.length ? table([
+      { h: "df_sv_type", cell: (k) => `<code dir="ltr">${esc(k.type)}</code>` },
+      { h: "df_sv_comment", cls: "strong", cell: (k) => esc(k.comment || "—") },
+      { h: "df_sv_fp", cls: "wrap-cell", cell: (k) => `<code dir="ltr" class="muted">${esc(k.fingerprint)}</code>` },
+      { h: "actions", cell: (k) => btnIcon("trash", `${t("df_remove")} ${k.comment}`, `data-a="sv-key-del" data-i="${k.index}" data-name="${esc(k.comment || k.type)}"`, "danger") },
+    ], sv.keys) : `<div class="empty">${esc(t("df_sv_no_keys"))}</div>`;
+    return `${pend}<section class="sec"><div class="sec-head"><h3>${icon("terminal")}${esc(t("df_sv_title"))}${sv.socket ? `<span class="tag">${esc(t("df_sv_socket"))}</span>` : ""}</h3><p class="muted">${esc(t("df_sv_sub", { m: Math.round(D.sv.confirm_seconds / 60) }))}</p></div>
+      <form class="subcard" data-f="sv">
+        <div class="field"><label>${esc(t("df_sv_ports"))}</label><div class="chips">${portsChips(d.ports, true)}</div>
+          <div class="inline-field df-inline"><input name="newport" type="number" min="1" max="65535" dir="ltr" placeholder="2222" aria-label="${esc(t("df_sv_add_port"))}"><button type="button" class="btn small" data-a="sv-port-add">${icon("plus")}<span>${esc(t("df_sv_add_port"))}</span></button></div>
+          <p class="hint">${esc(t("df_sv_ports_hint"))}</p></div>
+        <div class="df-form-grid">
+          ${field(t("df_sv_root"), sel("permit_root", [["yes", t("df_sv_root_yes")], ["prohibit-password", t("df_sv_root_key")], ["no", t("df_sv_root_no")]]))}
+          ${field(t("df_sv_tries"), `<input type="number" name="max_auth_tries" min="1" max="50" value="${esc(d.max_auth_tries)}" dir="ltr">`)}
+          ${field(t("df_sv_grace"), `<input type="number" name="login_grace" min="5" max="600" value="${esc(d.login_grace)}" dir="ltr">`)}
+          ${field(t("df_sv_idle"), sel("idle_timeout", [[0, t("df_sv_idle_never")], [300, "5 min"], [900, "15 min"], [1800, "30 min"], [3600, "1 h"]].concat([[0, 300, 900, 1800, 3600].includes(+d.idle_timeout) ? [] : [[d.idle_timeout, `${d.idle_timeout} s`]]])))}
+          ${field(t("df_sv_tcpfwd"), sel("tcp_forwarding", [["yes", t("df_j_on")], ["no", t("df_j_off")], ["local", "local"], ["remote", "remote"]]))}
+          ${field(t("df_sv_x11"), sel("x11", [["yes", t("df_j_on")], ["no", t("df_j_off")]]))}</div>
+        <label class="df-switch"><span class="switch"><input type="checkbox" name="password" ${d.password === "yes" ? "checked" : ""}><span></span></span><span><b>${esc(t("df_sv_password"))}</b><small>${esc(t("df_sv_password_sub"))}</small></span></label>
+        <div class="actions-row"><button type="submit" class="btn primary" ${sv.pending ? "disabled" : ""}>${icon("check")}<span>${esc(t("df_sv_save"))}</span></button></div></form></section>
+      <section class="sec"><div class="sec-head"><h3>${icon("key")}${esc(t("df_sv_keys"))}</h3><p class="muted">${esc(t("df_sv_keys_sub"))}</p></div>${keys}
+        <form class="subcard" data-f="sv-key" style="margin-top:12px">${field(t("df_sv_key_add"), `<textarea name="key" dir="ltr" rows="3" spellcheck="false" placeholder="${esc(t("df_sv_key_ph"))}" required></textarea>`, t("df_sv_key_hint"))}
+          <div class="actions-row"><button type="submit" class="btn">${icon("plus")}<span>${esc(t("df_sv_key_add"))}</span></button></div></form></section>`;
+  }
+  const repaintSv = () => { const box = D.root.querySelector("#df-sv"); if (box) box.innerHTML = svHTML(); };
+  function svFormToDraft() {
+    const f = D.root.querySelector('form[data-f="sv"]');
+    if (!f) return;
+    const el = f.elements;
+    Object.assign(D.svDraft, { permit_root: el.permit_root.value, max_auth_tries: +el.max_auth_tries.value, login_grace: +el.login_grace.value,
+      idle_timeout: +el.idle_timeout.value, tcp_forwarding: el.tcp_forwarding.value, x11: el.x11.value, password: el.password.checked ? "yes" : "no" });
+  }
+
+  // ---- address tester + threat lists (IP lists tab)
+  function testerHTML() {
+    return `<section class="sec"><div class="sec-head"><h3>${icon("search")}${esc(t("df_tt_title"))}</h3><p class="muted">${esc(t("df_tt_sub"))}</p></div>
+      <form class="subcard" data-f="tt"><div class="df-form-grid">${field(t("df_tt_ip"), '<input name="ip" dir="ltr" required placeholder="203.0.113.7" autocomplete="off">')}
+        ${field(t("df_tt_port"), '<input name="port" type="number" min="0" max="65535" dir="ltr" placeholder="443">')}
+        ${field(t("df_r_proto"), '<select name="proto"><option value="tcp">TCP</option><option value="udp">UDP</option><option value="icmp">ICMP</option></select>')}</div>
+        <div class="actions-row"><button type="submit" class="btn primary">${icon("search")}<span>${esc(t("df_tt_check"))}</span></button></div><div id="df-tt-out"></div></form></section>`;
+  }
+  function testResult(r) {
+    const tone = { allow: "ok", block: "bad", limit: "warn", count: "" };
+    const text = (s) => {
+      if (s.kind === "rule") return t(`df_tt_rule_${s.result}`, { name: s.name, rate: s.limit ? s.limit.rate : "" }) + (s.schedule ? t("df_tt_sched") : "");
+      if (s.kind === "banned") return t("df_tt_banned", { left: s.left ? fmtLeft(s.left) : "–" });
+      if (s.kind === "fail2ban") return t("df_tt_fail2ban", { jail: s.jail || "fail2ban" });
+      if (s.kind === "threat") return t("df_tt_threat", { feeds: s.feeds.join("، ") });
+      if (s.kind === "limits") return t("df_tt_limits", { syn: s.limits.syn, conc: s.limits.conc });
+      return t(`df_tt_${s.kind}`, s);
+    };
+    return `<div class="tt-verdict ${tone[r.verdict] || ""}">${pill(tone[r.verdict] || "", t(`df_tt_${r.verdict === "count" ? "allow" : r.verdict}`))}
+      <span dir="ltr"><b>${esc(r.ip)}</b>${r.port ? `:${r.port}/${r.proto}` : ""}</span><span class="muted">${esc(r.country ? t("df_tt_country", { c: `${flag(r.country)} ${ccName(r.country)}` }) : t("df_tt_country_unknown"))}</span></div>
+      <ol class="tt-steps">${r.steps.map((s) => `<li class="${tone[s.result] || ""}">${pill(tone[s.result] || "", t(`df_tt_${s.result === "count" ? "allow" : s.result}`), false)}<span>${esc(text(s))}</span></li>`).join("")}</ol>`;
+  }
+  async function threatHTML() {
+    const th = await api("/api/defender/threat").catch(() => null);
+    if (!th) return "";
+    const on = new Set(th.enabled);
+    const rows = Object.entries(th.feeds).map(([id, f]) => `<label class="th-feed${on.has(id) ? " on" : ""}"><span class="switch"><input type="checkbox" data-feed="${id}" ${on.has(id) ? "checked" : ""}><span></span></span>
+      <span class="th-body"><b>${esc(f.name)}</b><small>${esc(t(`df_th_${id}`))}</small><small class="muted">${esc(f.updated ? `${t("df_th_entries", { n: nf(f.entries, 0) })} · ${ago(f.updated)}` : t("df_th_never"))} · <span dir="ltr">${esc(f.site)}</span></small></span></label>`).join("");
+    return `<section class="sec"><div class="sec-head"><h3>${icon("shield")}${esc(t("df_th_title"))}</h3><p class="muted">${esc(t("df_th_sub"))}</p></div>
+      ${th.protection ? "" : `<div class="notice warn">${icon("bell")}<span>${esc(t("df_r_off"))}</span></div>`}
+      <div class="th-grid">${rows}</div>${th.blocked ? `<p class="muted">${esc(t("df_th_blocked", { n: nf(th.blocked, 0) }))}</p>` : ""}</section>`;
+  }
+  async function renderListsAll() {
+    const [lists, th] = await Promise.all([renderLists(), threatHTML()]);
+    return testerHTML() + th + lists;
+  }
+
+  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderListsAll, ssh: renderSshAll, f2b: renderF2b, hardening: renderHardening };
   const rerender = () => showTab(D.tab);
 
   // ---------------------------------------------------------------- events
@@ -1323,6 +1500,26 @@
     if (a === "rules") return rulesDialog();
     if (a === "fw-apply") {
       if (await apply(b, "config", { firewall: D.fw, _what: "firewall" })) { D.fw = null; D.prefilled = false; rerender(); }
+      return;
+    }
+    if (a === "sv-port-add" || a === "sv-port-del") {
+      svFormToDraft();
+      if (a === "sv-port-del") D.svDraft.ports.splice(+b.dataset.i, 1);
+      else {
+        const v = +D.root.querySelector('form[data-f="sv"] [name="newport"]').value;
+        if (v >= 1 && v <= 65535 && !D.svDraft.ports.includes(v)) D.svDraft.ports.push(v);
+      }
+      return repaintSv();
+    }
+    if (a === "sv-keep" || a === "sv-undo") {
+      const r = await act(b, () => post(`/api/defender/sshd/${a === "sv-keep" ? "confirm" : "revert"}`, {}), t(a === "sv-keep" ? "df_sv_kept" : "df_sv_undone"));
+      if (r) { D.sv = { ...D.sv, ...r }; D.svDraft = null; showTab("ssh"); }
+      return;
+    }
+    if (a === "sv-key-del") {
+      if (!(await confirmBox({ message: t("df_sv_key_del", { name: b.dataset.name }), label: t("df_remove") }))) return;
+      const r = await act(b, () => post("/api/defender/sshd/key/remove", { index: +b.dataset.i }), t("saved"));
+      if (r) { D.sv.keys = r.keys; svFormToDraft(); repaintSv(); }
       return;
     }
     if (a === "r-new") return ruleEditor(blankRule(), null);
@@ -1406,6 +1603,15 @@
 
   async function onChange(e) {
     const el = e.target;
+    if (el.dataset.feed) {
+      const feeds = [...D.root.querySelectorAll("[data-feed]")].filter((x) => x.checked).map((x) => x.dataset.feed);
+      el.disabled = true;
+      const ok = await apply(el, "config", { threat: { feeds }, _what: "threat lists" }, t("df_r_saved"));
+      if (!ok) el.checked = !el.checked;
+      el.disabled = false;
+      if (ok && D.tab === "lists") showTab("lists");
+      return;
+    }
     if (el.dataset.ruleToggle !== undefined) {
       const rules = D.rules.map((r, k) => (k === +el.dataset.ruleToggle ? { ...r, enabled: el.checked } : r));
       el.disabled = true;
@@ -1447,6 +1653,25 @@
     if (f === "ssh") {
       const g = { enabled: el.enabled.checked, l4: el.l4.checked, exempt_private: el.exempt_private.checked, failures: +el.failures.value, window: +el.window.value, ban: +el.ban.value };
       if (await apply(btn, "config", { ssh_guard: g, _what: "ssh guard" }, t("saved"))) rerender();
+      return;
+    }
+    if (f === "sv") {
+      svFormToDraft();
+      if (!D.svDraft.ports.length) return toast(t("df_sv_last_port"), "bad");
+      if (!(await confirmBox({ message: t("df_sv_confirm", { ports: D.svDraft.ports.join(", ") }), label: t("df_sv_save"), danger: false }))) return;
+      const r = await act(btn, () => post("/api/defender/sshd/apply", D.svDraft), t("df_sv_applied"));
+      if (r) { D.sv = { ...D.sv, ...r }; D.svDraft = null; if (r.warning) toast(r.warning, "warn"); showTab("ssh"); }
+      return;
+    }
+    if (f === "sv-key") {
+      const r = await act(btn, () => post("/api/defender/sshd/key/add", { key: el.key.value }), t("saved"));
+      if (r) { D.sv.keys = r.keys; svFormToDraft(); repaintSv(); }
+      return;
+    }
+    if (f === "tt") {
+      const out = D.root.querySelector("#df-tt-out");
+      const r = await act(btn, () => post("/api/defender/test", { ip: el.ip.value.trim(), port: +el.port.value || 0, proto: el.proto.value }));
+      if (r && out) out.innerHTML = testResult(r);
       return;
     }
     if (f === "adv") {

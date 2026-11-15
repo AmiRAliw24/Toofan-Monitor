@@ -879,3 +879,26 @@ label.btn input[type="file"] { display: none; }
   .fw-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fw-sensrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* address tester, threat lists, rule schedules */
+.tt-verdict { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.tt-verdict.ok { border-color: color-mix(in srgb, var(--s-good) 40%, var(--line)); }
+.tt-verdict.bad { border-color: color-mix(in srgb, var(--s-bad) 45%, var(--line)); }
+.tt-verdict.warn { border-color: color-mix(in srgb, var(--s-warn) 45%, var(--line)); }
+.tt-steps { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; counter-reset: s; }
+.tt-steps li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; padding: 6px 2px; border-bottom: 1px dashed var(--line); }
+.tt-steps li:last-child { border-bottom: 0; }
+.tt-steps li .pill { flex: none; }
+.th-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.th-feed { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; }
+.th-feed.on { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.th-body { display: grid; gap: 3px; min-width: 0; }
+.th-body small { font-size: 12px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
+.fw-sched[hidden] { display: none; }
+.fw-sched { margin-top: 10px; }
+.fw-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.fw-actopt[hidden] { display: none; }
+@media (max-width: 699px) {
+  .fw-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .th-grid { grid-template-columns: minmax(0, 1fr); }
+}
