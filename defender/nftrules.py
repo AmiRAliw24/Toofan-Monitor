@@ -28,7 +28,7 @@ LIMIT_KEYS = {"syn": (1, 100000), "conn": (1, 100000), "conc": (5, 1000000), "ud
               "icmp": (1, 10000), "ban": (1, 10080)}
 AUTOBAN_FACTOR = 3        # a source going this many times over a limit is banned, not just slowed down
 SSH_NEW_PER_MIN = 12      # new SSH connections per source and minute before the source is banned
-COUNTERS = ("allow", "block", "ban", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
+COUNTERS = ("allow", "block", "ban", "geo", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
             "udp", "icmp", "autoban", "new", "all")
 ALWAYS_TRUSTED = ("lo", "docker*", "br-*", "veth*")
 # Cloudflare's edge (https://www.cloudflare.com/ips/). A site or proxy behind Cloudflare receives all of its
@@ -64,7 +64,7 @@ def set_block(name, family, items, extra=""):
     return f"    set {name} {{ type {family}_addr; flags interval;{extra}{elements} }}"
 
 
-def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=()):
+def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=(), geo4=(), geo6=()):
     """The complete ruleset as text, ready for `nft -f` (an atomic replace of the table)."""
     fw = cfg["firewall"]
     allow4, allow6 = split_ips(a["ip"] for a in cfg["allow"])
@@ -76,7 +76,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=()):
     lines += [set_block("allow4", "ipv4", allow4), set_block("allow6", "ipv6", allow6),
               set_block("block4", "ipv4", block4), set_block("block6", "ipv6", block6),
               set_block("cdn4", "ipv4", list(CDN4) if cfg.get("trust_cdn", True) else []),
-              set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else [])]
+              set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else []),
+              set_block("geo4", "ipv4", list(geo4), " auto-merge;"), set_block("geo6", "ipv6", list(geo6), " auto-merge;")]
     for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
         els = ban_elements.get(name) or []
         body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
@@ -102,6 +103,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=()):
           "        ip6 saddr @ban6 counter name c_ban drop",
           "        ip saddr @cdn4 accept",   # blocklist and bans above still apply to the CDN
           "        ip6 saddr @cdn6 accept",
+          "        ip saddr @geo4 counter name c_geo drop",    # blocked countries (allowlist, admins, CDN pass above)
+          "        ip6 saddr @geo6 counter name c_geo drop",
           "        counter name c_all",
           "        ct state established,related accept"]
     if cfg["ddos"].get("drop_invalid", True):

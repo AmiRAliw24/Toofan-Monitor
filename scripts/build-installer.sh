@@ -28,6 +28,8 @@ FILES=(
   defender/agent.py:644
   defender/nftrules.py:644
   defender/hostinfo.py:644
+  defender/f2b.py:644
+  defender/geo.py:644
   panel/static/index.html:644
   panel/static/login.html:644
   panel/static/app.js:644

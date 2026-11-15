@@ -30,6 +30,8 @@ import time
 from http.server import BaseHTTPRequestHandler
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import f2b  # noqa: E402
+import geo  # noqa: E402
 import hostinfo  # noqa: E402
 import nftrules  # noqa: E402
 
@@ -55,6 +57,7 @@ DEFAULT = {
     "ssh_guard": {"enabled": True, "l4": True, "failures": 5, "window": 10, "ban": 60, "exempt_private": True},
     "trust_logged_in": True,
     "trust_cdn": True,
+    "geo": {"block": []},
     "sysctl": {"applied": [], "original": {}},
     "notify": {"attacks": True, "bans": False},
 }
@@ -98,6 +101,7 @@ def merged_default(cfg):
 CFG = merged_default(load_json("config.json", {}))
 BANS = load_json("bans.json", {})            # ip -> {until, reason, source}: bans the agent made (for the panel)
 EVENTS = collections.deque(load_json("events.json", []), maxlen=400)
+F2B = load_json("f2b.json", {"default": {}, "jails": {}})   # fail2ban settings the panel manages
 STATE = {
     "applied": False, "error": "", "pending": None, "escalated": False, "escalated_at": 0,
     "attack": {"active": False, "since": 0, "ended": 0, "peak": {}, "reason": ""},
@@ -156,7 +160,8 @@ def ruleset(cfg=None):
     cfg = cfg or CFG
     allow_extra = [{"ip": ip} for ip in admin_ips()] if cfg.get("trust_logged_in", True) else []
     view = dict(cfg, allow=cfg["allow"] + allow_extra)
-    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS)
+    g4, g6, _ = geo.build(DATA, cfg.get("geo", {}).get("block", []), download=False)
+    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS, g4, g6)
 
 
 def apply(cfg=None):
@@ -184,6 +189,8 @@ def change(mutator, rollback=True, what="config"):
         new = copy.deepcopy(CFG)
         mutator(new)
         validate(new)
+        if new["enabled"] and new["geo"]["block"]:
+            geo.build(DATA, new["geo"]["block"], download=True)   # raises before anything changes
         try:
             apply(new)
         except Exception as e:
@@ -285,6 +292,10 @@ def validate(cfg):
             e["note"] = str(e.get("note", ""))[:80]
         if len(cfg[lst]) > 5000:
             raise ValueError("list too long")
+    codes = sorted({str(c).strip().lower() for c in cfg["geo"].get("block", [])})
+    if len(codes) > 150 or not all(geo.CC_RE.match(c) for c in codes):
+        raise ValueError("invalid country list")
+    cfg["geo"]["block"] = codes
     g = cfg["ssh_guard"]
     for k, lo, hi in (("failures", 2, 100), ("window", 1, 1440), ("ban", 1, 525600)):
         if not isinstance(g.get(k), (int, float)) or not lo <= g[k] <= hi:
@@ -372,8 +383,15 @@ def ban_list():
         live = {r["ip"] for r in rows}
         for ip in [k for k, v in BANS.items() if v["until"] < now or (STATE["applied"] and ip not in live and v["until"] - now < 5)]:
             BANS.pop(ip, None)
-    for ip in hostinfo.fail2ban_bans():
-        rows.append({"ip": ip, "left": None, "source": "fail2ban", "reason": "fail2ban"})
+    try:
+        f2b_rows = f2b.all_bans()
+        for r in f2b_rows:
+            rows.append({"ip": r["ip"], "left": int(r["until"] - now) if r["until"] else None, "source": "fail2ban", "reason": r["jail"], "jail": r["jail"]})
+    except Exception:
+        f2b_rows = None
+    if f2b_rows is None:
+        for ip in hostinfo.fail2ban_bans():
+            rows.append({"ip": ip, "left": None, "source": "fail2ban", "reason": "fail2ban"})
     return sorted(rows, key=lambda r: (r["source"] == "fail2ban", -(r["left"] or 0)))
 
 
@@ -460,7 +478,7 @@ def ssh_stats():
 
 # ------------------------------------------------------------------ live statistics and attack detection
 
-DROP_KEYS = ("block", "ban", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc", "udp", "icmp", "autoban")
+DROP_KEYS = ("block", "ban", "geo", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc", "udp", "icmp", "autoban")
 
 
 def read_counters():
@@ -587,7 +605,7 @@ def status():
             "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
             "effective": effective_limits(), "profiles": nftrules.PROFILES,
             "attack": {k: v for k, v in STATE["attack"].items()},
-            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "notify")},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "geo", "notify")},
             "allow": CFG["allow"], "block": CFG["block"],
             "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
             "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
@@ -660,6 +678,8 @@ def _cfg_patch(body):
                     c["ssh_guard"][k] = g[k]
         if "notify" in body:
             c["notify"].update({k: bool(v) for k, v in body["notify"].items() if k in ("attacks", "bans")})
+        if "geo" in body and isinstance(body["geo"], dict) and "block" in body["geo"]:
+            c["geo"]["block"] = [str(x) for x in body["geo"]["block"]][:200]
     return mut
 
 
@@ -733,6 +753,9 @@ def reapply_sysctl():
 
 def api_audit():
     checks = hostinfo.audit({"enabled": STATE["applied"], "mode": CFG["firewall"]["mode"]})
+    for c in checks:   # fail2ban: installed but stopped is worse than not installed (it looks like protection)
+        if c["id"] == "fail2ban" and f2b.installed() and not f2b.running():
+            c.update(id="fail2ban_stopped", sev=2)
     return {"checks": checks, "score": hostinfo.score(checks), "sysctl": hostinfo.sysctl_report(),
             "sysctl_applied": CFG["sysctl"]["applied"]}
 
@@ -742,6 +765,151 @@ def api_live(q):
     return {"samples": [s for s in STATE["samples"] if s["t"] > since], "attack": STATE["attack"],
             "escalated": STATE["escalated"], "applied": STATE["applied"], "bans": STATE["bans_count"],
             "pending": status()["pending"]}
+
+
+# ------------------------------------------------------------------ fail2ban, countries, backup
+
+def f2b_view(force=False):
+    return {**f2b.overview(F2B, force), "admin_ips": admin_ips()}
+
+
+def f2b_jail_name(name, must_run=False):
+    name = str(name or "")
+    if not f2b.NAME_RE.match(name):
+        raise ValueError("invalid jail name")
+    running = f2b.jail_names() if f2b.running() else []
+    if must_run and name not in running:
+        raise ValueError(f"The jail {name} is not running")
+    if name not in running and name not in f2b.PRESETS and name not in F2B["jails"]:
+        raise ValueError(f"Unknown jail: {name}")
+    return name
+
+
+def f2b_save(mutate, what):
+    global F2B
+    with LOCK:
+        new = copy.deepcopy(F2B)
+        mutate(new)
+        f2b.validate(new)
+        if not f2b.installed():
+            raise ValueError("fail2ban is not installed")
+        f2b.write_settings(new)
+        F2B = new
+        save_json("f2b.json", F2B)
+    event("f2b_config", what=what)
+    return f2b_view(force=True)
+
+
+def api_f2b_jail(b):
+    name = f2b_jail_name(b.get("name"))
+    upd = {k: b[k] for k in ("enabled", "bantime", "findtime", "maxretry") if k in b}
+    return f2b_save(lambda m: m["jails"].setdefault(name, {}).update(upd), f"jail {name}")
+
+
+def api_f2b_defaults(b):
+    upd = {k: b[k] for k in f2b.DEFAULT_KEYS if k in b}
+    return f2b_save(lambda m: m["default"].update(upd), "defaults")
+
+
+def api_f2b_ban(b):
+    name = f2b_jail_name(b.get("jail"), must_run=True)
+    addr = net_str(parse_net(b.get("ip", "")))
+    if "/" in addr:
+        raise ValueError("fail2ban bans single addresses")
+    if own_or_admin(addr):
+        raise ValueError(f"{addr} is this server, a logged-in user or on the allowlist; it is never banned")
+    f2b.call("set", name, "banip", addr)
+    event("f2b_ban", jail=name, ip=addr, manual=True)
+    return {"ok": True}
+
+
+def api_f2b_unban(b):
+    addr = net_str(parse_net(b.get("ip", "")))
+    if b.get("jail"):
+        f2b.call("set", f2b_jail_name(b["jail"], must_run=True), "unbanip", addr)
+    else:
+        f2b.call("unban", addr)
+    event("f2b_unban", ip=addr, jail=b.get("jail") or "")
+    return {"ok": True}
+
+
+def api_f2b_service(b):
+    action = str(b.get("action", ""))
+    f2b.service(action)
+    event("f2b_service", action=action)
+    time.sleep(1.5 if action in ("start", "restart") else 0)
+    return f2b_view(force=True)
+
+
+def api_f2b_install(b):
+    job = f2b.install()
+    event("f2b_service", action="install")
+    return {"job": job}
+
+
+def api_f2b_uninstall(b):
+    job = f2b.uninstall(bool(b.get("purge")))
+    event("f2b_service", action="purge" if b.get("purge") else "uninstall")
+    return {"job": job}
+
+
+def api_f2b_bans(q):
+    return {"rows": f2b.jail_bans(f2b_jail_name(q.get("jail"), must_run=True))}
+
+
+def api_geo(q):
+    return {"block": CFG["geo"]["block"], "info": geo.info(DATA, CFG["geo"]["block"])}
+
+
+def geo_refresh_loop():
+    """Country lists change slowly; refresh them weekly and re-apply when one changed."""
+    while True:
+        time.sleep(6 * 3600)
+        try:
+            codes = CFG["geo"]["block"]
+            if not codes or not CFG["enabled"]:
+                continue
+            before = geo.info(DATA, codes)
+            geo.build(DATA, codes, download=True)
+            if geo.info(DATA, codes) != before and not STATE["pending"]:
+                apply()
+        except Exception as e:
+            log("geo refresh", e)
+
+
+EXPORT_KEYS = ("enabled", "profile", "limits", "auto_escalate", "ddos", "firewall", "allow", "block", "ssh_guard",
+               "trust_logged_in", "trust_cdn", "geo", "notify")
+
+
+def api_export(q):
+    return {"app": "server-monitor-firewall", "version": 1, "exported": int(time.time()),
+            "config": {k: CFG[k] for k in EXPORT_KEYS}, "fail2ban": F2B}
+
+
+def api_import(b):
+    data = b.get("data") or {}
+    if data.get("app") != "server-monitor-firewall" or not isinstance(data.get("config"), dict):
+        raise ValueError("This is not a firewall backup file")
+    incoming = data["config"]
+
+    def mut(c):
+        for k in EXPORT_KEYS:
+            if k in incoming:
+                if isinstance(c.get(k), dict) and isinstance(incoming[k], dict):
+                    c[k] = {**c[k], **incoming[k]}
+                else:
+                    c[k] = incoming[k]
+    out = change(mut, rollback=True, what="import")
+    if isinstance(data.get("fail2ban"), dict) and f2b.installed():
+        try:
+            f2b_save(lambda m: m.update({"default": data["fail2ban"].get("default", {}), "jails": data["fail2ban"].get("jails", {})}), "import")
+        except ValueError as e:
+            out = dict(out, warning=f"fail2ban settings not imported: {e}")
+    return out
+
+
+def on_f2b_ban(jail, ip):
+    event("f2b_ban", jail=jail, ip=ip)
 
 
 GET = {
@@ -754,6 +922,11 @@ GET = {
     "/events": lambda q: {"rows": [e for e in EVENTS if e["id"] > int(q.get("since", 0) or 0)][-200:]},
     "/rules": lambda q: {"text": ruleset() if CFG["enabled"] else ruleset(dict(CFG, enabled=True))},
     "/ssh": lambda q: {**ssh_stats(), "config": CFG["ssh_guard"], "fail2ban": hostinfo.fail2ban_present()},
+    "/f2b": lambda q: f2b_view(),
+    "/f2b/bans": api_f2b_bans,
+    "/f2b/log": lambda q: {"text": f2b.log_tail()},
+    "/geo": api_geo,
+    "/export": api_export,
 }
 POST = {
     "/config": lambda b: change(_cfg_patch(b), rollback=bool(b.get("_rollback", True)), what=str(b.get("_what", "config"))[:40]),
@@ -765,6 +938,14 @@ POST = {
     "/unallow": lambda b: api_list_remove(b, "allow"),
     "/unban": lambda b: (unban(b.get("ip", "")), status())[1],
     "/sysctl": api_sysctl,
+    "/f2b/service": api_f2b_service,
+    "/f2b/install": api_f2b_install,
+    "/f2b/uninstall": api_f2b_uninstall,
+    "/f2b/jail": api_f2b_jail,
+    "/f2b/defaults": api_f2b_defaults,
+    "/f2b/ban": api_f2b_ban,
+    "/f2b/unban": api_f2b_unban,
+    "/import": api_import,
 }
 
 
@@ -840,8 +1021,9 @@ def main():
     except Exception as e:
         STATE["error"] = str(e)
         log("cannot apply rules:", e)
-    for target in (stats_loop, ssh_guard_loop, admin_refresh_loop):
+    for target in (stats_loop, ssh_guard_loop, admin_refresh_loop, geo_refresh_loop):
         threading.Thread(target=target, daemon=True).start()
+    threading.Thread(target=f2b.watch_log, args=(on_f2b_ban,), daemon=True).start()
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))   # the rules stay in the kernel while the agent restarts
     log(f"defender {VERSION} ready on {SOCK}; protection {'on' if CFG['enabled'] else 'off'}, "
         f"ssh ports {hostinfo.ssh_ports()}, panel ports {PANEL_PORTS}")
