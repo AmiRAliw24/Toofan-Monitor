@@ -21,6 +21,7 @@ FILES=(
   panel/icons.py:644
   panel/hostip.py:644
   panel/health.py:644
+  panel/live.py:644
   panel/static/index.html:644
   panel/static/login.html:644
   panel/static/app.js:644

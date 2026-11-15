@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Monitoring panel backend: login, static files, a read-only JSON API over Prometheus, and the
-management API (sites, servers, alert rules, Telegram, Docker containers, password).
+management API (sites, servers, alert rules, Telegram, password) and a live one-second stream (live.py).
 
 Standard library only. Anything that changes state needs the session cookie, a JSON body and the
 X-Panel header (a cross-site page cannot send that header), and is checked against the Origin.
@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 import dockerapi
 import health
 import icons
+import live
 import monitor
 import store
 from auth import SESSION_TTL, Auth
@@ -27,7 +28,8 @@ PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PORT = int(os.environ.get("PANEL_LISTEN_PORT", "8080"))
 STATIC = Path(__file__).parent / "static"
 COOKIE = "panel_session"
-VERSION = "2.0"
+VERSION = "2.1"
+LIVE_MAX_SECONDS = 15 * 60   # a live stream is closed after this long; the browser reconnects at once
 
 if not PASSWORD:
     sys.exit("PANEL_PASSWORD must be set")
@@ -259,10 +261,59 @@ class Handler(BaseHTTPRequestHandler):
             return self._redirect("/login")
         if path in PRIVATE_FILES:
             return self._file(*PRIVATE_FILES[path])
+        if path == "/api/live":
+            return self._live({k: v[0] for k, v in parse_qs(url.query).items()})
         if path in GET_API:
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             return self._run(GET_API[path], params)
         self._json(404, {"error": "not found"})
+
+    def _live(self, params):
+        """Server-Sent Events: one sample per second for the selected server (see live.py)."""
+        try:
+            instance = live.resolve(params.get("instance", ""))
+        except ValueError as e:
+            return self._json(400, {"error": str(e)})
+        except Exception as e:  # Prometheus unreachable: the page falls back to its 10-second polling
+            return self._json(502, {"error": f"{type(e).__name__}: {e}"})
+        try:
+            last = float(self.headers.get("Last-Event-ID") or params.get("since") or 0)
+        except ValueError:
+            last = 0.0
+        token = SimpleCookie(self.headers.get("Cookie", ""))[COOKIE].value
+        self.send_response(200)
+        for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
+                     ("X-Accel-Buffering", "no"), ("X-Content-Type-Options", "nosniff"), ("Content-Security-Policy", CSP)):
+            self.send_header(k, v)
+        self.end_headers()
+        self.close_connection = True
+
+        def send(event, data, eid=None):
+            msg = (f"id: {eid}\n" if eid is not None else "") + f"event: {event}\ndata: {json.dumps(data, separators=(',', ':'))}\n\n"
+            self.wfile.write(msg.encode())
+            self.wfile.flush()
+
+        error = None
+        deadline = time.time() + LIVE_MAX_SECONDS   # the browser reconnects by itself, which re-checks the login
+        try:
+            self.wfile.write(b"retry: 3000\n\n")
+            sampler = live.sampler(instance)
+            send("hello", {"instance": instance, "interval": live.INTERVAL, "keep": live.KEEP})
+            while time.time() < deadline and auth.valid_token(token):
+                new = sampler.since(last)
+                if new:
+                    last = new[-1]["t"]
+                    send("s", new, last)
+                if sampler.error != error:
+                    error = sampler.error
+                    send("status", {"error": error})
+                if not new and not error:
+                    self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+                sampler.wait(15)
+                sampler = live.sampler(instance)   # keeps it alive (or starts a new one if it stopped)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
+            return
 
     def _body(self):
         try:

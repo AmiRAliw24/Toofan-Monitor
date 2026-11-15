@@ -25,7 +25,7 @@
       nx_down: "The node-net exporter is down, so network cards cannot be read. Error:",
       d_targets: "Everything Prometheus scrapes. A target that is down means its metrics are missing.",
       d_alerts: "Alerts that are firing or about to fire. Change when they fire on the Alert rules page.",
-      server: "Server", range: "Range", r1h: "Last hour", r6h: "Last 6 hours", r24h: "Last 24 hours", r7d: "Last 7 days",
+      server: "Server", range: "Range", r1h: "Last hour", r6h: "Last 6 hours", r24h: "Last 24 hours", r7d: "Last 7 days", rlive: "Live (last 5 minutes)",
       c_cpu: "CPU usage", c_mem: "Memory usage", c_net: "Network traffic", c_load: "Load average",
       rx: "in", tx: "out", no_data: "No data yet", empty: "Nothing to show yet.",
       name: "Name", cpu_h: "CPU", mem_h: "Memory", uptime_h: "Uptime", status: "Status", target: "Target", type: "Type",
@@ -50,6 +50,8 @@
       hint_dns_external: "DNS to the internet fails as well ({detail}). The server's resolver (/etc/resolv.conf) is broken or blocked by the firewall, and Docker uses it.",
       lv_ok: "Normal", lv_warn: "High", lv_bad: "Critical", address: "Address", more: "More", tbl_view: "Table view", time: "Time",
       err_api: "Cannot load data", last_update: "Last update", auto: "auto-refresh every 10s", ago: "ago",
+      live_on: "Live · updates every second", live_wait: "Connecting to live data…", live_waiting: "Waiting for live data…", live_tag: "Live",
+      live_off_note: "Live data is not available ({e}), so the last hour is shown instead.", io_r: "read", io_w: "write", swap: "Swap",
       t_dark: "Switch to light theme", t_light: "Switch to dark theme",
       // generic UI
       add: "Add", cancel: "Cancel", close: "Close", save: "Save", saved: "Saved", remove: "Remove", working: "Working…", copy: "Copy", copied: "Copied",
@@ -154,7 +156,7 @@
       nx_down: "اکسپورتر node-net قطع است و کارت‌های شبکه خوانده نمی‌شوند. خطا:",
       d_targets: "همه‌ی چیزهایی که Prometheus از آن‌ها متریک می‌گیرد. تارگت قطع یعنی متریکش را نداریم.",
       d_alerts: "هشدارهایی که فعال هستند یا در شرف فعال شدن‌اند. زمان فعال شدنشان را در صفحه‌ی قوانین هشدار عوض کنید.",
-      server: "سرور", range: "بازه", r1h: "یک ساعت اخیر", r6h: "۶ ساعت اخیر", r24h: "۲۴ ساعت اخیر", r7d: "۷ روز اخیر",
+      server: "سرور", range: "بازه", r1h: "یک ساعت اخیر", r6h: "۶ ساعت اخیر", r24h: "۲۴ ساعت اخیر", r7d: "۷ روز اخیر", rlive: "زنده (۵ دقیقه‌ی اخیر)",
       c_cpu: "مصرف پردازنده", c_mem: "مصرف حافظه", c_net: "ترافیک شبکه", c_load: "میانگین بار",
       rx: "دریافت", tx: "ارسال", no_data: "هنوز داده‌ای نیست", empty: "هنوز چیزی برای نمایش نیست.",
       name: "نام", cpu_h: "پردازنده", mem_h: "حافظه", uptime_h: "مدت اجرا", status: "وضعیت", target: "مقصد", type: "نوع",
@@ -179,6 +181,8 @@
       hint_dns_external: "DNS اینترنت هم کار نمی‌کند ({detail}). resolver سرور (/etc/resolv.conf) خراب است یا فایروال جلویش را گرفته و داکر از آن استفاده می‌کند.",
       lv_ok: "عادی", lv_warn: "بالا", lv_bad: "بحرانی", address: "آدرس", more: "بیشتر", tbl_view: "نمایش جدول", time: "زمان",
       err_api: "داده‌ها بارگذاری نشد", last_update: "آخرین بروزرسانی", auto: "بروزرسانی خودکار هر ۱۰ ثانیه", ago: "پیش",
+      live_on: "زنده · بروزرسانی هر ثانیه", live_wait: "در حال اتصال به داده‌ی زنده…", live_waiting: "در انتظار داده‌ی زنده…", live_tag: "زنده",
+      live_off_note: "داده‌ی زنده در دسترس نیست ({e})؛ برای همین یک ساعت اخیر نمایش داده می‌شود.", io_r: "خواندن", io_w: "نوشتن", swap: "Swap",
       t_dark: "تم روشن", t_light: "تم تیره",
       add: "افزودن", cancel: "انصراف", close: "بستن", save: "ذخیره", saved: "ذخیره شد", remove: "حذف", working: "در حال انجام…", copy: "کپی", copied: "کپی شد",
       confirm: "لطفاً تأیید کنید", actions: "عملیات", minutes: "دقیقه", added: "اضافه شد", removed: "حذف شد", reset_defaults: "بازگشت به پیش‌فرض",
@@ -264,7 +268,7 @@
   const state = {
     lang: T[store.get("lang", "en")] ? store.get("lang", "en") : "en",
     theme: store.get("theme", "dark"),
-    range: store.get("range", "1h"),
+    range: store.get("range", "live"),
     instance: store.get("instance", ""),
     instances: [],
     names: {},
@@ -513,9 +517,120 @@
     dlg.showModal();
   }
 
+  // ---------------------------------------------------------------- live stream (one sample a second, see live.py)
+  // Prometheus answers for history and for everything else; the gauges, tiles, network rates and the
+  // "Live" chart range come from /api/live, which the panel reads from node_exporter every second.
+  const LIVE_KEEP = 300;
+  state.live = { status: "off", error: "", samples: [], es: null, instance: null, retry: 0 };
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const liveWanted = () => !document.hidden && (state.view === "overview" || state.view === "network");
+  function liveNow() {
+    const L = state.live, s = L.samples[L.samples.length - 1];
+    return L.status === "live" && s && Date.now() / 1000 - s.t < 8 ? s : null;
+  }
+  function stopLive() {
+    const L = state.live;
+    clearTimeout(L.retry);
+    if (L.es) { L.es.close(); L.es = null; }
+    if (L.status !== "error") L.status = "off";
+  }
+  function startLive() {
+    const L = state.live, inst = state.instance || "";
+    if (!liveWanted() || !window.EventSource) { stopLive(); paintFoot(); return; }
+    if (L.es && L.instance === inst) return;
+    stopLive();
+    if (L.instance !== inst) L.samples = [];
+    L.instance = inst;
+    L.status = "wait";
+    L.startedAt = Date.now();
+    const last = L.samples[L.samples.length - 1];
+    const q = new URLSearchParams({ ...(inst ? { instance: inst } : {}), ...(last ? { since: String(last.t) } : {}) });
+    const es = new EventSource(`/api/live?${q}`);
+    L.es = es;
+    es.addEventListener("s", (e) => {
+      const batch = JSON.parse(e.data), top = L.samples.length ? L.samples[L.samples.length - 1].t : 0;
+      for (const s of batch) if (s.t > top) L.samples.push(s);
+      if (L.samples.length > LIVE_KEEP) L.samples.splice(0, L.samples.length - LIVE_KEEP);
+      L.status = "live";
+      L.error = "";
+      beat();
+      schedulePaint();
+    });
+    es.addEventListener("status", (e) => {
+      L.error = JSON.parse(e.data).error || "";
+      if (L.error) L.status = "error";
+      else if (L.status === "error") L.status = "wait";
+      schedulePaint();
+    });
+    es.onerror = () => {
+      if (es.readyState === EventSource.CLOSED) {   // refused (unknown server, Prometheus down, logged out)
+        if (L.es === es) L.es = null;
+        L.status = "error";
+        clearTimeout(L.retry);
+        L.retry = setTimeout(startLive, 15000);
+      } else if (L.status === "live") L.status = "wait";   // dropped; the browser reconnects by itself
+      schedulePaint();
+    };
+    paintFoot();
+  }
+  let paintQueued = false;
+  function schedulePaint() {   // next frame; the timer covers windows where frames are paused (e.g. an embedded, covered view)
+    if (paintQueued) return;
+    paintQueued = true;
+    let done = false;
+    const run = () => { if (done) return; done = true; paintQueued = false; paintLive(); };
+    requestAnimationFrame(run);
+    setTimeout(run, 250);
+  }
+  function paintLive() {
+    paintFoot();
+    if (state.view === "overview") {
+      paintStats();
+      if (state.range === "live") paintLiveCharts();
+    } else if (state.view === "network") paintNetLive();
+  }
+  function beat() {
+    const p = document.querySelector(".live .pulse");
+    if (!p || reduceMotion.matches) return;
+    p.classList.remove("beat");
+    void p.offsetWidth;   // restart the animation
+    p.classList.add("beat");
+  }
+  function paintFoot() {
+    const L = state.live, box = document.querySelector(".live"), el = $("foot");
+    const on = L.status === "live" && liveWanted(), wait = L.status === "wait" && liveWanted();
+    box.classList.toggle("is-live", on);
+    box.classList.toggle("is-wait", wait);
+    const at = state.lastUpdate ? state.lastUpdate.toLocaleTimeString([], { hour12: false }) : "";
+    el.textContent = on ? t("live_on") : wait ? t("live_wait") : `${t("last_update")}: ${at} · ${t("auto")}`;
+    box.title = L.status === "error" && L.error ? L.error : "";
+  }
+
+  // Numbers glide to their new value instead of jumping (skipped when the user asked for less motion).
+  function tween(el, to, render, ms = 600) {
+    if (!el) return;
+    cancelAnimationFrame(el._raf);
+    clearTimeout(el._end);
+    const arr = Array.isArray(to), from = el._shown;
+    const bad = to == null || (arr && to.some((x) => x == null));
+    const jump = bad || from == null || reduceMotion.matches || document.hidden || (arr && (!Array.isArray(from) || from.length !== to.length));
+    if (jump) { el._shown = bad ? null : to; el.innerHTML = render(to); return; }
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / ms), e = 1 - (1 - k) ** 3;
+      el._shown = arr ? to.map((x, i) => from[i] + (x - from[i]) * e) : from + (to - from) * e;
+      el.innerHTML = render(el._shown);
+      if (k < 1) el._raf = requestAnimationFrame(step);
+    };
+    el._raf = requestAnimationFrame(step);
+    // If frames are paused the animation never runs: land on the final value anyway.
+    el._end = setTimeout(() => { cancelAnimationFrame(el._raf); el._shown = to; el.innerHTML = render(to); }, ms + 150);
+  }
+  const setHTML = (el, html) => { if (el && el._html !== html) { el._html = html; el.innerHTML = html; } };
+
   // ---------------------------------------------------------------- overview: health hero, gauges, tiles
   state.hist = {};
-  const SPARK_W = 120, SPARK_H = 34;
+  const SPARK_W = 120, SPARK_H = 34, SPARK_LIVE = 120;
   function sparkline(points, color) {
     const pts = (points || []).filter((p) => p[1] != null);
     if (pts.length < 2) return "";
@@ -527,12 +642,15 @@
     const last = pts[pts.length - 1];
     return `<svg viewBox="0 0 ${SPARK_W} ${SPARK_H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}L${SPARK_W},${SPARK_H}L0,${SPARK_H}Z" fill="${color}" opacity=".11"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg><i class="sd" style="top:${Y(last[1]).toFixed(1)}px;background:${color}"></i>`;
   }
-  const sparkBox = (key, idx, color) => `<div class="spark" data-spark="${key}" data-idx="${idx}" data-color="${color}">${sparkline(((state.hist[key] || [])[idx] || {}).points, `var(${color})`)}</div>`;
+  const memPctOf = (s) => (s.mem && s.mem[1] ? (s.mem[0] / s.mem[1]) * 100 : null);
+  const LIVE_PICK = { cpu: [(s) => s.cpu], mem: [memPctOf], net: [(s) => s.rx, (s) => s.tx] };
+  function sparkPoints(key, idx) {
+    if (liveNow() && state.live.samples.length >= 2) return state.live.samples.slice(-SPARK_LIVE).map((s) => [s.t, LIVE_PICK[key][idx](s)]);
+    return ((state.hist[key] || [])[idx] || {}).points;
+  }
+  const sparkBox = (key, idx, color) => `<div class="spark" data-spark="${key}" data-idx="${idx}" data-color="${color}">${sparkline(sparkPoints(key, idx), `var(${color})`)}</div>`;
   function refreshSparks() {
-    document.querySelectorAll("[data-spark]").forEach((el) => {
-      const s = (state.hist[el.dataset.spark] || [])[+el.dataset.idx];
-      el.innerHTML = sparkline(s && s.points, `var(${el.dataset.color})`);
-    });
+    document.querySelectorAll("[data-spark]").forEach((el) => setHTML(el, sparkline(sparkPoints(el.dataset.spark, +el.dataset.idx), `var(${el.dataset.color})`)));
   }
 
   function health(o, memPct) {
@@ -553,32 +671,64 @@
     return { sev, issues };
   }
 
-  const ringSvg = (pct) => {
-    const C = 2 * Math.PI * 42, v = Math.min(100, Math.max(0, pct || 0));
-    return `<svg viewBox="0 0 104 104" aria-hidden="true"><circle class="track" cx="52" cy="52" r="42" fill="none" stroke-width="10"/><circle class="fill" cx="52" cy="52" r="42" fill="none" stroke-width="10" stroke-dasharray="${((C * v) / 100).toFixed(1)} ${C.toFixed(1)}"/></svg>`;
-  };
+  // The overview numbers: Prometheus' snapshot, with this second's live sample on top when there is one.
+  function merged() {
+    const o = state.overview;
+    if (!o) return null;
+    const s = liveNow();
+    if (!s) return o;
+    return {
+      ...o,
+      cpu: s.cpu ?? o.cpu,
+      mem: s.mem ? { used: s.mem[0], total: s.mem[1] } : o.mem,
+      load: s.load && s.load[0] != null ? s.load : o.load,
+      net: { rx: s.rx ?? o.net.rx, tx: s.tx ?? o.net.tx },
+      disk: s.disk ? { ...(o.disk || {}), ...s.disk, pct: (s.disk.used / s.disk.total) * 100 } : o.disk,
+      io: s.io,
+    };
+  }
+
+  const RING_C = 2 * Math.PI * 42;
+  const ringSvg = () => `<svg viewBox="0 0 104 104" aria-hidden="true"><circle class="track" cx="52" cy="52" r="42" fill="none" stroke-width="10"/><circle class="fill" cx="52" cy="52" r="42" fill="none" stroke-width="10" stroke-dasharray="0 ${RING_C.toFixed(1)}"/></svg>`;
   const LVL = { "": "lv_ok", warn: "lv_warn", bad: "lv_bad" };
-  function gauge({ label, ic, pct, main, sub = "", go = "", spark = "" }) {
-    const lv = pct == null ? "" : level(pct);
-    return `<div class="card stat gauge ${lv}" ${go ? `data-go="${go}" role="link" tabindex="0"` : ""}>
-      <div class="ring ${lv}">${ringSvg(pct)}<div class="center"><span class="value num">${pct == null ? "–" : `${nf(pct, 0)}<small>%</small>`}</span></div></div>
+  function gauge({ k, label, ic, go = "", spark = "" }) {
+    return `<div class="card stat gauge" data-g="${k}" ${go ? `data-go="${go}" role="link" tabindex="0"` : ""}>
+      <div class="ring">${ringSvg()}<div class="center"><span class="value num">–</span></div></div>
       <div class="g-title">${icon(ic)}${esc(label)}</div>
-      <div class="g-main">${main}</div>
-      <div class="sub"><span class="lvl">${esc(t(LVL[lv]))}</span>${sub ? `<br>${sub}` : ""}</div>
+      <div class="g-main"></div>
+      <div class="sub"><span class="lvl"></span><span class="g-sub"></span></div>
       ${spark}
     </div>`;
   }
-  function tile({ label, ic, value, sub = "", go = "", cls = "", tight = false, spark = "" }) {
-    return `<div class="card stat ${cls}" ${go ? `data-go="${go}" role="link" tabindex="0"` : ""}><div class="label">${icon(ic)}${esc(label)}</div><div class="value${tight ? " tight" : ""}">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ""}${spark}</div>`;
+  function tile({ k, label, ic, go = "", tight = false, spark = "" }) {
+    return `<div class="card stat" data-t="${k}" ${go ? `data-go="${go}" role="link" tabindex="0"` : ""}><div class="label">${icon(ic)}${esc(label)}</div><div class="value${tight ? " tight" : ""}"></div><div class="sub" hidden></div>${spark}</div>`;
   }
+  const pctHTML = (v) => (v == null ? "–" : `${nf(v, 0)}<small>%</small>`);
+  function setGauge(k, pct, main, sub) {
+    const g = document.querySelector(`[data-g="${k}"]`);
+    if (!g) return;
+    const lv = pct == null ? "" : level(pct);
+    if (g._lv !== lv) {
+      g._lv = lv;
+      g.classList.remove("warn", "bad");
+      g.querySelector(".ring").classList.remove("warn", "bad");
+      if (lv) { g.classList.add(lv); g.querySelector(".ring").classList.add(lv); }
+      g.querySelector(".lvl").textContent = t(LVL[lv]);
+    }
+    const v = Math.min(100, Math.max(0, pct || 0));
+    g.querySelector(".fill").setAttribute("stroke-dasharray", `${((RING_C * v) / 100).toFixed(1)} ${RING_C.toFixed(1)}`);
+    tween(g.querySelector(".value"), pct, pctHTML);
+    setHTML(g.querySelector(".g-main"), main);
+    setHTML(g.querySelector(".g-sub"), sub ? `<br>${sub}` : "");
+  }
+  const tileEl = (k) => document.querySelector(`[data-t="${k}"] .value`);
 
-  function renderStats() {
-    const o = state.overview;
-    if (!o) return;
-    const memPct = o.mem.total ? (o.mem.used / o.mem.total) * 100 : null;
-    const d = o.disk;
-    const { sev, issues } = health(o, memPct);
-    const tone = ["", "warn", "bad"][sev];
+  // Built once per language / theme / server; after that only the values change (paintStats).
+  function statsShape(o) {
+    const ip = o.public_ip || {};
+    return [state.lang, state.theme, state.instance, o.host.name, o.host.os, o.host.cores, o.host.cpu_model, ip.v4, ip.v6, ip.disabled, ip.checked].join("|");
+  }
+  function buildStats(o) {
     const ip = o.public_ip || {};
     const local = !state.instance || state.instance === "node-exporter:9100";
     const ipChip = (label, v, wait) => `<button type="button" class="chip copy${v ? "" : " off"}" ${v ? `data-copy="${esc(v)}" title="${esc(t("copy"))}"` : "disabled"}><b class="ipl">${label}</b>${num(esc(v || (wait ? "…" : "–")))}</button>`;
@@ -590,25 +740,64 @@
       o.host.os ? `<span class="chip">${num(esc(o.host.os))}</span>` : "",
       o.host.cores != null ? `<span class="chip">${icon("cpu")}<b>${num(nf(o.host.cores, 0))}</b> ${esc(t("cores"))}</span>` : "",
     ].join("");
-    const hero = `<section class="card hero ${tone}"><div class="hero-icon">${icon(["shield", "alert", "octagon"][sev])}</div>
-      <div class="hero-text"><h2>${esc(t("h_" + ["ok", "warn", "bad"][sev]))}</h2><p>${esc(issues.length ? issues.join(" · ") : t("h_ok_sub"))}</p></div>
+    const hero = `<section class="card hero"><div class="hero-icon"></div>
+      <div class="hero-text"><h2 aria-live="polite"></h2><p></p></div>
       <div class="hero-meta">${chips}</div></section>`;
     const gauges = [
-      gauge({ label: t("cpu"), ic: "cpu", pct: o.cpu, main: o.host.cores != null ? `${num(nf(o.host.cores, 0))} ${esc(t("cores"))}` : "", sub: o.host.cpu_model ? num(esc(o.host.cpu_model)) : "", spark: sparkBox("cpu", 0, "--c1") }),
-      gauge({ label: t("memory"), ic: "memory", pct: memPct, main: `${num(fmtBytes(o.mem.used))} ${esc(t("of"))} ${num(fmtBytes(o.mem.total))}`, spark: sparkBox("mem", 0, "--c3") }),
-      gauge({ label: t("disk"), ic: "disk", pct: d ? d.pct : null, go: "disks", main: d ? `${num(fmtBytes(d.used))} ${esc(t("of"))} ${num(fmtBytes(d.total))}` : "", sub: d ? num(esc(d.mount)) : "" }),
+      gauge({ k: "cpu", label: t("cpu"), ic: "cpu", spark: sparkBox("cpu", 0, "--c1") }),
+      gauge({ k: "mem", label: t("memory"), ic: "memory", spark: sparkBox("mem", 0, "--c3") }),
+      gauge({ k: "disk", label: t("disk"), ic: "disk", go: "disks" }),
     ].join("");
     const tiles = [
-      tile({ label: t("net_down"), ic: "down", go: "network", value: num(fmtRate(o.net.rx)), spark: sparkBox("net", 0, "--c1") }),
-      tile({ label: t("net_up"), ic: "up", go: "network", value: num(fmtRate(o.net.tx)), spark: sparkBox("net", 1, "--c2") }),
-      tile({ label: t("load"), ic: "activity", tight: true, value: num(o.load.map((x) => nf(x, 2)).join(" / ")) }),
-      tile({ label: t("targets"), ic: "check", go: "targets", value: num(`${o.targets.up} / ${o.targets.total}`) }),
-      tile({ label: t("websites"), ic: "globe", go: "websites", value: num(`${o.checks.up} / ${o.checks.total}`) }),
-      tile({ label: t("ssl"), ic: "lock", go: "websites", value: o.checks.min_ssl_days == null ? "–" : num(`${nf(o.checks.min_ssl_days, 0)} <small>${t("days")}</small>`) }),
-      tile({ label: t("alerts"), ic: "bell", go: "alerts", cls: o.alerts.firing ? "alert-on" : "", value: o.alerts.firing ? num(o.alerts.firing) : `<span class="ok-mark">${icon("okmark")}</span>` }),
+      tile({ k: "rx", label: t("net_down"), ic: "down", go: "network", spark: sparkBox("net", 0, "--c1") }),
+      tile({ k: "tx", label: t("net_up"), ic: "up", go: "network", spark: sparkBox("net", 1, "--c2") }),
+      tile({ k: "load", label: t("load"), ic: "activity", tight: true }),
+      tile({ k: "targets", label: t("targets"), ic: "check", go: "targets" }),
+      tile({ k: "checks", label: t("websites"), ic: "globe", go: "websites" }),
+      tile({ k: "ssl", label: t("ssl"), ic: "lock", go: "websites" }),
+      tile({ k: "alerts", label: t("alerts"), ic: "bell", go: "alerts" }),
     ].join("");
     $("stats").innerHTML = `${hero}<div class="gauges">${gauges}</div><div class="tiles">${tiles}</div>`;
+  }
+
+  state.statsShape = null;
+  function paintStats() {
+    const o = merged();
+    if (!o || $("stats").hidden) return;
+    const shape = statsShape(o);
+    if (shape !== state.statsShape) { state.statsShape = shape; buildStats(o); }
+    const memPct = o.mem.total ? (o.mem.used / o.mem.total) * 100 : null;
+    const d = o.disk;
+    const { sev, issues } = health(o, memPct);
+    const hero = document.querySelector("#stats .hero");
+    if (hero._sev !== sev) {
+      hero._sev = sev;
+      hero.classList.remove("warn", "bad");
+      if (sev) hero.classList.add(["", "warn", "bad"][sev]);
+      hero.querySelector(".hero-icon").innerHTML = icon(["shield", "alert", "octagon"][sev]);
+    }
+    setHTML(hero.querySelector("h2"), esc(t("h_" + ["ok", "warn", "bad"][sev])));
+    setHTML(hero.querySelector("p"), esc(issues.length ? issues.join(" · ") : t("h_ok_sub")));
+
+    const io = o.io && o.io[0] != null ? `${num(esc(`${t("io_r")} ${fmtRate(o.io[0])} · ${t("io_w")} ${fmtRate(o.io[1])}`))}` : "";
+    setGauge("cpu", o.cpu, o.host.cores != null ? `${num(nf(o.host.cores, 0))} ${esc(t("cores"))}` : "", o.host.cpu_model ? num(esc(o.host.cpu_model)) : "");
+    setGauge("mem", memPct, `${num(fmtBytes(o.mem.used))} ${esc(t("of"))} ${num(fmtBytes(o.mem.total))}`, o.swap && o.swap.total ? num(esc(`${t("swap")} ${fmtBytes(o.swap.used)} / ${fmtBytes(o.swap.total)}`)) : "");
+    setGauge("disk", d ? d.pct : null, d ? `${num(fmtBytes(d.used))} ${esc(t("of"))} ${num(fmtBytes(d.total))}` : "", d ? num(esc(d.mount)) + (io ? `<br>${io}` : "") : "");
+
+    tween(tileEl("rx"), o.net.rx, (v) => num(fmtRate(v)));
+    tween(tileEl("tx"), o.net.tx, (v) => num(fmtRate(v)));
+    tween(tileEl("load"), o.load, (v) => num(v == null || v.some((x) => x == null) ? "–" : v.map((x) => nf(x, 2)).join(" / ")));
+    setHTML(tileEl("targets"), num(`${o.targets.up} / ${o.targets.total}`));
+    setHTML(tileEl("checks"), num(`${o.checks.up} / ${o.checks.total}`));
+    setHTML(tileEl("ssl"), o.checks.min_ssl_days == null ? "–" : num(`${nf(o.checks.min_ssl_days, 0)} <small>${t("days")}</small>`));
+    setHTML(tileEl("alerts"), o.alerts.firing ? num(o.alerts.firing) : `<span class="ok-mark">${icon("okmark")}</span>`);
+    document.querySelector('[data-t="alerts"]').classList.toggle("alert-on", !!o.alerts.firing);
+    refreshSparks();
     $("hostline").textContent = [o.host.name, o.host.os].filter(Boolean).join(" · ") || " ";
+  }
+  function renderStats() {   // full rebuild (language or theme changed, new data)
+    state.statsShape = null;
+    paintStats();
     renderNav();
   }
 
@@ -626,6 +815,17 @@
   const statusPill = (up, known = true) => (!known ? pill("", t("s_wait")) : up ? pill("ok", t("s_up")) : pill("bad", t("s_down")));
   const val = (form, name) => form.elements[name].value;
   const field = (label, control, hint = "") => `<div class="field"><label>${esc(label)}</label>${control}${hint ? `<p class="hint">${esc(hint)}</p>` : ""}</div>`;
+
+  const liveRate = (r, k) => { const s = liveNow(), d = s && s.dev[r.device]; return d && d[k] != null ? d[k] : k ? r.tx : r.rx; };
+  function paintNetLive() {
+    const s = liveNow();
+    document.querySelectorAll("[data-live-only]").forEach((el) => { el.hidden = !s; });
+    if (!s) return;
+    document.querySelectorAll("[data-live-dev]").forEach((el) => {
+      const d = s.dev[el.dataset.liveDev];
+      if (d && d[+el.dataset.k] != null) tween(el, d[+el.dataset.k], (v) => num(esc(fmtRate(v))));
+    });
+  }
 
   // ---------------------------------------------------------------- views: each has build() and optional bind()
   const CONTAINER_STATE = { running: "ok", restarting: "warn", paused: "warn", created: "warn", exited: "bad", dead: "bad" };
@@ -696,14 +896,14 @@
           { h: "iface", cls: "strong", cell: (r) => num(esc(r.device)) },
           { h: "status", cell: (r) => (r.up ? pill("ok", t("s_up")) : pill("bad", t("s_down"))) },
           { h: "speed", cell: (r) => num(r.speed ? `${nf((r.speed * 8) / 1e6, 0)} Mbit/s` : "–") },
-          { h: "rate_in", cell: (r) => num(fmtRate(r.rx)) },
-          { h: "rate_out", cell: (r) => num(fmtRate(r.tx)) },
+          { h: "rate_in", cell: (r) => `<span data-live-dev="${esc(r.device)}" data-k="0">${num(fmtRate(liveRate(r, 0)))}</span>` },
+          { h: "rate_out", cell: (r) => `<span data-live-dev="${esc(r.device)}" data-k="1">${num(fmtRate(liveRate(r, 1)))}</span>` },
           { h: "total_in", cell: (r) => num(fmtBytes(r.rx_total)) },
           { h: "total_out", cell: (r) => num(fmtBytes(r.tx_total)) },
         ], rows);
-        return `<section class="sec"><div class="sec-head"><h3>${icon("network")}${esc(t("net_ifaces"))}</h3></div>${ifaces}</section>${state.traffic ? trafficSection(state.traffic) : ""}`;
+        return `<section class="sec"><div class="sec-head"><h3>${icon("network")}${esc(t("net_ifaces"))}<span class="live-tag" data-live-only hidden><i></i>${esc(t("live_tag"))}</span></h3></div>${ifaces}</section>${state.traffic ? trafficSection(state.traffic) : ""}`;
       },
-      bind() { paintBars(); },
+      bind() { paintBars(); paintNetLive(); },
     },
 
     targets: {
@@ -1009,13 +1209,13 @@
   const seriesName = (cfg, s, i) => (cfg.names ? t(cfg.names[i]) : s.name);
   const hhmm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 
-  function drawChart(box, cfg, series, uid) {
+  function drawChart(box, cfg, series, uid, win) {
     const all = series.flatMap((s) => s.points.filter((p) => p[1] != null));
     // A line needs at least two samples at different times; right after startup there is only one.
-    if (new Set(all.map((p) => p[0])).size < 2) { box.innerHTML = `<div class="empty">${esc(t("no_data"))}</div>`; return; }
+    if (new Set(all.map((p) => p[0])).size < 2) { box.innerHTML = `<div class="empty">${esc(t(win ? "live_waiting" : "no_data"))}</div>`; return; }
     const bw = Math.round(box.clientWidth) || 600, compact = bw < 420;
     const W = Math.max(240, bw), H = compact ? 170 : 190, L = compact ? 42 : 52, R = 10, TOP = 12, B = 24;
-    const x0 = Math.min(...all.map((p) => p[0])), x1 = Math.max(...all.map((p) => p[0])) || x0 + 1;
+    const x0 = win ? win[0] : Math.min(...all.map((p) => p[0])), x1 = win ? win[1] : Math.max(...all.map((p) => p[0])) || x0 + 1;
     const ymax = cfg.max || niceMax(Math.max(...all.map((p) => p[1])) * 1.1);
     const X = (ts) => L + ((ts - x0) / Math.max(1, x1 - x0)) * (W - L - R);
     const Y = (v) => TOP + (1 - v / ymax) * (H - TOP - B);
@@ -1058,10 +1258,12 @@
     const dotEls = [...box.querySelectorAll(".dots circle")];
     const ref = series.reduce((a, b) => (b.points.length > a.points.length ? b : a), series[0]).points;
     const rest = () => {
+      box._hover = null;
       tip.hidden = true; cross.setAttribute("opacity", "0");
       dotEls.forEach((c, i) => { const lp = lastOf[i]; c.setAttribute("cx", X(lp[0]).toFixed(1)); c.setAttribute("cy", Y(lp[1]).toFixed(1)); });
     };
     const show = (e) => {
+      box._hover = { clientX: e.clientX };   // the live range redraws every second: keep the tooltip where it is
       const rect = svg.getBoundingClientRect();
       const px = ((e.clientX - rect.left) / rect.width) * W;
       const ts = x0 + ((px - L) / (W - L - R)) * (x1 - x0);
@@ -1086,6 +1288,7 @@
     svg.addEventListener("pointerdown", show);
     svg.addEventListener("pointerleave", rest);
     svg.addEventListener("pointercancel", rest);
+    if (box._hover) show(box._hover);
   }
 
   // Every chart has a table twin: the same numbers, readable without colour or hover.
@@ -1105,33 +1308,70 @@
   state.charts = [];
   state.tv = {};
 
+  state.chartWin = null;   // [from, to] while the charts show the live range
   function paintChart(root, i) {
     const c = CHARTS[i], got = state.charts[i];
     const box = root.querySelector(`#plot-${i}`);
     if (!box || !got) return;
     if (state.tv[i]) box.innerHTML = chartTable(c, got);
-    else drawChart(box, c, got, i);
+    else drawChart(box, c, got, i, state.chartWin);
     if (c.now) {
       const last = [...got[0].points].reverse().find((p) => p[1] != null);
-      const now = root.querySelector(`#now-${i}`);
-      if (now) now.innerHTML = last ? num(esc(c.fmt(last[1]))) : "";
+      tween(root.querySelector(`#now-${i}`), last ? last[1] : null, (v) => (v == null ? "" : num(esc(c.fmt(v)))));
     }
   }
 
+  function liveSeries(m) {
+    const S = state.live.samples, pts = (f) => S.map((s) => [s.t, f(s)]);
+    if (m === "cpu") return [{ name: "CPU", points: pts((s) => s.cpu) }];
+    if (m === "mem") return [{ name: "Memory", points: pts(memPctOf) }];
+    if (m === "net") return [{ name: "rx", points: pts((s) => s.rx) }, { name: "tx", points: pts((s) => s.tx) }];
+    return [1, 5, 15].map((p, k) => ({ name: `${p}m`, points: pts((s) => (s.load ? s.load[k] : null)) }));
+  }
+  let tablesAt = 0;
+  function paintLiveCharts() {
+    const root = $("panel"), S = state.live.samples;
+    if (root.dataset.view !== "overview" || !liveNow() || S.length < 2 || !root.querySelector("#plot-0")) return;
+    const note = root.querySelector("#live-note");
+    if (note) note.hidden = true;
+    const end = S[S.length - 1].t;
+    state.chartWin = [end - (LIVE_KEEP - 1), end];
+    const tables = Date.now() - tablesAt > 10000;   // a table that rewrites itself every second cannot be read
+    if (tables) tablesAt = Date.now();
+    CHARTS.forEach((c, i) => {
+      state.charts[i] = liveSeries(c.m);
+      if (!state.tv[i] || tables) paintChart(root, i);
+    });
+  }
+
   async function buildOverview(root, id, rebuild) {
+    const live = state.range === "live";
     if (rebuild) {
       state.charts = [];
-      root.querySelector("#body").innerHTML = `<div class="charts">${CHARTS.map((c, i) => {
+      tablesAt = 0;
+      const tag = live ? `<span class="live-tag"><i></i>${esc(t("live_tag"))}</span>` : "";
+      root.querySelector("#body").innerHTML = `<div class="notice warn" id="live-note" hidden></div><div class="charts">${CHARTS.map((c, i) => {
         const names = c.names ? c.names.map((n) => t(n)) : c.colors.length > 1 ? ["1m", "5m", "15m"] : [];
         const legend = names.length > 1 ? `<div class="legend">${names.map((n, k) => `<span><i style="background:var(${c.colors[k]})"></i>${esc(n)}</span>`).join("")}</div>` : "";
         const tv = !!state.tv[i];
-        return `<div class="chart"><header><h3>${esc(t(c.title))}</h3><span class="now" id="now-${i}"></span><button type="button" class="btn small icon ghost view-toggle" data-tv="${i}" aria-pressed="${tv}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>${legend}<div class="plot" id="plot-${i}"><div class="skeleton"></div></div></div>`;
+        return `<div class="chart"><header><h3>${esc(t(c.title))}${tag}</h3><span class="now" id="now-${i}"></span><button type="button" class="btn small icon ghost view-toggle" data-tv="${i}" aria-pressed="${tv}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>${legend}<div class="plot" id="plot-${i}"><div class="skeleton"></div></div></div>`;
       }).join("")}</div>`;
     }
+    const L = state.live;
+    // Only fresh samples count: after the source failed, old ones would freeze the charts on stale data.
+    if (live && window.EventSource && (liveNow() || (L.status === "wait" && Date.now() - L.startedAt < 8000))) {
+      paintLiveCharts();
+      refreshSparks();
+      return;
+    }
+    // Live data is not coming (exporter unreachable, old browser): show the last hour from Prometheus.
+    state.chartWin = null;
+    const note = root.querySelector("#live-note");
+    if (note) { note.hidden = !live; note.textContent = live ? t("live_off_note", { e: L.error || t("live_wait") }) : ""; }
     await Promise.all(CHARTS.map(async (c, i) => {
       try {
-        const { series } = await api("/api/history", withInstance({ metric: c.m, range: state.range }));
-        if (id !== state.renderId) return;
+        const { series } = await api("/api/history", withInstance({ metric: c.m, range: live ? "1h" : state.range }));
+        if (id !== state.renderId || state.chartWin) return;   // live data arrived meanwhile
         state.charts[i] = series;
         state.hist[c.m] = series;
         paintChart(root, i);
@@ -1281,7 +1521,7 @@
     const label = (i) => (state.names[i] ? `${state.names[i]} (${i})` : i);
     const inst = state.instances.length > 1
       ? `<label class="muted" for="sel-inst">${esc(t("server"))}</label><select id="sel-inst">${state.instances.map((i) => `<option ${i === state.instance ? "selected" : ""} value="${esc(i)}">${esc(label(i))}</option>`).join("")}</select>` : "";
-    const range = `<label class="muted" for="sel-range">${esc(t("range"))}</label><select id="sel-range">${["1h", "6h", "24h", "7d"].map((r) => `<option ${r === state.range ? "selected" : ""} value="${r}">${esc(t("r" + r))}</option>`).join("")}</select>`;
+    const range = `<label class="muted" for="sel-range">${esc(t("range"))}</label><select id="sel-range">${["live", "1h", "6h", "24h", "7d"].map((r) => `<option ${r === state.range ? "selected" : ""} value="${r}">${esc(t("r" + r))}</option>`).join("")}</select>`;
     return inst + range;
   }
 
@@ -1290,6 +1530,7 @@
     const v = VIEWS.find((x) => x.id === state.view) || VIEWS[0];
     const root = $("panel");
     $("stats").hidden = v.id !== "overview";
+    if (v.id === "overview") paintStats();
     const hadShell = root.dataset.view === v.id && root.dataset.lang === state.lang;
     if (v.static && hadShell && !first) return;   // forms must not be wiped by the 10-second refresh
     if (!hadShell || first) {
@@ -1297,7 +1538,7 @@
       root.dataset.lang = state.lang;
       root.innerHTML = `<div class="panel-head"><h2>${icon(v.icon)}${esc(t(v.label))}</h2><div class="tools" id="tools">${v.id === "overview" ? overviewTools() : ""}</div></div><p class="desc">${esc(t(v.desc))}</p><hr><div id="body"><div class="skeleton"></div></div>`;
       const si = $("sel-inst"), sr = $("sel-range");
-      if (si) si.onchange = () => { state.instance = si.value; store.set("instance", si.value); tick(true); };
+      if (si) si.onchange = () => { state.instance = si.value; store.set("instance", si.value); startLive(); tick(true); };
       if (sr) sr.onchange = () => { state.range = sr.value; store.set("range", sr.value); renderView(true); };
     }
     try {
@@ -1325,13 +1566,14 @@
       if (!state.instances.includes(state.instance)) state.instance = state.instances[0] || "";
       state.overview = await api("/api/overview", withInstance());
       $("banner").innerHTML = "";
-      renderStats();
+      paintStats();
+      renderNav();
     } catch (e) {
       if (e.message !== "unauthorized") $("banner").innerHTML = `<div class="notice bad">${icon("bell")}<span>${esc(t("err_api"))}: ${esc(e.message)}</span><button type="button" class="btn small" data-diag>${icon("search")}<span>${esc(t("diag_btn"))}</span></button></div>`;
     }
     try { state.settings = await api("/api/settings"); renderNav(); } catch (e) { /* the badge is optional */ }
-    const now = new Date();
-    $("foot").textContent = `${t("last_update")}: ${now.toLocaleTimeString([], { hour12: false })} · ${t("auto")}`;
+    state.lastUpdate = new Date();
+    paintFoot();
   }
 
   let ticking = false;
@@ -1340,6 +1582,7 @@
     ticking = true;
     try {
       await loadStats();
+      startLive();   // no-op while already streaming the selected server
       await renderView(full === true);
     } finally { ticking = false; }
   }
@@ -1349,6 +1592,7 @@
     state.view = VIEWS.some((v) => v.id === id) ? id : "overview";
     renderNav();
     window.scrollTo(0, 0);
+    startLive();
     renderView(true);
   }
 
@@ -1381,6 +1625,9 @@
   });
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[data-go][role="link"]')) { e.preventDefault(); location.hash = e.target.dataset.go; }
+  });
+  document.addEventListener("visibilitychange", () => {   // no stream (and no server work) for a hidden tab
+    if (document.hidden) { stopLive(); paintFoot(); } else { startLive(); tick(false); }
   });
   let resizeTimer;
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (state.view === "overview" || state.view === "network") renderView(false); }, 300); });

@@ -500,7 +500,8 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
   .topbar { min-height: 58px; padding-block: 8px; padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)); top: 0; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
   .top-brand { display: grid; width: 36px; height: 36px; border-radius: 11px; }
   .top-brand .ico { width: 20px; height: 20px; }
-  .live { display: none; }
+  .live { padding: 10px; gap: 0; }   /* just the status dot; the text stays for screen readers */
+  .live span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .actions { gap: 6px; }
   .actions .btn { width: 42px; height: 42px; padding: 0; }
   .btn .txt { display: none; }
@@ -649,3 +650,30 @@ button.chip:disabled { cursor: default; opacity: .6; }
 #diag .notice .ico { flex: none; }
 pre.logs.short { height: auto; max-height: 220px; }
 .notice > .btn { margin-inline-start: auto; flex: none; }
+
+/* ================================================================== live data (one sample a second) */
+.live { transition: color .3s, border-color .3s; }
+.live.is-live { color: var(--ink); border-color: color-mix(in srgb, var(--s-good) 38%, var(--line)); }
+.live.is-wait .pulse { background: var(--s-warn); }
+.live.is-wait .pulse::after { border-color: var(--s-warn); }
+.live:not(.is-live):not(.is-wait) .pulse { background: var(--faint); }
+.live:not(.is-live):not(.is-wait) .pulse::after { animation: none; }
+.live .pulse.beat { animation: beat .6s cubic-bezier(.3, .8, .3, 1); }
+@keyframes beat {
+  0% { transform: scale(1.7); box-shadow: 0 0 0 0 color-mix(in srgb, var(--s-good) 55%, transparent); }
+  100% { transform: scale(1); box-shadow: 0 0 0 7px transparent; }
+}
+.live-tag {
+  display: inline-flex; align-items: center; gap: 6px; margin-inline-start: 10px; padding: 2px 9px; border-radius: 999px; vertical-align: middle;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--s-good); background: color-mix(in srgb, var(--s-good) 13%, transparent);
+}
+.live-tag i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.live-tag[hidden], #live-note[hidden] { display: none; }
+#live-note { margin-bottom: 14px; }
+/* numbers glide between values; equal-width digits keep them from jittering while they do */
+.num, .stat .value, .ring .center, .chart .now { font-variant-numeric: tabular-nums; }
+.hero { transition: border-color .5s, box-shadow .5s; }
+.hero-icon { transition: color .5s, background-color .5s, border-color .5s; }
+.stat.gauge { transition: border-color .5s, transform .15s; }
+.lvl { transition: color .4s; }

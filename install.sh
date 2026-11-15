@@ -303,8 +303,9 @@ __MONITORING_EOF__
 
 ### 📊 مانیتورینگ
 - **وضعیت کلی** با یک نگاه: سالم / نیاز به توجه / مشکل
+- ⚡ **آمار زنده، هر ثانیه**: CPU، رم، دیسک، I/O دیسک و ترافیک شبکه بدون رفرش و با حرکت نرم اعداد
 - **گیج‌های حلقه‌ای** CPU، رم و دیسک با رنگ شدت
-- **نمودارهای تعاملی** با خط راهنما، تولتیپ و نمای جدولی
+- **نمودارهای تعاملی** با خط راهنما، تولتیپ و نمای جدولی؛ بازه‌ی **«زنده (۵ دقیقه‌ی اخیر)»** ثانیه‌به‌ثانیه جلو می‌رود
 - **ترافیک شبکه** کامل: دانلود و آپلود امروز، ۷ و ۳۰ روز
 - **آی‌پی عمومی** IPv4 و IPv6 سرور (با یک کلیک کپی)
 
@@ -422,7 +423,7 @@ ssh root@SERVER 'bash install.sh'
 
 | | صفحه | چه چیزی نشان می‌دهد |
 |:-:|---|---|
-| 🏠 | **نمای کلی** | وضعیت کلی، گیج‌ها، کارت‌های آماری، نمودارهای CPU، رم، شبکه و load |
+| 🏠 | **نمای کلی** | وضعیت کلی، گیج‌ها، کارت‌های آماری و نمودارهای CPU، رم، شبکه و load، همه زنده و هر ثانیه |
 | 🌐 | **سایت‌ها** | آپتایم، زمان پاسخ، کد HTTP و انقضای SSL سایت‌ها و پورت‌ها |
 | 💽 | **دیسک‌ها** | مصرف هر پارتیشن |
 | 📡 | **شبکه** | کارت‌های شبکه و مصرف کامل آپلود/دانلود |
@@ -615,6 +616,20 @@ docker compose up -d
 <br>
 
 ## 🔧 عیب‌یابی
+
+<details>
+<summary><b>⚡ آمار زنده چطور کار می‌کند؟</b></summary>
+
+<br>
+
+Prometheus هر ۱۵ ثانیه داده جمع می‌کند و نمودارها میانگین ۲ دقیقه را نشان می‌دهند، پس عددها کمی عقب‌اند. برای همین پنل وقتی صفحه‌ی **نمای کلی** یا **شبکه** باز است، خودش هر ثانیه از `node_exporter` همان سرور می‌خواند و با یک اتصال زنده (Server-Sent Events، مسیر `/api/live`) به مرورگر می‌فرستد. بالای صفحه «زنده · بروزرسانی هر ثانیه» با نقطه‌ی سبز یعنی اتصال برقرار است.
+
+- فقط سرورهایی که Prometheus می‌شناسد قابل انتخاب‌اند و نمونه‌برداری حدود ۳۰ ثانیه بعد از بسته شدن صفحه خودش متوقف می‌شود.
+- اگر داده‌ی زنده نرسد (مثلاً exporter سرور دیگر از پنل در دسترس نیست)، پنل خودش به داده‌های Prometheus برمی‌گردد و دلیل را بالای نمودارها می‌نویسد.
+- اگر پنل پشت Nginx است، برای `/api/live` بافرینگ را خاموش کنید (`proxy_buffering off;`).
+
+</details>
+
 
 <details>
 <summary><b>⚠️ بالای پنل نوشته «داده‌ها بارگذاری نشد»</b></summary>
@@ -866,7 +881,7 @@ __MONITORING_EOF__
   write_file panel/server.py 644 <<'__MONITORING_EOF__'
 #!/usr/bin/env python3
 """Monitoring panel backend: login, static files, a read-only JSON API over Prometheus, and the
-management API (sites, servers, alert rules, Telegram, Docker containers, password).
+management API (sites, servers, alert rules, Telegram, password) and a live one-second stream (live.py).
 
 Standard library only. Anything that changes state needs the session cookie, a JSON body and the
 X-Panel header (a cross-site page cannot send that header), and is checked against the Origin.
@@ -884,6 +899,7 @@ from urllib.parse import parse_qs, urlparse
 import dockerapi
 import health
 import icons
+import live
 import monitor
 import store
 from auth import SESSION_TTL, Auth
@@ -893,7 +909,8 @@ PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PORT = int(os.environ.get("PANEL_LISTEN_PORT", "8080"))
 STATIC = Path(__file__).parent / "static"
 COOKIE = "panel_session"
-VERSION = "2.0"
+VERSION = "2.1"
+LIVE_MAX_SECONDS = 15 * 60   # a live stream is closed after this long; the browser reconnects at once
 
 if not PASSWORD:
     sys.exit("PANEL_PASSWORD must be set")
@@ -1125,10 +1142,59 @@ class Handler(BaseHTTPRequestHandler):
             return self._redirect("/login")
         if path in PRIVATE_FILES:
             return self._file(*PRIVATE_FILES[path])
+        if path == "/api/live":
+            return self._live({k: v[0] for k, v in parse_qs(url.query).items()})
         if path in GET_API:
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             return self._run(GET_API[path], params)
         self._json(404, {"error": "not found"})
+
+    def _live(self, params):
+        """Server-Sent Events: one sample per second for the selected server (see live.py)."""
+        try:
+            instance = live.resolve(params.get("instance", ""))
+        except ValueError as e:
+            return self._json(400, {"error": str(e)})
+        except Exception as e:  # Prometheus unreachable: the page falls back to its 10-second polling
+            return self._json(502, {"error": f"{type(e).__name__}: {e}"})
+        try:
+            last = float(self.headers.get("Last-Event-ID") or params.get("since") or 0)
+        except ValueError:
+            last = 0.0
+        token = SimpleCookie(self.headers.get("Cookie", ""))[COOKIE].value
+        self.send_response(200)
+        for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
+                     ("X-Accel-Buffering", "no"), ("X-Content-Type-Options", "nosniff"), ("Content-Security-Policy", CSP)):
+            self.send_header(k, v)
+        self.end_headers()
+        self.close_connection = True
+
+        def send(event, data, eid=None):
+            msg = (f"id: {eid}\n" if eid is not None else "") + f"event: {event}\ndata: {json.dumps(data, separators=(',', ':'))}\n\n"
+            self.wfile.write(msg.encode())
+            self.wfile.flush()
+
+        error = None
+        deadline = time.time() + LIVE_MAX_SECONDS   # the browser reconnects by itself, which re-checks the login
+        try:
+            self.wfile.write(b"retry: 3000\n\n")
+            sampler = live.sampler(instance)
+            send("hello", {"instance": instance, "interval": live.INTERVAL, "keep": live.KEEP})
+            while time.time() < deadline and auth.valid_token(token):
+                new = sampler.since(last)
+                if new:
+                    last = new[-1]["t"]
+                    send("s", new, last)
+                if sampler.error != error:
+                    error = sampler.error
+                    send("status", {"error": error})
+                if not new and not error:
+                    self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+                sampler.wait(15)
+                sampler = live.sampler(instance)   # keeps it alive (or starts a new one if it stopped)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
+            return
 
     def _body(self):
         try:
@@ -2780,6 +2846,224 @@ def diagnose():
         hints.append({"kind": "dns_external", "service": "", "detail": out["dns_external"]["error"]})
     return out
 __MONITORING_EOF__
+  write_file panel/live.py 644 <<'__MONITORING_EOF__'
+"""Live, one-second resolution numbers for the overview and network pages.
+
+Prometheus scrapes every 15 s and the dashboard queries average over 2 minutes, so they lag behind
+what the server is doing right now. For the live view the panel reads node_exporter itself once a
+second and turns the counters into rates. One sampler thread runs per watched server, only while a
+browser is watching it, and keeps the last few minutes so a page that opens has a chart at once.
+
+Only servers Prometheus already knows (job="node") can be watched, so this cannot be used to make
+the panel fetch arbitrary addresses.
+"""
+import collections
+import os
+import re
+import threading
+import time
+from urllib.request import urlopen
+
+import monitor
+
+INTERVAL = 1.0                     # seconds between samples
+KEEP = 300                         # samples kept for a page that opens (5 minutes)
+IDLE_STOP = 30                     # stop sampling a server nobody watched for this long
+LOCAL_INSTANCE = os.environ.get("LOCAL_NODE_INSTANCE", "node-exporter:9100")
+# This server's real NIC counters come from the node-net container (see docker-compose.yml).
+LOCAL_NET_URL = os.environ.get("LOCAL_NODE_NET_URL", "http://node-net:9100/metrics")
+
+VIRTUAL_NIC = re.compile(r"^(lo|veth.*|docker.*|br-.*|virbr.*|cni.*|cali.*|flannel.*|ifb.*)$")
+VIRTUAL_DISK = re.compile(r"^(dm-|md|loop|ram|zram|sr|fd|nbd)")   # avoid counting the same bytes twice
+REAL_FS = re.compile(r"^(?!(tmpfs|overlay|squashfs|devtmpfs|ramfs|fuse.*|nsfs|proc|sysfs|cgroup.*)$)")
+WANTED = (
+    "node_cpu_seconds_total", "node_memory_MemTotal_bytes", "node_memory_MemAvailable_bytes",
+    "node_memory_SwapTotal_bytes", "node_memory_SwapFree_bytes", "node_load1", "node_load5", "node_load15",
+    "node_network_receive_bytes_total", "node_network_transmit_bytes_total",
+    "node_filesystem_size_bytes", "node_filesystem_avail_bytes",
+    "node_disk_read_bytes_total", "node_disk_written_bytes_total",
+)
+LINE = re.compile(r"^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(.*)\})?\s+(\S+)")
+LABEL = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"')
+
+
+def parse(text):
+    """Prometheus text format -> {metric: [(labels, value), ...]} for the metrics in WANTED only."""
+    out = collections.defaultdict(list)
+    for line in text.splitlines():
+        if not line.startswith(WANTED):
+            continue
+        m = LINE.match(line)
+        if not m or m.group(1) not in WANTED:
+            continue
+        try:
+            value = float(m.group(3))
+        except ValueError:
+            continue
+        out[m.group(1)].append((dict(LABEL.findall(m.group(2) or "")), value))
+    return out
+
+
+def fetch(url):
+    with urlopen(url, timeout=2.5) as resp:
+        return resp.read(8_000_000).decode("utf-8", "replace")
+
+
+def first(metrics, name):
+    rows = metrics.get(name)
+    return rows[0][1] if rows else None
+
+
+def counters(metrics):
+    """The raw values a sample is computed from (counters need the previous reading)."""
+    cpu_total = cpu_idle = 0.0
+    for labels, v in metrics.get("node_cpu_seconds_total", []):
+        cpu_total += v
+        if labels.get("mode") == "idle":
+            cpu_idle += v
+    dev = {}
+    for key, name in (("rx", "node_network_receive_bytes_total"), ("tx", "node_network_transmit_bytes_total")):
+        for labels, v in metrics.get(name, []):
+            d = labels.get("device", "")
+            if d and not VIRTUAL_NIC.match(d):
+                dev.setdefault(d, {})[key] = v
+    io = {"r": 0.0, "w": 0.0}
+    for key, name in (("r", "node_disk_read_bytes_total"), ("w", "node_disk_written_bytes_total")):
+        for labels, v in metrics.get(name, []):
+            if not VIRTUAL_DISK.match(labels.get("device", "")):
+                io[key] += v
+    return {"cpu": (cpu_total, cpu_idle) if cpu_total else None, "dev": dev, "io": io}
+
+
+def root_disk(metrics):
+    size = {l.get("mountpoint"): v for l, v in metrics.get("node_filesystem_size_bytes", [])
+            if REAL_FS.match(l.get("fstype", "")) and v}
+    avail = {l.get("mountpoint"): v for l, v in metrics.get("node_filesystem_avail_bytes", [])}
+    mount = "/" if "/" in size else next(iter(sorted(size)), None)
+    if mount is None or mount not in avail:
+        return None
+    return {"mount": mount, "total": size[mount], "used": size[mount] - avail[mount]}
+
+
+def rate(now, before, dt):
+    if now is None or before is None or dt <= 0 or now < before:   # counter reset (reboot, exporter restart)
+        return None
+    return (now - before) / dt
+
+
+class Sampler:
+    def __init__(self, instance):
+        self.instance = instance
+        self.urls = [f"http://{instance}/metrics"]
+        if instance == LOCAL_INSTANCE:
+            self.urls.append(LOCAL_NET_URL)
+        self.samples = collections.deque(maxlen=KEEP)
+        self.error = ""
+        self.cond = threading.Condition()
+        self.watched = time.time()
+        self.prev = None
+        threading.Thread(target=self._loop, name=f"live-{instance}", daemon=True).start()
+
+    def _read(self):
+        metrics = collections.defaultdict(list)
+        for url in self.urls:
+            for k, v in parse(fetch(url)).items():
+                metrics[k].extend(v)
+        return metrics
+
+    def _sample(self, ts, metrics):
+        c = counters(metrics)
+        prev, self.prev = self.prev, (ts, c)
+        if prev is None:
+            return None
+        dt = ts - prev[0]
+        p = prev[1]
+        cpu = None
+        if c["cpu"] and p["cpu"]:
+            d_total, d_idle = c["cpu"][0] - p["cpu"][0], c["cpu"][1] - p["cpu"][1]
+            if d_total > 0:
+                cpu = max(0.0, min(100.0, 100 * (1 - d_idle / d_total)))
+        dev = {}
+        for d, v in c["dev"].items():
+            old = p["dev"].get(d, {})
+            dev[d] = [rate(v.get("rx"), old.get("rx"), dt), rate(v.get("tx"), old.get("tx"), dt)]
+        mem_total = first(metrics, "node_memory_MemTotal_bytes")
+        mem_avail = first(metrics, "node_memory_MemAvailable_bytes")
+        swap_total = first(metrics, "node_memory_SwapTotal_bytes")
+        swap_free = first(metrics, "node_memory_SwapFree_bytes")
+
+        def total(k):
+            known = [x[k] for x in dev.values() if x[k] is not None]
+            return sum(known) if known else None
+
+        return {
+            "t": round(ts, 3),
+            "cpu": cpu,
+            "mem": [mem_total - mem_avail, mem_total] if mem_total is not None and mem_avail is not None else None,
+            "swap": [swap_total - swap_free, swap_total] if swap_total is not None and swap_free is not None else None,
+            "load": [first(metrics, f"node_load{p}") for p in (1, 5, 15)],
+            "rx": total(0), "tx": total(1), "dev": dev,
+            "io": [rate(c["io"]["r"], p["io"]["r"], dt), rate(c["io"]["w"], p["io"]["w"], dt)],
+            "disk": root_disk(metrics),
+        }
+
+    def _loop(self):
+        next_at = time.monotonic()
+        while True:
+            with _lock:   # decided under the lock, so a page that starts watching right now gets a new sampler
+                if time.time() - self.watched >= IDLE_STOP:
+                    if _samplers.get(self.instance) is self:
+                        del _samplers[self.instance]
+                    return
+            try:
+                ts = time.time()
+                sample = self._sample(ts, self._read())
+                self.error = ""
+            except Exception as e:  # exporter unreachable, timeout, ...
+                sample, self.prev = None, None
+                self.error = f"{type(e).__name__}: {e}"
+            with self.cond:
+                if sample:
+                    self.samples.append(sample)
+                self.cond.notify_all()
+            next_at += INTERVAL if not self.error else 3 * INTERVAL
+            time.sleep(max(0.05, next_at - time.monotonic()))
+            next_at = max(next_at, time.monotonic() - INTERVAL)   # never try to "catch up" after a stall
+
+    def since(self, ts):
+        with self.cond:
+            return [s for s in self.samples if s["t"] > ts]
+
+    def wait(self, timeout):
+        with self.cond:
+            self.cond.wait(timeout)
+
+
+_samplers = {}
+_lock = threading.Lock()
+_known = {"at": 0.0, "list": []}
+
+
+def resolve(instance):
+    """The server to watch: one Prometheus already scrapes (cached for 30 s)."""
+    if time.time() - _known["at"] > 30 or instance not in _known["list"]:
+        _known["list"] = monitor.node_instances()
+        _known["at"] = time.time()
+    if not instance:
+        instance = LOCAL_INSTANCE if LOCAL_INSTANCE in _known["list"] else (_known["list"] or [""])[0]
+    if instance not in _known["list"]:
+        raise ValueError("unknown server")
+    return instance
+
+
+def sampler(instance):
+    with _lock:
+        s = _samplers.get(instance)
+        if s is None:
+            s = _samplers[instance] = Sampler(instance)
+        s.watched = time.time()
+        return s
+__MONITORING_EOF__
   write_file panel/static/index.html 644 <<'__MONITORING_EOF__'
 <!doctype html>
 <html lang="en" data-theme="dark">
@@ -2829,7 +3113,7 @@ __MONITORING_EOF__
 
       <div class="content">
         <div id="banner"></div>
-        <section class="stats" id="stats" aria-live="polite"></section>
+        <section class="stats" id="stats"></section>
         <main class="card panel" id="panel"></main>
       </div>
     </div>
@@ -2911,7 +3195,7 @@ __MONITORING_EOF__
       nx_down: "The node-net exporter is down, so network cards cannot be read. Error:",
       d_targets: "Everything Prometheus scrapes. A target that is down means its metrics are missing.",
       d_alerts: "Alerts that are firing or about to fire. Change when they fire on the Alert rules page.",
-      server: "Server", range: "Range", r1h: "Last hour", r6h: "Last 6 hours", r24h: "Last 24 hours", r7d: "Last 7 days",
+      server: "Server", range: "Range", r1h: "Last hour", r6h: "Last 6 hours", r24h: "Last 24 hours", r7d: "Last 7 days", rlive: "Live (last 5 minutes)",
       c_cpu: "CPU usage", c_mem: "Memory usage", c_net: "Network traffic", c_load: "Load average",
       rx: "in", tx: "out", no_data: "No data yet", empty: "Nothing to show yet.",
       name: "Name", cpu_h: "CPU", mem_h: "Memory", uptime_h: "Uptime", status: "Status", target: "Target", type: "Type",
@@ -2936,6 +3220,8 @@ __MONITORING_EOF__
       hint_dns_external: "DNS to the internet fails as well ({detail}). The server's resolver (/etc/resolv.conf) is broken or blocked by the firewall, and Docker uses it.",
       lv_ok: "Normal", lv_warn: "High", lv_bad: "Critical", address: "Address", more: "More", tbl_view: "Table view", time: "Time",
       err_api: "Cannot load data", last_update: "Last update", auto: "auto-refresh every 10s", ago: "ago",
+      live_on: "Live · updates every second", live_wait: "Connecting to live data…", live_waiting: "Waiting for live data…", live_tag: "Live",
+      live_off_note: "Live data is not available ({e}), so the last hour is shown instead.", io_r: "read", io_w: "write", swap: "Swap",
       t_dark: "Switch to light theme", t_light: "Switch to dark theme",
       // generic UI
       add: "Add", cancel: "Cancel", close: "Close", save: "Save", saved: "Saved", remove: "Remove", working: "Working…", copy: "Copy", copied: "Copied",
@@ -3040,7 +3326,7 @@ __MONITORING_EOF__
       nx_down: "اکسپورتر node-net قطع است و کارت‌های شبکه خوانده نمی‌شوند. خطا:",
       d_targets: "همه‌ی چیزهایی که Prometheus از آن‌ها متریک می‌گیرد. تارگت قطع یعنی متریکش را نداریم.",
       d_alerts: "هشدارهایی که فعال هستند یا در شرف فعال شدن‌اند. زمان فعال شدنشان را در صفحه‌ی قوانین هشدار عوض کنید.",
-      server: "سرور", range: "بازه", r1h: "یک ساعت اخیر", r6h: "۶ ساعت اخیر", r24h: "۲۴ ساعت اخیر", r7d: "۷ روز اخیر",
+      server: "سرور", range: "بازه", r1h: "یک ساعت اخیر", r6h: "۶ ساعت اخیر", r24h: "۲۴ ساعت اخیر", r7d: "۷ روز اخیر", rlive: "زنده (۵ دقیقه‌ی اخیر)",
       c_cpu: "مصرف پردازنده", c_mem: "مصرف حافظه", c_net: "ترافیک شبکه", c_load: "میانگین بار",
       rx: "دریافت", tx: "ارسال", no_data: "هنوز داده‌ای نیست", empty: "هنوز چیزی برای نمایش نیست.",
       name: "نام", cpu_h: "پردازنده", mem_h: "حافظه", uptime_h: "مدت اجرا", status: "وضعیت", target: "مقصد", type: "نوع",
@@ -3065,6 +3351,8 @@ __MONITORING_EOF__
       hint_dns_external: "DNS اینترنت هم کار نمی‌کند ({detail}). resolver سرور (/etc/resolv.conf) خراب است یا فایروال جلویش را گرفته و داکر از آن استفاده می‌کند.",
       lv_ok: "عادی", lv_warn: "بالا", lv_bad: "بحرانی", address: "آدرس", more: "بیشتر", tbl_view: "نمایش جدول", time: "زمان",
       err_api: "داده‌ها بارگذاری نشد", last_update: "آخرین بروزرسانی", auto: "بروزرسانی خودکار هر ۱۰ ثانیه", ago: "پیش",
+      live_on: "زنده · بروزرسانی هر ثانیه", live_wait: "در حال اتصال به داده‌ی زنده…", live_waiting: "در انتظار داده‌ی زنده…", live_tag: "زنده",
+      live_off_note: "داده‌ی زنده در دسترس نیست ({e})؛ برای همین یک ساعت اخیر نمایش داده می‌شود.", io_r: "خواندن", io_w: "نوشتن", swap: "Swap",
       t_dark: "تم روشن", t_light: "تم تیره",
       add: "افزودن", cancel: "انصراف", close: "بستن", save: "ذخیره", saved: "ذخیره شد", remove: "حذف", working: "در حال انجام…", copy: "کپی", copied: "کپی شد",
       confirm: "لطفاً تأیید کنید", actions: "عملیات", minutes: "دقیقه", added: "اضافه شد", removed: "حذف شد", reset_defaults: "بازگشت به پیش‌فرض",
@@ -3150,7 +3438,7 @@ __MONITORING_EOF__
   const state = {
     lang: T[store.get("lang", "en")] ? store.get("lang", "en") : "en",
     theme: store.get("theme", "dark"),
-    range: store.get("range", "1h"),
+    range: store.get("range", "live"),
     instance: store.get("instance", ""),
     instances: [],
     names: {},
@@ -3399,9 +3687,120 @@ __MONITORING_EOF__
     dlg.showModal();
   }
 
+  // ---------------------------------------------------------------- live stream (one sample a second, see live.py)
+  // Prometheus answers for history and for everything else; the gauges, tiles, network rates and the
+  // "Live" chart range come from /api/live, which the panel reads from node_exporter every second.
+  const LIVE_KEEP = 300;
+  state.live = { status: "off", error: "", samples: [], es: null, instance: null, retry: 0 };
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const liveWanted = () => !document.hidden && (state.view === "overview" || state.view === "network");
+  function liveNow() {
+    const L = state.live, s = L.samples[L.samples.length - 1];
+    return L.status === "live" && s && Date.now() / 1000 - s.t < 8 ? s : null;
+  }
+  function stopLive() {
+    const L = state.live;
+    clearTimeout(L.retry);
+    if (L.es) { L.es.close(); L.es = null; }
+    if (L.status !== "error") L.status = "off";
+  }
+  function startLive() {
+    const L = state.live, inst = state.instance || "";
+    if (!liveWanted() || !window.EventSource) { stopLive(); paintFoot(); return; }
+    if (L.es && L.instance === inst) return;
+    stopLive();
+    if (L.instance !== inst) L.samples = [];
+    L.instance = inst;
+    L.status = "wait";
+    L.startedAt = Date.now();
+    const last = L.samples[L.samples.length - 1];
+    const q = new URLSearchParams({ ...(inst ? { instance: inst } : {}), ...(last ? { since: String(last.t) } : {}) });
+    const es = new EventSource(`/api/live?${q}`);
+    L.es = es;
+    es.addEventListener("s", (e) => {
+      const batch = JSON.parse(e.data), top = L.samples.length ? L.samples[L.samples.length - 1].t : 0;
+      for (const s of batch) if (s.t > top) L.samples.push(s);
+      if (L.samples.length > LIVE_KEEP) L.samples.splice(0, L.samples.length - LIVE_KEEP);
+      L.status = "live";
+      L.error = "";
+      beat();
+      schedulePaint();
+    });
+    es.addEventListener("status", (e) => {
+      L.error = JSON.parse(e.data).error || "";
+      if (L.error) L.status = "error";
+      else if (L.status === "error") L.status = "wait";
+      schedulePaint();
+    });
+    es.onerror = () => {
+      if (es.readyState === EventSource.CLOSED) {   // refused (unknown server, Prometheus down, logged out)
+        if (L.es === es) L.es = null;
+        L.status = "error";
+        clearTimeout(L.retry);
+        L.retry = setTimeout(startLive, 15000);
+      } else if (L.status === "live") L.status = "wait";   // dropped; the browser reconnects by itself
+      schedulePaint();
+    };
+    paintFoot();
+  }
+  let paintQueued = false;
+  function schedulePaint() {   // next frame; the timer covers windows where frames are paused (e.g. an embedded, covered view)
+    if (paintQueued) return;
+    paintQueued = true;
+    let done = false;
+    const run = () => { if (done) return; done = true; paintQueued = false; paintLive(); };
+    requestAnimationFrame(run);
+    setTimeout(run, 250);
+  }
+  function paintLive() {
+    paintFoot();
+    if (state.view === "overview") {
+      paintStats();
+      if (state.range === "live") paintLiveCharts();
+    } else if (state.view === "network") paintNetLive();
+  }
+  function beat() {
+    const p = document.querySelector(".live .pulse");
+    if (!p || reduceMotion.matches) return;
+    p.classList.remove("beat");
+    void p.offsetWidth;   // restart the animation
+    p.classList.add("beat");
+  }
+  function paintFoot() {
+    const L = state.live, box = document.querySelector(".live"), el = $("foot");
+    const on = L.status === "live" && liveWanted(), wait = L.status === "wait" && liveWanted();
+    box.classList.toggle("is-live", on);
+    box.classList.toggle("is-wait", wait);
+    const at = state.lastUpdate ? state.lastUpdate.toLocaleTimeString([], { hour12: false }) : "";
+    el.textContent = on ? t("live_on") : wait ? t("live_wait") : `${t("last_update")}: ${at} · ${t("auto")}`;
+    box.title = L.status === "error" && L.error ? L.error : "";
+  }
+
+  // Numbers glide to their new value instead of jumping (skipped when the user asked for less motion).
+  function tween(el, to, render, ms = 600) {
+    if (!el) return;
+    cancelAnimationFrame(el._raf);
+    clearTimeout(el._end);
+    const arr = Array.isArray(to), from = el._shown;
+    const bad = to == null || (arr && to.some((x) => x == null));
+    const jump = bad || from == null || reduceMotion.matches || document.hidden || (arr && (!Array.isArray(from) || from.length !== to.length));
+    if (jump) { el._shown = bad ? null : to; el.innerHTML = render(to); return; }
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / ms), e = 1 - (1 - k) ** 3;
+      el._shown = arr ? to.map((x, i) => from[i] + (x - from[i]) * e) : from + (to - from) * e;
+      el.innerHTML = render(el._shown);
+      if (k < 1) el._raf = requestAnimationFrame(step);
+    };
+    el._raf = requestAnimationFrame(step);
+    // If frames are paused the animation never runs: land on the final value anyway.
+    el._end = setTimeout(() => { cancelAnimationFrame(el._raf); el._shown = to; el.innerHTML = render(to); }, ms + 150);
+  }
+  const setHTML = (el, html) => { if (el && el._html !== html) { el._html = html; el.innerHTML = html; } };
+
   // ---------------------------------------------------------------- overview: health hero, gauges, tiles
   state.hist = {};
-  const SPARK_W = 120, SPARK_H = 34;
+  const SPARK_W = 120, SPARK_H = 34, SPARK_LIVE = 120;
   function sparkline(points, color) {
     const pts = (points || []).filter((p) => p[1] != null);
     if (pts.length < 2) return "";
@@ -3413,12 +3812,15 @@ __MONITORING_EOF__
     const last = pts[pts.length - 1];
     return `<svg viewBox="0 0 ${SPARK_W} ${SPARK_H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}L${SPARK_W},${SPARK_H}L0,${SPARK_H}Z" fill="${color}" opacity=".11"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg><i class="sd" style="top:${Y(last[1]).toFixed(1)}px;background:${color}"></i>`;
   }
-  const sparkBox = (key, idx, color) => `<div class="spark" data-spark="${key}" data-idx="${idx}" data-color="${color}">${sparkline(((state.hist[key] || [])[idx] || {}).points, `var(${color})`)}</div>`;
+  const memPctOf = (s) => (s.mem && s.mem[1] ? (s.mem[0] / s.mem[1]) * 100 : null);
+  const LIVE_PICK = { cpu: [(s) => s.cpu], mem: [memPctOf], net: [(s) => s.rx, (s) => s.tx] };
+  function sparkPoints(key, idx) {
+    if (liveNow() && state.live.samples.length >= 2) return state.live.samples.slice(-SPARK_LIVE).map((s) => [s.t, LIVE_PICK[key][idx](s)]);
+    return ((state.hist[key] || [])[idx] || {}).points;
+  }
+  const sparkBox = (key, idx, color) => `<div class="spark" data-spark="${key}" data-idx="${idx}" data-color="${color}">${sparkline(sparkPoints(key, idx), `var(${color})`)}</div>`;
   function refreshSparks() {
-    document.querySelectorAll("[data-spark]").forEach((el) => {
-      const s = (state.hist[el.dataset.spark] || [])[+el.dataset.idx];
-      el.innerHTML = sparkline(s && s.points, `var(${el.dataset.color})`);
-    });
+    document.querySelectorAll("[data-spark]").forEach((el) => setHTML(el, sparkline(sparkPoints(el.dataset.spark, +el.dataset.idx), `var(${el.dataset.color})`)));
   }
 
   function health(o, memPct) {
@@ -3439,32 +3841,64 @@ __MONITORING_EOF__
     return { sev, issues };
   }
 
-  const ringSvg = (pct) => {
-    const C = 2 * Math.PI * 42, v = Math.min(100, Math.max(0, pct || 0));
-    return `<svg viewBox="0 0 104 104" aria-hidden="true"><circle class="track" cx="52" cy="52" r="42" fill="none" stroke-width="10"/><circle class="fill" cx="52" cy="52" r="42" fill="none" stroke-width="10" stroke-dasharray="${((C * v) / 100).toFixed(1)} ${C.toFixed(1)}"/></svg>`;
-  };
+  // The overview numbers: Prometheus' snapshot, with this second's live sample on top when there is one.
+  function merged() {
+    const o = state.overview;
+    if (!o) return null;
+    const s = liveNow();
+    if (!s) return o;
+    return {
+      ...o,
+      cpu: s.cpu ?? o.cpu,
+      mem: s.mem ? { used: s.mem[0], total: s.mem[1] } : o.mem,
+      load: s.load && s.load[0] != null ? s.load : o.load,
+      net: { rx: s.rx ?? o.net.rx, tx: s.tx ?? o.net.tx },
+      disk: s.disk ? { ...(o.disk || {}), ...s.disk, pct: (s.disk.used / s.disk.total) * 100 } : o.disk,
+      io: s.io,
+    };
+  }
+
+  const RING_C = 2 * Math.PI * 42;
+  const ringSvg = () => `<svg viewBox="0 0 104 104" aria-hidden="true"><circle class="track" cx="52" cy="52" r="42" fill="none" stroke-width="10"/><circle class="fill" cx="52" cy="52" r="42" fill="none" stroke-width="10" stroke-dasharray="0 ${RING_C.toFixed(1)}"/></svg>`;
   const LVL = { "": "lv_ok", warn: "lv_warn", bad: "lv_bad" };
-  function gauge({ label, ic, pct, main, sub = "", go = "", spark = "" }) {
-    const lv = pct == null ? "" : level(pct);
-    return `<div class="card stat gauge ${lv}" ${go ? `data-go="${go}" role="link" tabindex="0"` : ""}>
-      <div class="ring ${lv}">${ringSvg(pct)}<div class="center"><span class="value num">${pct == null ? "–" : `${nf(pct, 0)}<small>%</small>`}</span></div></div>
+  function gauge({ k, label, ic, go = "", spark = "" }) {
+    return `<div class="card stat gauge" data-g="${k}" ${go ? `data-go="${go}" role="link" tabindex="0"` : ""}>
+      <div class="ring">${ringSvg()}<div class="center"><span class="value num">–</span></div></div>
       <div class="g-title">${icon(ic)}${esc(label)}</div>
-      <div class="g-main">${main}</div>
-      <div class="sub"><span class="lvl">${esc(t(LVL[lv]))}</span>${sub ? `<br>${sub}` : ""}</div>
+      <div class="g-main"></div>
+      <div class="sub"><span class="lvl"></span><span class="g-sub"></span></div>
       ${spark}
     </div>`;
   }
-  function tile({ label, ic, value, sub = "", go = "", cls = "", tight = false, spark = "" }) {
-    return `<div class="card stat ${cls}" ${go ? `data-go="${go}" role="link" tabindex="0"` : ""}><div class="label">${icon(ic)}${esc(label)}</div><div class="value${tight ? " tight" : ""}">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ""}${spark}</div>`;
+  function tile({ k, label, ic, go = "", tight = false, spark = "" }) {
+    return `<div class="card stat" data-t="${k}" ${go ? `data-go="${go}" role="link" tabindex="0"` : ""}><div class="label">${icon(ic)}${esc(label)}</div><div class="value${tight ? " tight" : ""}"></div><div class="sub" hidden></div>${spark}</div>`;
   }
+  const pctHTML = (v) => (v == null ? "–" : `${nf(v, 0)}<small>%</small>`);
+  function setGauge(k, pct, main, sub) {
+    const g = document.querySelector(`[data-g="${k}"]`);
+    if (!g) return;
+    const lv = pct == null ? "" : level(pct);
+    if (g._lv !== lv) {
+      g._lv = lv;
+      g.classList.remove("warn", "bad");
+      g.querySelector(".ring").classList.remove("warn", "bad");
+      if (lv) { g.classList.add(lv); g.querySelector(".ring").classList.add(lv); }
+      g.querySelector(".lvl").textContent = t(LVL[lv]);
+    }
+    const v = Math.min(100, Math.max(0, pct || 0));
+    g.querySelector(".fill").setAttribute("stroke-dasharray", `${((RING_C * v) / 100).toFixed(1)} ${RING_C.toFixed(1)}`);
+    tween(g.querySelector(".value"), pct, pctHTML);
+    setHTML(g.querySelector(".g-main"), main);
+    setHTML(g.querySelector(".g-sub"), sub ? `<br>${sub}` : "");
+  }
+  const tileEl = (k) => document.querySelector(`[data-t="${k}"] .value`);
 
-  function renderStats() {
-    const o = state.overview;
-    if (!o) return;
-    const memPct = o.mem.total ? (o.mem.used / o.mem.total) * 100 : null;
-    const d = o.disk;
-    const { sev, issues } = health(o, memPct);
-    const tone = ["", "warn", "bad"][sev];
+  // Built once per language / theme / server; after that only the values change (paintStats).
+  function statsShape(o) {
+    const ip = o.public_ip || {};
+    return [state.lang, state.theme, state.instance, o.host.name, o.host.os, o.host.cores, o.host.cpu_model, ip.v4, ip.v6, ip.disabled, ip.checked].join("|");
+  }
+  function buildStats(o) {
     const ip = o.public_ip || {};
     const local = !state.instance || state.instance === "node-exporter:9100";
     const ipChip = (label, v, wait) => `<button type="button" class="chip copy${v ? "" : " off"}" ${v ? `data-copy="${esc(v)}" title="${esc(t("copy"))}"` : "disabled"}><b class="ipl">${label}</b>${num(esc(v || (wait ? "…" : "–")))}</button>`;
@@ -3476,25 +3910,64 @@ __MONITORING_EOF__
       o.host.os ? `<span class="chip">${num(esc(o.host.os))}</span>` : "",
       o.host.cores != null ? `<span class="chip">${icon("cpu")}<b>${num(nf(o.host.cores, 0))}</b> ${esc(t("cores"))}</span>` : "",
     ].join("");
-    const hero = `<section class="card hero ${tone}"><div class="hero-icon">${icon(["shield", "alert", "octagon"][sev])}</div>
-      <div class="hero-text"><h2>${esc(t("h_" + ["ok", "warn", "bad"][sev]))}</h2><p>${esc(issues.length ? issues.join(" · ") : t("h_ok_sub"))}</p></div>
+    const hero = `<section class="card hero"><div class="hero-icon"></div>
+      <div class="hero-text"><h2 aria-live="polite"></h2><p></p></div>
       <div class="hero-meta">${chips}</div></section>`;
     const gauges = [
-      gauge({ label: t("cpu"), ic: "cpu", pct: o.cpu, main: o.host.cores != null ? `${num(nf(o.host.cores, 0))} ${esc(t("cores"))}` : "", sub: o.host.cpu_model ? num(esc(o.host.cpu_model)) : "", spark: sparkBox("cpu", 0, "--c1") }),
-      gauge({ label: t("memory"), ic: "memory", pct: memPct, main: `${num(fmtBytes(o.mem.used))} ${esc(t("of"))} ${num(fmtBytes(o.mem.total))}`, spark: sparkBox("mem", 0, "--c3") }),
-      gauge({ label: t("disk"), ic: "disk", pct: d ? d.pct : null, go: "disks", main: d ? `${num(fmtBytes(d.used))} ${esc(t("of"))} ${num(fmtBytes(d.total))}` : "", sub: d ? num(esc(d.mount)) : "" }),
+      gauge({ k: "cpu", label: t("cpu"), ic: "cpu", spark: sparkBox("cpu", 0, "--c1") }),
+      gauge({ k: "mem", label: t("memory"), ic: "memory", spark: sparkBox("mem", 0, "--c3") }),
+      gauge({ k: "disk", label: t("disk"), ic: "disk", go: "disks" }),
     ].join("");
     const tiles = [
-      tile({ label: t("net_down"), ic: "down", go: "network", value: num(fmtRate(o.net.rx)), spark: sparkBox("net", 0, "--c1") }),
-      tile({ label: t("net_up"), ic: "up", go: "network", value: num(fmtRate(o.net.tx)), spark: sparkBox("net", 1, "--c2") }),
-      tile({ label: t("load"), ic: "activity", tight: true, value: num(o.load.map((x) => nf(x, 2)).join(" / ")) }),
-      tile({ label: t("targets"), ic: "check", go: "targets", value: num(`${o.targets.up} / ${o.targets.total}`) }),
-      tile({ label: t("websites"), ic: "globe", go: "websites", value: num(`${o.checks.up} / ${o.checks.total}`) }),
-      tile({ label: t("ssl"), ic: "lock", go: "websites", value: o.checks.min_ssl_days == null ? "–" : num(`${nf(o.checks.min_ssl_days, 0)} <small>${t("days")}</small>`) }),
-      tile({ label: t("alerts"), ic: "bell", go: "alerts", cls: o.alerts.firing ? "alert-on" : "", value: o.alerts.firing ? num(o.alerts.firing) : `<span class="ok-mark">${icon("okmark")}</span>` }),
+      tile({ k: "rx", label: t("net_down"), ic: "down", go: "network", spark: sparkBox("net", 0, "--c1") }),
+      tile({ k: "tx", label: t("net_up"), ic: "up", go: "network", spark: sparkBox("net", 1, "--c2") }),
+      tile({ k: "load", label: t("load"), ic: "activity", tight: true }),
+      tile({ k: "targets", label: t("targets"), ic: "check", go: "targets" }),
+      tile({ k: "checks", label: t("websites"), ic: "globe", go: "websites" }),
+      tile({ k: "ssl", label: t("ssl"), ic: "lock", go: "websites" }),
+      tile({ k: "alerts", label: t("alerts"), ic: "bell", go: "alerts" }),
     ].join("");
     $("stats").innerHTML = `${hero}<div class="gauges">${gauges}</div><div class="tiles">${tiles}</div>`;
+  }
+
+  state.statsShape = null;
+  function paintStats() {
+    const o = merged();
+    if (!o || $("stats").hidden) return;
+    const shape = statsShape(o);
+    if (shape !== state.statsShape) { state.statsShape = shape; buildStats(o); }
+    const memPct = o.mem.total ? (o.mem.used / o.mem.total) * 100 : null;
+    const d = o.disk;
+    const { sev, issues } = health(o, memPct);
+    const hero = document.querySelector("#stats .hero");
+    if (hero._sev !== sev) {
+      hero._sev = sev;
+      hero.classList.remove("warn", "bad");
+      if (sev) hero.classList.add(["", "warn", "bad"][sev]);
+      hero.querySelector(".hero-icon").innerHTML = icon(["shield", "alert", "octagon"][sev]);
+    }
+    setHTML(hero.querySelector("h2"), esc(t("h_" + ["ok", "warn", "bad"][sev])));
+    setHTML(hero.querySelector("p"), esc(issues.length ? issues.join(" · ") : t("h_ok_sub")));
+
+    const io = o.io && o.io[0] != null ? `${num(esc(`${t("io_r")} ${fmtRate(o.io[0])} · ${t("io_w")} ${fmtRate(o.io[1])}`))}` : "";
+    setGauge("cpu", o.cpu, o.host.cores != null ? `${num(nf(o.host.cores, 0))} ${esc(t("cores"))}` : "", o.host.cpu_model ? num(esc(o.host.cpu_model)) : "");
+    setGauge("mem", memPct, `${num(fmtBytes(o.mem.used))} ${esc(t("of"))} ${num(fmtBytes(o.mem.total))}`, o.swap && o.swap.total ? num(esc(`${t("swap")} ${fmtBytes(o.swap.used)} / ${fmtBytes(o.swap.total)}`)) : "");
+    setGauge("disk", d ? d.pct : null, d ? `${num(fmtBytes(d.used))} ${esc(t("of"))} ${num(fmtBytes(d.total))}` : "", d ? num(esc(d.mount)) + (io ? `<br>${io}` : "") : "");
+
+    tween(tileEl("rx"), o.net.rx, (v) => num(fmtRate(v)));
+    tween(tileEl("tx"), o.net.tx, (v) => num(fmtRate(v)));
+    tween(tileEl("load"), o.load, (v) => num(v == null || v.some((x) => x == null) ? "–" : v.map((x) => nf(x, 2)).join(" / ")));
+    setHTML(tileEl("targets"), num(`${o.targets.up} / ${o.targets.total}`));
+    setHTML(tileEl("checks"), num(`${o.checks.up} / ${o.checks.total}`));
+    setHTML(tileEl("ssl"), o.checks.min_ssl_days == null ? "–" : num(`${nf(o.checks.min_ssl_days, 0)} <small>${t("days")}</small>`));
+    setHTML(tileEl("alerts"), o.alerts.firing ? num(o.alerts.firing) : `<span class="ok-mark">${icon("okmark")}</span>`);
+    document.querySelector('[data-t="alerts"]').classList.toggle("alert-on", !!o.alerts.firing);
+    refreshSparks();
     $("hostline").textContent = [o.host.name, o.host.os].filter(Boolean).join(" · ") || " ";
+  }
+  function renderStats() {   // full rebuild (language or theme changed, new data)
+    state.statsShape = null;
+    paintStats();
     renderNav();
   }
 
@@ -3512,6 +3985,17 @@ __MONITORING_EOF__
   const statusPill = (up, known = true) => (!known ? pill("", t("s_wait")) : up ? pill("ok", t("s_up")) : pill("bad", t("s_down")));
   const val = (form, name) => form.elements[name].value;
   const field = (label, control, hint = "") => `<div class="field"><label>${esc(label)}</label>${control}${hint ? `<p class="hint">${esc(hint)}</p>` : ""}</div>`;
+
+  const liveRate = (r, k) => { const s = liveNow(), d = s && s.dev[r.device]; return d && d[k] != null ? d[k] : k ? r.tx : r.rx; };
+  function paintNetLive() {
+    const s = liveNow();
+    document.querySelectorAll("[data-live-only]").forEach((el) => { el.hidden = !s; });
+    if (!s) return;
+    document.querySelectorAll("[data-live-dev]").forEach((el) => {
+      const d = s.dev[el.dataset.liveDev];
+      if (d && d[+el.dataset.k] != null) tween(el, d[+el.dataset.k], (v) => num(esc(fmtRate(v))));
+    });
+  }
 
   // ---------------------------------------------------------------- views: each has build() and optional bind()
   const CONTAINER_STATE = { running: "ok", restarting: "warn", paused: "warn", created: "warn", exited: "bad", dead: "bad" };
@@ -3582,14 +4066,14 @@ __MONITORING_EOF__
           { h: "iface", cls: "strong", cell: (r) => num(esc(r.device)) },
           { h: "status", cell: (r) => (r.up ? pill("ok", t("s_up")) : pill("bad", t("s_down"))) },
           { h: "speed", cell: (r) => num(r.speed ? `${nf((r.speed * 8) / 1e6, 0)} Mbit/s` : "–") },
-          { h: "rate_in", cell: (r) => num(fmtRate(r.rx)) },
-          { h: "rate_out", cell: (r) => num(fmtRate(r.tx)) },
+          { h: "rate_in", cell: (r) => `<span data-live-dev="${esc(r.device)}" data-k="0">${num(fmtRate(liveRate(r, 0)))}</span>` },
+          { h: "rate_out", cell: (r) => `<span data-live-dev="${esc(r.device)}" data-k="1">${num(fmtRate(liveRate(r, 1)))}</span>` },
           { h: "total_in", cell: (r) => num(fmtBytes(r.rx_total)) },
           { h: "total_out", cell: (r) => num(fmtBytes(r.tx_total)) },
         ], rows);
-        return `<section class="sec"><div class="sec-head"><h3>${icon("network")}${esc(t("net_ifaces"))}</h3></div>${ifaces}</section>${state.traffic ? trafficSection(state.traffic) : ""}`;
+        return `<section class="sec"><div class="sec-head"><h3>${icon("network")}${esc(t("net_ifaces"))}<span class="live-tag" data-live-only hidden><i></i>${esc(t("live_tag"))}</span></h3></div>${ifaces}</section>${state.traffic ? trafficSection(state.traffic) : ""}`;
       },
-      bind() { paintBars(); },
+      bind() { paintBars(); paintNetLive(); },
     },
 
     targets: {
@@ -3895,13 +4379,13 @@ __MONITORING_EOF__
   const seriesName = (cfg, s, i) => (cfg.names ? t(cfg.names[i]) : s.name);
   const hhmm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 
-  function drawChart(box, cfg, series, uid) {
+  function drawChart(box, cfg, series, uid, win) {
     const all = series.flatMap((s) => s.points.filter((p) => p[1] != null));
     // A line needs at least two samples at different times; right after startup there is only one.
-    if (new Set(all.map((p) => p[0])).size < 2) { box.innerHTML = `<div class="empty">${esc(t("no_data"))}</div>`; return; }
+    if (new Set(all.map((p) => p[0])).size < 2) { box.innerHTML = `<div class="empty">${esc(t(win ? "live_waiting" : "no_data"))}</div>`; return; }
     const bw = Math.round(box.clientWidth) || 600, compact = bw < 420;
     const W = Math.max(240, bw), H = compact ? 170 : 190, L = compact ? 42 : 52, R = 10, TOP = 12, B = 24;
-    const x0 = Math.min(...all.map((p) => p[0])), x1 = Math.max(...all.map((p) => p[0])) || x0 + 1;
+    const x0 = win ? win[0] : Math.min(...all.map((p) => p[0])), x1 = win ? win[1] : Math.max(...all.map((p) => p[0])) || x0 + 1;
     const ymax = cfg.max || niceMax(Math.max(...all.map((p) => p[1])) * 1.1);
     const X = (ts) => L + ((ts - x0) / Math.max(1, x1 - x0)) * (W - L - R);
     const Y = (v) => TOP + (1 - v / ymax) * (H - TOP - B);
@@ -3944,10 +4428,12 @@ __MONITORING_EOF__
     const dotEls = [...box.querySelectorAll(".dots circle")];
     const ref = series.reduce((a, b) => (b.points.length > a.points.length ? b : a), series[0]).points;
     const rest = () => {
+      box._hover = null;
       tip.hidden = true; cross.setAttribute("opacity", "0");
       dotEls.forEach((c, i) => { const lp = lastOf[i]; c.setAttribute("cx", X(lp[0]).toFixed(1)); c.setAttribute("cy", Y(lp[1]).toFixed(1)); });
     };
     const show = (e) => {
+      box._hover = { clientX: e.clientX };   // the live range redraws every second: keep the tooltip where it is
       const rect = svg.getBoundingClientRect();
       const px = ((e.clientX - rect.left) / rect.width) * W;
       const ts = x0 + ((px - L) / (W - L - R)) * (x1 - x0);
@@ -3972,6 +4458,7 @@ __MONITORING_EOF__
     svg.addEventListener("pointerdown", show);
     svg.addEventListener("pointerleave", rest);
     svg.addEventListener("pointercancel", rest);
+    if (box._hover) show(box._hover);
   }
 
   // Every chart has a table twin: the same numbers, readable without colour or hover.
@@ -3991,33 +4478,70 @@ __MONITORING_EOF__
   state.charts = [];
   state.tv = {};
 
+  state.chartWin = null;   // [from, to] while the charts show the live range
   function paintChart(root, i) {
     const c = CHARTS[i], got = state.charts[i];
     const box = root.querySelector(`#plot-${i}`);
     if (!box || !got) return;
     if (state.tv[i]) box.innerHTML = chartTable(c, got);
-    else drawChart(box, c, got, i);
+    else drawChart(box, c, got, i, state.chartWin);
     if (c.now) {
       const last = [...got[0].points].reverse().find((p) => p[1] != null);
-      const now = root.querySelector(`#now-${i}`);
-      if (now) now.innerHTML = last ? num(esc(c.fmt(last[1]))) : "";
+      tween(root.querySelector(`#now-${i}`), last ? last[1] : null, (v) => (v == null ? "" : num(esc(c.fmt(v)))));
     }
   }
 
+  function liveSeries(m) {
+    const S = state.live.samples, pts = (f) => S.map((s) => [s.t, f(s)]);
+    if (m === "cpu") return [{ name: "CPU", points: pts((s) => s.cpu) }];
+    if (m === "mem") return [{ name: "Memory", points: pts(memPctOf) }];
+    if (m === "net") return [{ name: "rx", points: pts((s) => s.rx) }, { name: "tx", points: pts((s) => s.tx) }];
+    return [1, 5, 15].map((p, k) => ({ name: `${p}m`, points: pts((s) => (s.load ? s.load[k] : null)) }));
+  }
+  let tablesAt = 0;
+  function paintLiveCharts() {
+    const root = $("panel"), S = state.live.samples;
+    if (root.dataset.view !== "overview" || !liveNow() || S.length < 2 || !root.querySelector("#plot-0")) return;
+    const note = root.querySelector("#live-note");
+    if (note) note.hidden = true;
+    const end = S[S.length - 1].t;
+    state.chartWin = [end - (LIVE_KEEP - 1), end];
+    const tables = Date.now() - tablesAt > 10000;   // a table that rewrites itself every second cannot be read
+    if (tables) tablesAt = Date.now();
+    CHARTS.forEach((c, i) => {
+      state.charts[i] = liveSeries(c.m);
+      if (!state.tv[i] || tables) paintChart(root, i);
+    });
+  }
+
   async function buildOverview(root, id, rebuild) {
+    const live = state.range === "live";
     if (rebuild) {
       state.charts = [];
-      root.querySelector("#body").innerHTML = `<div class="charts">${CHARTS.map((c, i) => {
+      tablesAt = 0;
+      const tag = live ? `<span class="live-tag"><i></i>${esc(t("live_tag"))}</span>` : "";
+      root.querySelector("#body").innerHTML = `<div class="notice warn" id="live-note" hidden></div><div class="charts">${CHARTS.map((c, i) => {
         const names = c.names ? c.names.map((n) => t(n)) : c.colors.length > 1 ? ["1m", "5m", "15m"] : [];
         const legend = names.length > 1 ? `<div class="legend">${names.map((n, k) => `<span><i style="background:var(${c.colors[k]})"></i>${esc(n)}</span>`).join("")}</div>` : "";
         const tv = !!state.tv[i];
-        return `<div class="chart"><header><h3>${esc(t(c.title))}</h3><span class="now" id="now-${i}"></span><button type="button" class="btn small icon ghost view-toggle" data-tv="${i}" aria-pressed="${tv}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>${legend}<div class="plot" id="plot-${i}"><div class="skeleton"></div></div></div>`;
+        return `<div class="chart"><header><h3>${esc(t(c.title))}${tag}</h3><span class="now" id="now-${i}"></span><button type="button" class="btn small icon ghost view-toggle" data-tv="${i}" aria-pressed="${tv}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>${legend}<div class="plot" id="plot-${i}"><div class="skeleton"></div></div></div>`;
       }).join("")}</div>`;
     }
+    const L = state.live;
+    // Only fresh samples count: after the source failed, old ones would freeze the charts on stale data.
+    if (live && window.EventSource && (liveNow() || (L.status === "wait" && Date.now() - L.startedAt < 8000))) {
+      paintLiveCharts();
+      refreshSparks();
+      return;
+    }
+    // Live data is not coming (exporter unreachable, old browser): show the last hour from Prometheus.
+    state.chartWin = null;
+    const note = root.querySelector("#live-note");
+    if (note) { note.hidden = !live; note.textContent = live ? t("live_off_note", { e: L.error || t("live_wait") }) : ""; }
     await Promise.all(CHARTS.map(async (c, i) => {
       try {
-        const { series } = await api("/api/history", withInstance({ metric: c.m, range: state.range }));
-        if (id !== state.renderId) return;
+        const { series } = await api("/api/history", withInstance({ metric: c.m, range: live ? "1h" : state.range }));
+        if (id !== state.renderId || state.chartWin) return;   // live data arrived meanwhile
         state.charts[i] = series;
         state.hist[c.m] = series;
         paintChart(root, i);
@@ -4167,7 +4691,7 @@ __MONITORING_EOF__
     const label = (i) => (state.names[i] ? `${state.names[i]} (${i})` : i);
     const inst = state.instances.length > 1
       ? `<label class="muted" for="sel-inst">${esc(t("server"))}</label><select id="sel-inst">${state.instances.map((i) => `<option ${i === state.instance ? "selected" : ""} value="${esc(i)}">${esc(label(i))}</option>`).join("")}</select>` : "";
-    const range = `<label class="muted" for="sel-range">${esc(t("range"))}</label><select id="sel-range">${["1h", "6h", "24h", "7d"].map((r) => `<option ${r === state.range ? "selected" : ""} value="${r}">${esc(t("r" + r))}</option>`).join("")}</select>`;
+    const range = `<label class="muted" for="sel-range">${esc(t("range"))}</label><select id="sel-range">${["live", "1h", "6h", "24h", "7d"].map((r) => `<option ${r === state.range ? "selected" : ""} value="${r}">${esc(t("r" + r))}</option>`).join("")}</select>`;
     return inst + range;
   }
 
@@ -4176,6 +4700,7 @@ __MONITORING_EOF__
     const v = VIEWS.find((x) => x.id === state.view) || VIEWS[0];
     const root = $("panel");
     $("stats").hidden = v.id !== "overview";
+    if (v.id === "overview") paintStats();
     const hadShell = root.dataset.view === v.id && root.dataset.lang === state.lang;
     if (v.static && hadShell && !first) return;   // forms must not be wiped by the 10-second refresh
     if (!hadShell || first) {
@@ -4183,7 +4708,7 @@ __MONITORING_EOF__
       root.dataset.lang = state.lang;
       root.innerHTML = `<div class="panel-head"><h2>${icon(v.icon)}${esc(t(v.label))}</h2><div class="tools" id="tools">${v.id === "overview" ? overviewTools() : ""}</div></div><p class="desc">${esc(t(v.desc))}</p><hr><div id="body"><div class="skeleton"></div></div>`;
       const si = $("sel-inst"), sr = $("sel-range");
-      if (si) si.onchange = () => { state.instance = si.value; store.set("instance", si.value); tick(true); };
+      if (si) si.onchange = () => { state.instance = si.value; store.set("instance", si.value); startLive(); tick(true); };
       if (sr) sr.onchange = () => { state.range = sr.value; store.set("range", sr.value); renderView(true); };
     }
     try {
@@ -4211,13 +4736,14 @@ __MONITORING_EOF__
       if (!state.instances.includes(state.instance)) state.instance = state.instances[0] || "";
       state.overview = await api("/api/overview", withInstance());
       $("banner").innerHTML = "";
-      renderStats();
+      paintStats();
+      renderNav();
     } catch (e) {
       if (e.message !== "unauthorized") $("banner").innerHTML = `<div class="notice bad">${icon("bell")}<span>${esc(t("err_api"))}: ${esc(e.message)}</span><button type="button" class="btn small" data-diag>${icon("search")}<span>${esc(t("diag_btn"))}</span></button></div>`;
     }
     try { state.settings = await api("/api/settings"); renderNav(); } catch (e) { /* the badge is optional */ }
-    const now = new Date();
-    $("foot").textContent = `${t("last_update")}: ${now.toLocaleTimeString([], { hour12: false })} · ${t("auto")}`;
+    state.lastUpdate = new Date();
+    paintFoot();
   }
 
   let ticking = false;
@@ -4226,6 +4752,7 @@ __MONITORING_EOF__
     ticking = true;
     try {
       await loadStats();
+      startLive();   // no-op while already streaming the selected server
       await renderView(full === true);
     } finally { ticking = false; }
   }
@@ -4235,6 +4762,7 @@ __MONITORING_EOF__
     state.view = VIEWS.some((v) => v.id === id) ? id : "overview";
     renderNav();
     window.scrollTo(0, 0);
+    startLive();
     renderView(true);
   }
 
@@ -4267,6 +4795,9 @@ __MONITORING_EOF__
   });
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[data-go][role="link"]')) { e.preventDefault(); location.hash = e.target.dataset.go; }
+  });
+  document.addEventListener("visibilitychange", () => {   // no stream (and no server work) for a hidden tab
+    if (document.hidden) { stopLive(); paintFoot(); } else { startLive(); tick(false); }
   });
   let resizeTimer;
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (state.view === "overview" || state.view === "network") renderView(false); }, 300); });
@@ -4817,7 +5348,8 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
   .topbar { min-height: 58px; padding-block: 8px; padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)); top: 0; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
   .top-brand { display: grid; width: 36px; height: 36px; border-radius: 11px; }
   .top-brand .ico { width: 20px; height: 20px; }
-  .live { display: none; }
+  .live { padding: 10px; gap: 0; }   /* just the status dot; the text stays for screen readers */
+  .live span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .actions { gap: 6px; }
   .actions .btn { width: 42px; height: 42px; padding: 0; }
   .btn .txt { display: none; }
@@ -4966,6 +5498,33 @@ button.chip:disabled { cursor: default; opacity: .6; }
 #diag .notice .ico { flex: none; }
 pre.logs.short { height: auto; max-height: 220px; }
 .notice > .btn { margin-inline-start: auto; flex: none; }
+
+/* ================================================================== live data (one sample a second) */
+.live { transition: color .3s, border-color .3s; }
+.live.is-live { color: var(--ink); border-color: color-mix(in srgb, var(--s-good) 38%, var(--line)); }
+.live.is-wait .pulse { background: var(--s-warn); }
+.live.is-wait .pulse::after { border-color: var(--s-warn); }
+.live:not(.is-live):not(.is-wait) .pulse { background: var(--faint); }
+.live:not(.is-live):not(.is-wait) .pulse::after { animation: none; }
+.live .pulse.beat { animation: beat .6s cubic-bezier(.3, .8, .3, 1); }
+@keyframes beat {
+  0% { transform: scale(1.7); box-shadow: 0 0 0 0 color-mix(in srgb, var(--s-good) 55%, transparent); }
+  100% { transform: scale(1); box-shadow: 0 0 0 7px transparent; }
+}
+.live-tag {
+  display: inline-flex; align-items: center; gap: 6px; margin-inline-start: 10px; padding: 2px 9px; border-radius: 999px; vertical-align: middle;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--s-good); background: color-mix(in srgb, var(--s-good) 13%, transparent);
+}
+.live-tag i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.live-tag[hidden], #live-note[hidden] { display: none; }
+#live-note { margin-bottom: 14px; }
+/* numbers glide between values; equal-width digits keep them from jittering while they do */
+.num, .stat .value, .ring .center, .chart .now { font-variant-numeric: tabular-nums; }
+.hero { transition: border-color .5s, box-shadow .5s; }
+.hero-icon { transition: color .5s, background-color .5s, border-color .5s; }
+.stat.gauge { transition: border-color .5s, transform .15s; }
+.lvl { transition: color .4s; }
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'
 /* Vazirmatn (SIL Open Font License 1.1) - Latin + Persian/Arabic subset, embedded so the panel needs no external font host. */
