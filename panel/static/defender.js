@@ -217,9 +217,16 @@
     });
     if (D.st) { paintPending(D.st.pending); showTab(D.tab); }
     clearInterval(D.timer);
-    D.timer = setInterval(loop, 2000);
+    D.timer = setInterval(loop, pace());
     loop();
   }
+  // the firewall page follows the live pace picked in the top bar (at least every 2 s: the agent samples that often)
+  const pace = () => Math.max(2, P.state.liveEvery || 1) * 1000;
+  window.addEventListener("live-every", () => {
+    if (!D.timer) return;
+    clearInterval(D.timer);
+    D.timer = setInterval(loop, pace());
+  });
 
   async function showTab(id) {
     D.tab = id;

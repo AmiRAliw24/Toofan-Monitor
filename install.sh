@@ -1427,6 +1427,11 @@ class Handler(BaseHTTPRequestHandler):
             last = float(self.headers.get("Last-Event-ID") or params.get("since") or 0)
         except ValueError:
             last = 0.0
+        try:
+            every = int(params.get("every") or 1)
+        except ValueError:
+            every = 1
+        every = every if every in live.CHOICES else 1
         token = self.token
         self.send_response(200)
         for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
@@ -1444,10 +1449,14 @@ class Handler(BaseHTTPRequestHandler):
         deadline = time.time() + LIVE_MAX_SECONDS   # the browser reconnects by itself, which re-checks the login
         try:
             self.wfile.write(b"retry: 3000\n\n")
-            sampler = live.sampler(instance)
-            send("hello", {"instance": instance, "interval": live.INTERVAL, "keep": live.KEEP})
+            sampler = live.sampler(instance, every)
+            send("hello", {"instance": instance, "interval": every, "keep": live.KEEP})
             while time.time() < deadline and sessions.get(token) is not None:
-                new = sampler.since(last)
+                new, sent = [], last
+                for s in sampler.since(last):   # another viewer may sample faster: send this one's pace only
+                    if not new and not sent or s["t"] - sent >= every - 0.3:
+                        new.append(s)
+                        sent = s["t"]
                 if new:
                     last = new[-1]["t"]
                     send("s", new, last)
@@ -1458,7 +1467,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(b": ping\n\n")
                     self.wfile.flush()
                 sampler.wait(15)
-                sampler = live.sampler(instance)   # keeps it alive (or starts a new one if it stopped)
+                sampler = live.sampler(instance, every)   # keeps it alive (or starts a new one if it stopped)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
             return
 
@@ -3168,7 +3177,8 @@ from urllib.request import urlopen
 
 import monitor
 
-INTERVAL = 1.0                     # seconds between samples
+INTERVAL = 1.0                     # default seconds between samples
+CHOICES = (1, 3, 5, 10)            # what a viewer can pick; the sampler runs at the fastest one being watched
 KEEP = 300                         # samples kept for a page that opens (5 minutes)
 IDLE_STOP = 30                     # stop sampling a server nobody watched for this long
 LOCAL_INSTANCE = os.environ.get("LOCAL_NODE_INSTANCE", "node-exporter:9100")
@@ -3272,6 +3282,7 @@ class Sampler:
         self.error = ""
         self.cond = threading.Condition()
         self.watched = time.time()
+        self.wants = {}              # interval -> last time a viewer asked for it
         self.prev = None
         threading.Thread(target=self._loop, name=f"live-{instance}", daemon=True).start()
 
@@ -3355,9 +3366,18 @@ class Sampler:
                 if sample:
                     self.samples.append(sample)
                 self.cond.notify_all()
-            next_at += INTERVAL if not self.error else 3 * INTERVAL
+            step = self.interval()
+            next_at += step if not self.error else max(3, step)
             time.sleep(max(0.05, next_at - time.monotonic()))
-            next_at = max(next_at, time.monotonic() - INTERVAL)   # never try to "catch up" after a stall
+            next_at = max(next_at, time.monotonic() - step)   # never try to "catch up" after a stall
+
+    def interval(self):
+        now = time.time()
+        live_ = [e for e, at in list(self.wants.items()) if now - at < IDLE_STOP]
+        if not live_:
+            return INTERVAL
+        step = min(live_)       # every viewer's pace must be a multiple of it (3 s and 5 s together -> 1 s)
+        return step if all(e % step == 0 for e in live_) else INTERVAL
 
     def since(self, ts):
         with self.cond:
@@ -3385,12 +3405,12 @@ def resolve(instance):
     return instance
 
 
-def sampler(instance):
+def sampler(instance, every=INTERVAL):
     with _lock:
         s = _samplers.get(instance)
         if s is None:
             s = _samplers[instance] = Sampler(instance)
-        s.watched = time.time()
+        s.watched = s.wants[every] = time.time()
         return s
 __MONITORING_EOF__
   write_file panel/defender.py 644 <<'__MONITORING_EOF__'
@@ -3781,9 +3801,16 @@ __MONITORING_EOF__
     });
     if (D.st) { paintPending(D.st.pending); showTab(D.tab); }
     clearInterval(D.timer);
-    D.timer = setInterval(loop, 2000);
+    D.timer = setInterval(loop, pace());
     loop();
   }
+  // the firewall page follows the live pace picked in the top bar (at least every 2 s: the agent samples that often)
+  const pace = () => Math.max(2, P.state.liveEvery || 1) * 1000;
+  window.addEventListener("live-every", () => {
+    if (!D.timer) return;
+    clearInterval(D.timer);
+    D.timer = setInterval(loop, pace());
+  });
 
   async function showTab(id) {
     D.tab = id;
@@ -9769,7 +9796,7 @@ __MONITORING_EOF__
         <div class="top-left">
           <div class="logo top-brand" id="top-logo"></div>
           <h2 class="top-title" id="page-title"></h2>
-          <div class="live"><i class="pulse"></i><span id="foot"></span></div>
+          <div class="live"><i class="pulse"></i><span id="foot"></span><select id="live-every" hidden></select></div>
         </div>
         <div class="actions">
           <button class="btn icon" id="theme" type="button" aria-label="Theme"></button>
@@ -9893,7 +9920,7 @@ __MONITORING_EOF__
       hint_dns_external: "DNS to the internet fails as well ({detail}). The server's resolver (/etc/resolv.conf) is broken or blocked by the firewall, and Docker uses it.",
       lv_ok: "Normal", lv_warn: "High", lv_bad: "Critical", address: "Address", more: "More", tbl_view: "Table view", time: "Time",
       err_api: "Cannot load data", last_update: "Last update", auto: "auto-refresh every 10s", ago: "ago",
-      live_on: "Live · updates every second", live_wait: "Connecting to live data…", live_waiting: "Waiting for live data…", live_tag: "Live",
+      live_on: "Live · updates every", live_every: "How often live numbers update", live_sec: "{n} s", live_wait: "Connecting to live data…", live_waiting: "Waiting for live data…", live_tag: "Live",
       live_off_note: "Live data is not available ({e}), so the last hour is shown instead.", io_r: "read", io_w: "write", swap: "Swap",
       t_dark: "Switch to light theme", t_light: "Switch to dark theme",
       // generic UI
@@ -10024,7 +10051,7 @@ __MONITORING_EOF__
       hint_dns_external: "DNS اینترنت هم کار نمی‌کند ({detail}). resolver سرور (/etc/resolv.conf) خراب است یا فایروال جلویش را گرفته و داکر از آن استفاده می‌کند.",
       lv_ok: "عادی", lv_warn: "بالا", lv_bad: "بحرانی", address: "آدرس", more: "بیشتر", tbl_view: "نمایش جدول", time: "زمان",
       err_api: "داده‌ها بارگذاری نشد", last_update: "آخرین بروزرسانی", auto: "بروزرسانی خودکار هر ۱۰ ثانیه", ago: "پیش",
-      live_on: "زنده · بروزرسانی هر ثانیه", live_wait: "در حال اتصال به داده‌ی زنده…", live_waiting: "در انتظار داده‌ی زنده…", live_tag: "زنده",
+      live_on: "زنده · بروزرسانی هر", live_every: "فاصله‌ی بروزرسانی عددهای زنده", live_sec: "{n} ثانیه", live_wait: "در حال اتصال به داده‌ی زنده…", live_waiting: "در انتظار داده‌ی زنده…", live_tag: "زنده",
       live_off_note: "داده‌ی زنده در دسترس نیست ({e})؛ برای همین یک ساعت اخیر نمایش داده می‌شود.", io_r: "خواندن", io_w: "نوشتن", swap: "Swap",
       t_dark: "تم روشن", t_light: "تم تیره",
       add: "افزودن", cancel: "انصراف", close: "بستن", save: "ذخیره", saved: "ذخیره شد", remove: "حذف", working: "در حال انجام…", copy: "کپی", copied: "کپی شد",
@@ -10113,6 +10140,7 @@ __MONITORING_EOF__
     theme: document.documentElement.dataset.theme === "light" ? "light" : "dark",   // set by boot.js before the first paint
     range: store.get("range", "live"),
     instance: store.get("instance", ""),
+    liveEvery: [1, 3, 5, 10].includes(+store.get("live_every", "1")) ? +store.get("live_every", "1") : 1,
     instances: [],
     names: {},
     view: "overview",
@@ -10369,7 +10397,7 @@ __MONITORING_EOF__
   const liveWanted = () => !document.hidden && ["overview", "network", "defender"].includes(state.view);
   function liveNow() {
     const L = state.live, s = L.samples[L.samples.length - 1];
-    return L.status === "live" && s && Date.now() / 1000 - s.t < 8 ? s : null;
+    return L.status === "live" && s && Date.now() / 1000 - s.t < Math.max(8, state.liveEvery * 2.5) ? s : null;
   }
   function stopLive() {
     const L = state.live;
@@ -10387,7 +10415,7 @@ __MONITORING_EOF__
     L.status = "wait";
     L.startedAt = Date.now();
     const last = L.samples[L.samples.length - 1];
-    const q = new URLSearchParams({ ...(inst ? { instance: inst } : {}), ...(last ? { since: String(last.t) } : {}) });
+    const q = new URLSearchParams({ ...(inst ? { instance: inst } : {}), ...(last ? { since: String(last.t) } : {}), every: String(state.liveEvery) });
     const es = new EventSource(`/api/live?${q}`);
     L.es = es;
     es.addEventListener("s", (e) => {
@@ -10447,27 +10475,19 @@ __MONITORING_EOF__
     const at = state.lastUpdate ? state.lastUpdate.toLocaleTimeString([], { hour12: false }) : "";
     el.textContent = on ? t("live_on") : wait ? t("live_wait") : `${t("last_update")}: ${at} · ${t("auto")}`;
     box.title = L.status === "error" && L.error ? L.error : "";
+    const sel = $("live-every");
+    sel.hidden = !on;
+    const opts = [1, 3, 5, 10].map((n) => `<option value="${n}"${n === state.liveEvery ? " selected" : ""}>${esc(t("live_sec", { n: nf(n, 0) }))}</option>`).join("");
+    if (sel._html !== opts) { sel._html = opts; sel.innerHTML = opts; sel.setAttribute("aria-label", t("live_every")); }
   }
 
-  // Numbers glide to their new value instead of jumping (skipped when the user asked for less motion).
-  function tween(el, to, render, ms = 600) {
+  // Numbers jump straight to their new value (2 -> 4, never 2, 3, 4); the HTML is only touched when it changed.
+  function tween(el, to, render) {
     if (!el) return;
-    cancelAnimationFrame(el._raf);
-    clearTimeout(el._end);
-    const arr = Array.isArray(to), from = el._shown;
-    const bad = to == null || (arr && to.some((x) => x == null));
-    const jump = bad || from == null || reduceMotion.matches || document.hidden || (arr && (!Array.isArray(from) || from.length !== to.length));
-    if (jump) { el._shown = bad ? null : to; el.innerHTML = render(to); return; }
-    const t0 = performance.now();
-    const step = (now) => {
-      const k = Math.min(1, (now - t0) / ms), e = 1 - (1 - k) ** 3;
-      el._shown = arr ? to.map((x, i) => from[i] + (x - from[i]) * e) : from + (to - from) * e;
-      el.innerHTML = render(el._shown);
-      if (k < 1) el._raf = requestAnimationFrame(step);
-    };
-    el._raf = requestAnimationFrame(step);
-    // If frames are paused the animation never runs: land on the final value anyway.
-    el._end = setTimeout(() => { cancelAnimationFrame(el._raf); el._shown = to; el.innerHTML = render(to); }, ms + 150);
+    const bad = to == null || (Array.isArray(to) && to.some((x) => x == null));
+    el._shown = bad ? null : to;
+    const html = render(to);
+    if (el._html !== html) { el._html = html; el.innerHTML = html; }
   }
   const setHTML = (el, html) => { if (el && el._html !== html) { el._html = html; el.innerHTML = html; } };
 
@@ -11476,6 +11496,13 @@ __MONITORING_EOF__
   });
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[data-go][role="link"]')) { e.preventDefault(); location.hash = e.target.dataset.go; }
+  });
+  $("live-every").addEventListener("change", (e) => {   // a new pace: reconnect the stream at once
+    state.liveEvery = +e.target.value;
+    store.set("live_every", String(state.liveEvery));
+    stopLive();
+    startLive();
+    window.dispatchEvent(new CustomEvent("live-every", { detail: state.liveEvery }));
   });
   document.addEventListener("visibilitychange", () => {   // no stream (and no server work) for a hidden tab
     if (document.hidden) { stopLive(); paintFoot(); } else { startLive(); tick(false); }
@@ -12486,6 +12513,16 @@ label.btn input[type="file"] { display: none; }
   .fw-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .th-grid, .th-two { grid-template-columns: minmax(0, 1fr); }
   .th-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* live update pace picker, inside the "Live" pill */
+.live select { appearance: none; -webkit-appearance: none; flex: none; font: inherit; font-weight: 650; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; margin-inline-start: -3px; cursor: pointer; line-height: 1.5; }
+.live select:hover { border-color: var(--line-2); }
+.live select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.live select[hidden] { display: none; }
+@media (max-width: 699px) {   /* phones: only the dot shows; tapping it opens the pace picker laid invisibly over it */
+  .live { position: relative; }
+  .live select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; font-size: 16px; }
 }
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'

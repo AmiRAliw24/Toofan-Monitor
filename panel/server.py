@@ -448,6 +448,11 @@ class Handler(BaseHTTPRequestHandler):
             last = float(self.headers.get("Last-Event-ID") or params.get("since") or 0)
         except ValueError:
             last = 0.0
+        try:
+            every = int(params.get("every") or 1)
+        except ValueError:
+            every = 1
+        every = every if every in live.CHOICES else 1
         token = self.token
         self.send_response(200)
         for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
@@ -465,10 +470,14 @@ class Handler(BaseHTTPRequestHandler):
         deadline = time.time() + LIVE_MAX_SECONDS   # the browser reconnects by itself, which re-checks the login
         try:
             self.wfile.write(b"retry: 3000\n\n")
-            sampler = live.sampler(instance)
-            send("hello", {"instance": instance, "interval": live.INTERVAL, "keep": live.KEEP})
+            sampler = live.sampler(instance, every)
+            send("hello", {"instance": instance, "interval": every, "keep": live.KEEP})
             while time.time() < deadline and sessions.get(token) is not None:
-                new = sampler.since(last)
+                new, sent = [], last
+                for s in sampler.since(last):   # another viewer may sample faster: send this one's pace only
+                    if not new and not sent or s["t"] - sent >= every - 0.3:
+                        new.append(s)
+                        sent = s["t"]
                 if new:
                     last = new[-1]["t"]
                     send("s", new, last)
@@ -479,7 +488,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(b": ping\n\n")
                     self.wfile.flush()
                 sampler.wait(15)
-                sampler = live.sampler(instance)   # keeps it alive (or starts a new one if it stopped)
+                sampler = live.sampler(instance, every)   # keeps it alive (or starts a new one if it stopped)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
             return
 

@@ -18,7 +18,8 @@ from urllib.request import urlopen
 
 import monitor
 
-INTERVAL = 1.0                     # seconds between samples
+INTERVAL = 1.0                     # default seconds between samples
+CHOICES = (1, 3, 5, 10)            # what a viewer can pick; the sampler runs at the fastest one being watched
 KEEP = 300                         # samples kept for a page that opens (5 minutes)
 IDLE_STOP = 30                     # stop sampling a server nobody watched for this long
 LOCAL_INSTANCE = os.environ.get("LOCAL_NODE_INSTANCE", "node-exporter:9100")
@@ -122,6 +123,7 @@ class Sampler:
         self.error = ""
         self.cond = threading.Condition()
         self.watched = time.time()
+        self.wants = {}              # interval -> last time a viewer asked for it
         self.prev = None
         threading.Thread(target=self._loop, name=f"live-{instance}", daemon=True).start()
 
@@ -205,9 +207,18 @@ class Sampler:
                 if sample:
                     self.samples.append(sample)
                 self.cond.notify_all()
-            next_at += INTERVAL if not self.error else 3 * INTERVAL
+            step = self.interval()
+            next_at += step if not self.error else max(3, step)
             time.sleep(max(0.05, next_at - time.monotonic()))
-            next_at = max(next_at, time.monotonic() - INTERVAL)   # never try to "catch up" after a stall
+            next_at = max(next_at, time.monotonic() - step)   # never try to "catch up" after a stall
+
+    def interval(self):
+        now = time.time()
+        live_ = [e for e, at in list(self.wants.items()) if now - at < IDLE_STOP]
+        if not live_:
+            return INTERVAL
+        step = min(live_)       # every viewer's pace must be a multiple of it (3 s and 5 s together -> 1 s)
+        return step if all(e % step == 0 for e in live_) else INTERVAL
 
     def since(self, ts):
         with self.cond:
@@ -235,10 +246,10 @@ def resolve(instance):
     return instance
 
 
-def sampler(instance):
+def sampler(instance, every=INTERVAL):
     with _lock:
         s = _samplers.get(instance)
         if s is None:
             s = _samplers[instance] = Sampler(instance)
-        s.watched = time.time()
+        s.watched = s.wants[every] = time.time()
         return s
