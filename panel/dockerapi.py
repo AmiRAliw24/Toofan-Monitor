@@ -235,3 +235,22 @@ def run(spec):
         _request("DELETE", f"/containers/{cid}?force=1")  # don't leave a dead container behind
         _json(status, data)
     return {"ok": True, "id": cid[:12]}
+
+
+def stack_health():
+    """State of every container of this compose project, including why a stopped one stopped."""
+    _require()
+    rows = []
+    for c in _json(*_request("GET", "/containers/json?all=1")):
+        labels = c.get("Labels") or {}
+        if labels.get("com.docker.compose.project") != STACK_PROJECT:
+            continue
+        info = _json(*_request("GET", f"/containers/{c['Id'][:12]}/json"))
+        st = info.get("State") or {}
+        rows.append({
+            "id": c["Id"][:12], "service": labels.get("com.docker.compose.service", ""),
+            "name": (c.get("Names") or ["/?"])[0].lstrip("/"), "state": st.get("Status", c.get("State", "")),
+            "status": c.get("Status", ""), "exit_code": st.get("ExitCode"), "restarts": info.get("RestartCount", 0),
+            "oom": bool(st.get("OOMKilled")), "error": st.get("Error", ""), "health": (st.get("Health") or {}).get("Status", ""),
+        })
+    return sorted(rows, key=lambda r: r["service"])

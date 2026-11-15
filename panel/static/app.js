@@ -41,6 +41,14 @@
             net_ifaces: "Network interfaces", tr_title: "Traffic usage", tr_sub: "Everything this server has downloaded and uploaded through its real network cards.",
       tr_day: "Day", tr_today: "Today", tr_yesterday: "Yesterday", tr_7d: "Last 7 days", tr_30d: "Last 30 days", tr_boot: "Since boot", tr_total: "Total", tr_down: "Download", tr_up: "Upload",
       tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far",
+            diag_btn: "Find out why", dg_title: "Why can't the panel load data?", diag_services: "Services", diag_containers: "Containers of the stack", diag_ok: "Reachable", diag_fail: "Failing",
+      diag_dns: "Name not found", diag_http: "No valid answer", diag_detail: "Detail", diag_exit: "Exit code", diag_restarts: "Restarts", diag_logs: "Last log lines of {s}", service: "Service",
+      diag_all_ok: "Every service answers now. Close this window and press Refresh.",
+      hint_stopped: "{service} is not running: {detail}. Restart it with the button below; its last log lines further down show why it stopped.",
+      hint_dns: "The panel cannot even resolve the name \u201c{service}\u201d ({detail}). Docker's internal DNS is not answering.",
+      hint_svc: "{service} is reachable but does not answer correctly: {detail}",
+      hint_disk: "The disk is {detail} full. Prometheus stops working when there is no free space left.",
+      hint_dns_external: "DNS to the internet fails as well ({detail}). The server's resolver (/etc/resolv.conf) is broken or blocked by the firewall, and Docker uses it.",
       lv_ok: "Normal", lv_warn: "High", lv_bad: "Critical", address: "Address", more: "More", tbl_view: "Table view", time: "Time",
       err_api: "Cannot load data", last_update: "Last update", auto: "auto-refresh every 10s", ago: "ago",
       t_dark: "Switch to light theme", t_light: "Switch to dark theme",
@@ -170,6 +178,14 @@
             net_ifaces: "کارت‌های شبکه", tr_title: "مصرف ترافیک", tr_sub: "کل چیزی که این سرور از طریق کارت‌های شبکه‌ی واقعی‌اش دانلود و آپلود کرده است.",
       tr_day: "روز", tr_today: "امروز", tr_yesterday: "دیروز", tr_7d: "۷ روز اخیر", tr_30d: "۳۰ روز اخیر", tr_boot: "از زمان بوت", tr_total: "مجموع", tr_down: "دانلود", tr_up: "آپلود",
       tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است",
+            diag_btn: "پیدا کردن دلیل", dg_title: "چرا پنل داده‌ای نمی‌گیرد؟", diag_services: "سرویس‌ها", diag_containers: "کانتینرهای استک", diag_ok: "در دسترس", diag_fail: "خراب",
+      diag_dns: "نام پیدا نشد", diag_http: "پاسخ درست نمی‌دهد", diag_detail: "جزئیات", diag_exit: "کد خروج", diag_restarts: "تعداد ری‌استارت", diag_logs: "آخرین خط‌های لاگ {s}", service: "سرویس",
+      diag_all_ok: "همه‌ی سرویس‌ها الان جواب می‌دهند. این پنجره را ببندید و «بروزرسانی» را بزنید.",
+      hint_stopped: "{service} در حال اجرا نیست: {detail}. با دکمه‌ی زیر ری‌استارتش کنید؛ آخرین خط‌های لاگ پایین‌تر دلیل متوقف شدنش را نشان می‌دهد.",
+      hint_dns: "پنل اصلاً نام «{service}» را پیدا نمی‌کند ({detail}). DNS داخلی داکر جواب نمی‌دهد.",
+      hint_svc: "{service} در دسترس است ولی درست جواب نمی‌دهد: {detail}",
+      hint_disk: "دیسک {detail} پر است. وقتی جای خالی نباشد Prometheus از کار می‌افتد.",
+      hint_dns_external: "DNS اینترنت هم کار نمی‌کند ({detail}). resolver سرور (/etc/resolv.conf) خراب است یا فایروال جلویش را گرفته و داکر از آن استفاده می‌کند.",
       lv_ok: "عادی", lv_warn: "بالا", lv_bad: "بحرانی", address: "آدرس", more: "بیشتر", tbl_view: "نمایش جدول", time: "زمان",
       err_api: "داده‌ها بارگذاری نشد", last_update: "آخرین بروزرسانی", auto: "بروزرسانی خودکار هر ۱۰ ثانیه", ago: "پیش",
       t_dark: "تم روشن", t_light: "تم تیره",
@@ -1330,6 +1346,41 @@
     svg.addEventListener("pointercancel", rest);
   }
 
+  // ---------------------------------------------------------------- self-diagnosis ("why can't the panel load data?")
+  function healthDialog() {
+    const dlg = openDialog({ title: t("dg_title"), wide: true, hideSubmit: true, cancel: t("close"), body: `<div id="diag"><div class="skeleton"></div></div>` });
+    const box = dlg.querySelector("#diag");
+    const render = (d) => {
+      const hints = d.hints.map((h) => `<div class="notice ${h.kind === "dns_external" || h.kind === "disk" ? "warn" : "bad"}">${icon("bell")}<span>${esc(t("hint_" + h.kind, { service: h.service, detail: h.detail }))}</span></div>`).join("");
+      const allOk = d.services.every((x) => x.ok);
+      const svc = table([
+        { h: "service", cls: "strong", cell: (r) => esc(r.service) },
+        { h: "status", cell: (r) => (r.ok ? pill("ok", t("diag_ok")) : pill("bad", t(r.stage === "dns" ? "diag_dns" : "diag_http"))) },
+        { h: "diag_detail", cls: "wrap-cell", cell: (r) => (r.error ? `<code class="reason">${esc(r.error)}</code>` : r.ms != null ? num(`${r.ms} ms`) : "") },
+      ], d.services);
+      const ctn = d.containers ? table([
+        { h: "service", cls: "strong", cell: (r) => esc(r.service) },
+        { h: "status", cell: (r) => pill(CONTAINER_STATE[r.state] || "", stateLabel(r.state)) },
+        { h: "diag_exit", cell: (r) => num(r.state === "running" ? "–" : String(r.exit_code ?? "–")) + (r.oom ? ` <span class="tag">OOM</span>` : "") },
+        { h: "diag_restarts", cell: (r) => num(String(r.restarts)) },
+        { h: "actions", cell: (r) => (r.state === "running" ? "–" : `<div class="row-actions">${btnIcon("refresh", t("a_restart"), `data-diag-restart="${esc(r.id)}"`)}</div>`) },
+      ], d.containers) : `<div class="notice">${icon("bell")}<span>${esc(t("c_docker_off"))}</span></div>`;
+      const logs = Object.entries(d.logs).map(([name, text]) => `<h4>${esc(t("diag_logs", { s: name }))}</h4><pre class="logs short">${esc(text || "–")}</pre>`).join("");
+      const extra = [d.disk ? `<span class="chip">${icon("disk")}${esc(t("disk"))} <b>${num(`${nf(d.disk.pct, 0)}%`)}</b></span>` : "", `<span class="chip">${icon("globe")}DNS <b>${esc(d.dns_external.ok ? t("diag_ok") : t("diag_fail"))}</b></span>`].join("");
+      box.innerHTML = `${allOk ? `<div class="notice ok">${icon("okmark")}<span>${esc(t("diag_all_ok"))}</span></div>` : ""}${hints}
+        <div class="diag-chips">${extra}</div><h4>${esc(t("diag_services"))}</h4>${svc}<h4>${esc(t("diag_containers"))}</h4>${ctn}${logs}`;
+    };
+    const load = async () => {
+      try { render(await api("/api/health")); } catch (e) { if (e.message !== "unauthorized") box.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; }
+    };
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-diag-restart]");
+      if (!b) return;
+      if (await act(b, () => post("/api/docker/action", { id: b.dataset.diagRestart, action: "restart" }), t("c_done"))) { box.innerHTML = `<div class="skeleton"></div>`; setTimeout(load, 4000); }
+    });
+    load();
+  }
+
   // ---------------------------------------------------------------- view rendering
   function overviewTools() {
     const label = (i) => (state.names[i] ? `${state.names[i]} (${i})` : i);
@@ -1381,7 +1432,7 @@
       $("banner").innerHTML = "";
       renderStats();
     } catch (e) {
-      if (e.message !== "unauthorized") $("banner").innerHTML = `<div class="notice bad">${esc(t("err_api"))}: ${esc(e.message)}</div>`;
+      if (e.message !== "unauthorized") $("banner").innerHTML = `<div class="notice bad">${icon("bell")}<span>${esc(t("err_api"))}: ${esc(e.message)}</span><button type="button" class="btn small" data-diag>${icon("search")}<span>${esc(t("diag_btn"))}</span></button></div>`;
     }
     try { state.settings = await api("/api/settings"); renderNav(); } catch (e) { /* the badge is optional */ }
     const now = new Date();
@@ -1422,6 +1473,7 @@
       paintBars();
       return;
     }
+    if (e.target.closest("[data-diag]")) { healthDialog(); return; }
     const cp = e.target.closest("[data-copy]");
     if (cp) { copyText(cp.dataset.copy); return; }
     const tv = e.target.closest("[data-tv]");

@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import dockerapi
+import health
 import icons
 import monitor
 import store
@@ -100,12 +101,16 @@ def api_settings(_q):
             "telegram": store.telegram_status()}
 
 
+def api_health(_q):
+    return health.diagnose()
+
+
 def api_docker_logs(q):
     return dockerapi.logs(q.get("id", ""), q.get("tail", 200))
 
 
 GET_API = {**monitor.READ_API, "/api/containers": api_containers, "/api/checks": api_checks, "/api/rules": api_rules,
-           "/api/settings": api_settings, "/api/docker/logs": api_docker_logs}
+           "/api/settings": api_settings, "/api/docker/logs": api_docker_logs, "/api/health": api_health}
 
 
 # ------------------------------------------------------------------ management API (POST)

@@ -642,3 +642,10 @@ button.chip:disabled { cursor: default; opacity: .6; }
   .tr-chart .legend .chip { margin-inline-start: 0; }
 }
 @media (max-width: 380px) { .usage-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* diagnosis dialog */
+#diag h4 { margin: 18px 0 8px; font-size: 13.5px; color: var(--muted); letter-spacing: .03em; }
+#diag .diag-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
+#diag .notice .ico { flex: none; }
+pre.logs.short { height: auto; max-height: 220px; }
+.notice > .btn { margin-inline-start: auto; flex: none; }

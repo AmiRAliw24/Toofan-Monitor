@@ -617,6 +617,15 @@ docker compose up -d
 ## 🔧 عیب‌یابی
 
 <details>
+<summary><b>⚠️ بالای پنل نوشته «داده‌ها بارگذاری نشد»</b></summary>
+
+<br>
+
+روی دکمه‌ی **«پیدا کردن دلیل»** کنار پیام بزنید. پنل خودش سرویس‌ها (Prometheus، Alertmanager، Blackbox) را یکی‌یکی چک می‌کند (اول DNS، بعد HTTP)، وضعیت و کد خروج و تعداد ری‌استارت هر کانتینر، پر بودن دیسک و کار کردن DNS اینترنت را نشان می‌دهد، آخرین خط‌های لاگ کانتینرهای خراب را می‌آورد و کنار هر کانتینر متوقف دکمه‌ی ری‌استارت دارد. خطای `Temporary failure in name resolution` (`Errno -3`) یعنی DNS داخلی داکر جواب نمی‌دهد؛ معمولاً چون کانتینر Prometheus خاموش است یا resolver سرور خراب است.
+
+</details>
+
+<details>
 <summary><b>📡 جدول شبکه خالی است</b></summary>
 
 <br>
@@ -871,6 +880,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import dockerapi
+import health
 import icons
 import monitor
 import store
@@ -955,12 +965,16 @@ def api_settings(_q):
             "telegram": store.telegram_status()}
 
 
+def api_health(_q):
+    return health.diagnose()
+
+
 def api_docker_logs(q):
     return dockerapi.logs(q.get("id", ""), q.get("tail", 200))
 
 
 GET_API = {**monitor.READ_API, "/api/containers": api_containers, "/api/checks": api_checks, "/api/rules": api_rules,
-           "/api/settings": api_settings, "/api/docker/logs": api_docker_logs}
+           "/api/settings": api_settings, "/api/docker/logs": api_docker_logs, "/api/health": api_health}
 
 
 # ------------------------------------------------------------------ management API (POST)
@@ -2320,6 +2334,25 @@ def run(spec):
         _request("DELETE", f"/containers/{cid}?force=1")  # don't leave a dead container behind
         _json(status, data)
     return {"ok": True, "id": cid[:12]}
+
+
+def stack_health():
+    """State of every container of this compose project, including why a stopped one stopped."""
+    _require()
+    rows = []
+    for c in _json(*_request("GET", "/containers/json?all=1")):
+        labels = c.get("Labels") or {}
+        if labels.get("com.docker.compose.project") != STACK_PROJECT:
+            continue
+        info = _json(*_request("GET", f"/containers/{c['Id'][:12]}/json"))
+        st = info.get("State") or {}
+        rows.append({
+            "id": c["Id"][:12], "service": labels.get("com.docker.compose.service", ""),
+            "name": (c.get("Names") or ["/?"])[0].lstrip("/"), "state": st.get("Status", c.get("State", "")),
+            "status": c.get("Status", ""), "exit_code": st.get("ExitCode"), "restarts": info.get("RestartCount", 0),
+            "oom": bool(st.get("OOMKilled")), "error": st.get("Error", ""), "health": (st.get("Health") or {}).get("Status", ""),
+        })
+    return sorted(rows, key=lambda r: r["service"])
 __MONITORING_EOF__
   write_file panel/monitor.py 644 <<'__MONITORING_EOF__'
 """Read-only Prometheus queries behind the panel's dashboard pages. Only fixed queries are exposed."""
@@ -2328,6 +2361,7 @@ import math
 import os
 import re
 import time
+from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -2347,8 +2381,15 @@ def public_ip():
 
 def prom_get(path, params=None):
     url = f"{PROM}{path}" + (f"?{urlencode(params)}" if params else "")
-    with urlopen(url, timeout=8) as resp:
-        body = json.load(resp)
+    for attempt in range(3):
+        try:
+            with urlopen(url, timeout=8) as resp:
+                body = json.load(resp)
+            break
+        except URLError as e:   # EAI_AGAIN: Docker's DNS hiccups for a moment while a container restarts
+            if getattr(e.reason, "errno", None) != -3 or attempt == 2:
+                raise
+            time.sleep(0.5)
     if body.get("status") != "success":
         raise RuntimeError(body.get("error", "query failed"))
     return body["data"]
@@ -2778,6 +2819,99 @@ def main():
 if __name__ == "__main__":
     main()
 __MONITORING_EOF__
+  write_file panel/health.py 644 <<'__MONITORING_EOF__'
+"""Self-diagnosis for the panel: why can't it load data? Answers with facts, not guesses.
+
+Checks each backend service (DNS first, then HTTP), whether Docker's own DNS can reach the outside,
+free disk space, and the state of every container of the stack (exit code, restarts, last log lines).
+"""
+import os
+import shutil
+import socket
+import time
+from urllib.parse import urlparse
+from urllib.request import urlopen
+
+import dockerapi
+import store
+import monitor
+
+SERVICES = [
+    ("prometheus", monitor.PROM, "/-/ready"),
+    ("alertmanager", store.AM_URL, "/-/ready"),
+    ("blackbox", store.BLACKBOX_URL, "/-/healthy"),
+]
+
+
+def _check(name, base, path):
+    host = urlparse(base).hostname
+    out = {"service": name, "url": base, "ok": False, "stage": "dns", "error": "", "ms": None}
+    try:
+        socket.getaddrinfo(host, None)
+    except OSError as e:
+        out["error"] = f"{e.errno}: {e.strerror or e}"
+        return out
+    out["stage"] = "http"
+    t0 = time.time()
+    try:
+        with urlopen(base + path, timeout=5) as resp:
+            out["ok"] = resp.status == 200
+            out["error"] = "" if out["ok"] else f"HTTP {resp.status}"
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}: {e}"
+    out["ms"] = round((time.time() - t0) * 1000)
+    return out
+
+
+def _external_dns():
+    try:
+        socket.getaddrinfo("prometheus.io", 443)
+        return {"ok": True, "error": ""}
+    except OSError as e:
+        return {"ok": False, "error": f"{e.errno}: {e.strerror or e}"}
+
+
+def _disk():
+    try:
+        u = shutil.disk_usage(os.environ.get("DATA_DIR", "/data"))
+        return {"total": u.total, "free": u.free, "pct": (u.total - u.free) / u.total * 100}
+    except OSError:
+        return None
+
+
+def diagnose():
+    services = [_check(*s) for s in SERVICES]
+    out = {"services": services, "dns_external": _external_dns(), "disk": _disk(), "containers": None, "logs": {}, "hints": []}
+    try:
+        if dockerapi.available():
+            out["containers"] = dockerapi.stack_health()
+    except dockerapi.DockerError:
+        pass
+    by_service = {c["service"]: c for c in out["containers"] or []}
+    for c in out["containers"] or []:
+        if c["state"] != "running" and c["service"] != "hostip" or c["state"] == "restarting":
+            try:
+                out["logs"][c["service"]] = dockerapi.logs(c["id"], 25)["text"]
+            except Exception:
+                pass
+    hints = out["hints"]
+    for s in services:
+        if s["ok"]:
+            continue
+        c = by_service.get(s["service"])
+        if c and c["state"] != "running":
+            why = f"exit code {c['exit_code']}" + (", killed for lack of memory (OOM)" if c["oom"] else "") + (f", {c['error']}" if c["error"] else "")
+            hints.append({"kind": "stopped", "service": s["service"], "detail": f"{c['state']} ({why}), restarted {c['restarts']} time(s)"})
+        elif s["stage"] == "dns":
+            hints.append({"kind": "dns", "service": s["service"], "detail": s["error"]})
+        else:
+            hints.append({"kind": "svc", "service": s["service"], "detail": s["error"]})
+    if out["disk"] and out["disk"]["pct"] >= 95:
+        hints.append({"kind": "disk", "service": "", "detail": f"{out['disk']['pct']:.0f}%"})
+    if any(h["kind"] == "dns" for h in hints) and not out["dns_external"]["ok"]:
+        hints.append({"kind": "dns_external", "service": "", "detail": out["dns_external"]["error"]})
+    return out
+__MONITORING_EOF__
   write_file panel/static/index.html 644 <<'__MONITORING_EOF__'
 <!doctype html>
 <html lang="en" data-theme="dark">
@@ -2925,6 +3059,14 @@ __MONITORING_EOF__
             net_ifaces: "Network interfaces", tr_title: "Traffic usage", tr_sub: "Everything this server has downloaded and uploaded through its real network cards.",
       tr_day: "Day", tr_today: "Today", tr_yesterday: "Yesterday", tr_7d: "Last 7 days", tr_30d: "Last 30 days", tr_boot: "Since boot", tr_total: "Total", tr_down: "Download", tr_up: "Upload",
       tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far",
+            diag_btn: "Find out why", dg_title: "Why can't the panel load data?", diag_services: "Services", diag_containers: "Containers of the stack", diag_ok: "Reachable", diag_fail: "Failing",
+      diag_dns: "Name not found", diag_http: "No valid answer", diag_detail: "Detail", diag_exit: "Exit code", diag_restarts: "Restarts", diag_logs: "Last log lines of {s}", service: "Service",
+      diag_all_ok: "Every service answers now. Close this window and press Refresh.",
+      hint_stopped: "{service} is not running: {detail}. Restart it with the button below; its last log lines further down show why it stopped.",
+      hint_dns: "The panel cannot even resolve the name \u201c{service}\u201d ({detail}). Docker's internal DNS is not answering.",
+      hint_svc: "{service} is reachable but does not answer correctly: {detail}",
+      hint_disk: "The disk is {detail} full. Prometheus stops working when there is no free space left.",
+      hint_dns_external: "DNS to the internet fails as well ({detail}). The server's resolver (/etc/resolv.conf) is broken or blocked by the firewall, and Docker uses it.",
       lv_ok: "Normal", lv_warn: "High", lv_bad: "Critical", address: "Address", more: "More", tbl_view: "Table view", time: "Time",
       err_api: "Cannot load data", last_update: "Last update", auto: "auto-refresh every 10s", ago: "ago",
       t_dark: "Switch to light theme", t_light: "Switch to dark theme",
@@ -3054,6 +3196,14 @@ __MONITORING_EOF__
             net_ifaces: "کارت‌های شبکه", tr_title: "مصرف ترافیک", tr_sub: "کل چیزی که این سرور از طریق کارت‌های شبکه‌ی واقعی‌اش دانلود و آپلود کرده است.",
       tr_day: "روز", tr_today: "امروز", tr_yesterday: "دیروز", tr_7d: "۷ روز اخیر", tr_30d: "۳۰ روز اخیر", tr_boot: "از زمان بوت", tr_total: "مجموع", tr_down: "دانلود", tr_up: "آپلود",
       tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است",
+            diag_btn: "پیدا کردن دلیل", dg_title: "چرا پنل داده‌ای نمی‌گیرد؟", diag_services: "سرویس‌ها", diag_containers: "کانتینرهای استک", diag_ok: "در دسترس", diag_fail: "خراب",
+      diag_dns: "نام پیدا نشد", diag_http: "پاسخ درست نمی‌دهد", diag_detail: "جزئیات", diag_exit: "کد خروج", diag_restarts: "تعداد ری‌استارت", diag_logs: "آخرین خط‌های لاگ {s}", service: "سرویس",
+      diag_all_ok: "همه‌ی سرویس‌ها الان جواب می‌دهند. این پنجره را ببندید و «بروزرسانی» را بزنید.",
+      hint_stopped: "{service} در حال اجرا نیست: {detail}. با دکمه‌ی زیر ری‌استارتش کنید؛ آخرین خط‌های لاگ پایین‌تر دلیل متوقف شدنش را نشان می‌دهد.",
+      hint_dns: "پنل اصلاً نام «{service}» را پیدا نمی‌کند ({detail}). DNS داخلی داکر جواب نمی‌دهد.",
+      hint_svc: "{service} در دسترس است ولی درست جواب نمی‌دهد: {detail}",
+      hint_disk: "دیسک {detail} پر است. وقتی جای خالی نباشد Prometheus از کار می‌افتد.",
+      hint_dns_external: "DNS اینترنت هم کار نمی‌کند ({detail}). resolver سرور (/etc/resolv.conf) خراب است یا فایروال جلویش را گرفته و داکر از آن استفاده می‌کند.",
       lv_ok: "عادی", lv_warn: "بالا", lv_bad: "بحرانی", address: "آدرس", more: "بیشتر", tbl_view: "نمایش جدول", time: "زمان",
       err_api: "داده‌ها بارگذاری نشد", last_update: "آخرین بروزرسانی", auto: "بروزرسانی خودکار هر ۱۰ ثانیه", ago: "پیش",
       t_dark: "تم روشن", t_light: "تم تیره",
@@ -4214,6 +4364,41 @@ __MONITORING_EOF__
     svg.addEventListener("pointercancel", rest);
   }
 
+  // ---------------------------------------------------------------- self-diagnosis ("why can't the panel load data?")
+  function healthDialog() {
+    const dlg = openDialog({ title: t("dg_title"), wide: true, hideSubmit: true, cancel: t("close"), body: `<div id="diag"><div class="skeleton"></div></div>` });
+    const box = dlg.querySelector("#diag");
+    const render = (d) => {
+      const hints = d.hints.map((h) => `<div class="notice ${h.kind === "dns_external" || h.kind === "disk" ? "warn" : "bad"}">${icon("bell")}<span>${esc(t("hint_" + h.kind, { service: h.service, detail: h.detail }))}</span></div>`).join("");
+      const allOk = d.services.every((x) => x.ok);
+      const svc = table([
+        { h: "service", cls: "strong", cell: (r) => esc(r.service) },
+        { h: "status", cell: (r) => (r.ok ? pill("ok", t("diag_ok")) : pill("bad", t(r.stage === "dns" ? "diag_dns" : "diag_http"))) },
+        { h: "diag_detail", cls: "wrap-cell", cell: (r) => (r.error ? `<code class="reason">${esc(r.error)}</code>` : r.ms != null ? num(`${r.ms} ms`) : "") },
+      ], d.services);
+      const ctn = d.containers ? table([
+        { h: "service", cls: "strong", cell: (r) => esc(r.service) },
+        { h: "status", cell: (r) => pill(CONTAINER_STATE[r.state] || "", stateLabel(r.state)) },
+        { h: "diag_exit", cell: (r) => num(r.state === "running" ? "–" : String(r.exit_code ?? "–")) + (r.oom ? ` <span class="tag">OOM</span>` : "") },
+        { h: "diag_restarts", cell: (r) => num(String(r.restarts)) },
+        { h: "actions", cell: (r) => (r.state === "running" ? "–" : `<div class="row-actions">${btnIcon("refresh", t("a_restart"), `data-diag-restart="${esc(r.id)}"`)}</div>`) },
+      ], d.containers) : `<div class="notice">${icon("bell")}<span>${esc(t("c_docker_off"))}</span></div>`;
+      const logs = Object.entries(d.logs).map(([name, text]) => `<h4>${esc(t("diag_logs", { s: name }))}</h4><pre class="logs short">${esc(text || "–")}</pre>`).join("");
+      const extra = [d.disk ? `<span class="chip">${icon("disk")}${esc(t("disk"))} <b>${num(`${nf(d.disk.pct, 0)}%`)}</b></span>` : "", `<span class="chip">${icon("globe")}DNS <b>${esc(d.dns_external.ok ? t("diag_ok") : t("diag_fail"))}</b></span>`].join("");
+      box.innerHTML = `${allOk ? `<div class="notice ok">${icon("okmark")}<span>${esc(t("diag_all_ok"))}</span></div>` : ""}${hints}
+        <div class="diag-chips">${extra}</div><h4>${esc(t("diag_services"))}</h4>${svc}<h4>${esc(t("diag_containers"))}</h4>${ctn}${logs}`;
+    };
+    const load = async () => {
+      try { render(await api("/api/health")); } catch (e) { if (e.message !== "unauthorized") box.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; }
+    };
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-diag-restart]");
+      if (!b) return;
+      if (await act(b, () => post("/api/docker/action", { id: b.dataset.diagRestart, action: "restart" }), t("c_done"))) { box.innerHTML = `<div class="skeleton"></div>`; setTimeout(load, 4000); }
+    });
+    load();
+  }
+
   // ---------------------------------------------------------------- view rendering
   function overviewTools() {
     const label = (i) => (state.names[i] ? `${state.names[i]} (${i})` : i);
@@ -4265,7 +4450,7 @@ __MONITORING_EOF__
       $("banner").innerHTML = "";
       renderStats();
     } catch (e) {
-      if (e.message !== "unauthorized") $("banner").innerHTML = `<div class="notice bad">${esc(t("err_api"))}: ${esc(e.message)}</div>`;
+      if (e.message !== "unauthorized") $("banner").innerHTML = `<div class="notice bad">${icon("bell")}<span>${esc(t("err_api"))}: ${esc(e.message)}</span><button type="button" class="btn small" data-diag>${icon("search")}<span>${esc(t("diag_btn"))}</span></button></div>`;
     }
     try { state.settings = await api("/api/settings"); renderNav(); } catch (e) { /* the badge is optional */ }
     const now = new Date();
@@ -4306,6 +4491,7 @@ __MONITORING_EOF__
       paintBars();
       return;
     }
+    if (e.target.closest("[data-diag]")) { healthDialog(); return; }
     const cp = e.target.closest("[data-copy]");
     if (cp) { copyText(cp.dataset.copy); return; }
     const tv = e.target.closest("[data-tv]");
@@ -5010,6 +5196,13 @@ button.chip:disabled { cursor: default; opacity: .6; }
   .tr-chart .legend .chip { margin-inline-start: 0; }
 }
 @media (max-width: 380px) { .usage-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* diagnosis dialog */
+#diag h4 { margin: 18px 0 8px; font-size: 13.5px; color: var(--muted); letter-spacing: .03em; }
+#diag .diag-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
+#diag .notice .ico { flex: none; }
+pre.logs.short { height: auto; max-height: 220px; }
+.notice > .btn { margin-inline-start: auto; flex: none; }
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'
 /* Vazirmatn (SIL Open Font License 1.1) - Latin + Persian/Arabic subset, embedded so the panel needs no external font host. */

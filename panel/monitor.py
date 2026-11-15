@@ -4,6 +4,7 @@ import math
 import os
 import re
 import time
+from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -23,8 +24,15 @@ def public_ip():
 
 def prom_get(path, params=None):
     url = f"{PROM}{path}" + (f"?{urlencode(params)}" if params else "")
-    with urlopen(url, timeout=8) as resp:
-        body = json.load(resp)
+    for attempt in range(3):
+        try:
+            with urlopen(url, timeout=8) as resp:
+                body = json.load(resp)
+            break
+        except URLError as e:   # EAI_AGAIN: Docker's DNS hiccups for a moment while a container restarts
+            if getattr(e.reason, "errno", None) != -3 or attempt == 2:
+                raise
+            time.sleep(0.5)
     if body.get("status") != "success":
         raise RuntimeError(body.get("error", "query failed"))
     return body["data"]
