@@ -76,25 +76,22 @@ services:
       - /sys:/host/sys:ro
     networks: [monitoring]
 
-  # Only CPU and memory per container are used (the container alerts), so cAdvisor collects just
-  # those, every 30 s instead of every second (its default). No --docker_only: cAdvisor's Docker
-  # client is too old for new Docker, so containers are found through their cgroups (docker-<id>.scope).
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+  # CPU and memory of each Docker container (for the container alerts), read from the kernel's cgroups
+  # only when Prometheus asks. Replaces cAdvisor, which cannot see containers on current Docker versions.
+  # Root only to read the container names in /var/lib/docker/containers; no capabilities, read-only.
+  containers:
+    image: python:3.12-alpine
     restart: always
-    privileged: true
-    command:
-      - --housekeeping_interval=30s
-      - --max_housekeeping_interval=60s
-      - --store_container_labels=false
-      - --enable_metrics=cpu,memory
-    devices:
-      - /dev/kmsg
+    command: ["python", "-u", "/app/cstats.py"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
     volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
+      - ./panel:/app:ro
+      - /sys/fs/cgroup:/host/cgroup:ro
+      - ${DOCKER_ROOT:-/var/lib/docker}/containers:/host/containers:ro
     networks: [monitoring]
 
   blackbox:

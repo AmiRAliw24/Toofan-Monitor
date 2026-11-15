@@ -20,6 +20,7 @@ FILES=(
   panel/monitor.py:644
   panel/icons.py:644
   panel/hostip.py:644
+  panel/cstats.py:644
   panel/health.py:644
   panel/live.py:644
   panel/defender.py:644

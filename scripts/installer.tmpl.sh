@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Server monitoring installer - single self-contained file.
 # Installs Docker (if missing), then deploys the monitoring panel + Prometheus + Alertmanager +
-# node_exporter + cAdvisor + Blackbox exporter under /opt/server-monitoring.
+# node_exporter + container stats + Blackbox exporter under /opt/server-monitoring.
 #
 # Usage (as root):
 #   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/desktop-tutorial/HEAD/install.sh | sudo bash          # one-liner, interactive

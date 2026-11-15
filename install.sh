@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Server monitoring installer - single self-contained file.
 # Installs Docker (if missing), then deploys the monitoring panel + Prometheus + Alertmanager +
-# node_exporter + cAdvisor + Blackbox exporter under /opt/server-monitoring.
+# node_exporter + container stats + Blackbox exporter under /opt/server-monitoring.
 #
 # Usage (as root):
 #   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/desktop-tutorial/HEAD/install.sh | sudo bash          # one-liner, interactive
@@ -157,25 +157,22 @@ services:
       - /sys:/host/sys:ro
     networks: [monitoring]
 
-  # Only CPU and memory per container are used (the container alerts), so cAdvisor collects just
-  # those, every 30 s instead of every second (its default). No --docker_only: cAdvisor's Docker
-  # client is too old for new Docker, so containers are found through their cgroups (docker-<id>.scope).
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+  # CPU and memory of each Docker container (for the container alerts), read from the kernel's cgroups
+  # only when Prometheus asks. Replaces cAdvisor, which cannot see containers on current Docker versions.
+  # Root only to read the container names in /var/lib/docker/containers; no capabilities, read-only.
+  containers:
+    image: python:3.12-alpine
     restart: always
-    privileged: true
-    command:
-      - --housekeeping_interval=30s
-      - --max_housekeeping_interval=60s
-      - --store_container_labels=false
-      - --enable_metrics=cpu,memory
-    devices:
-      - /dev/kmsg
+    command: ["python", "-u", "/app/cstats.py"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
     volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
+      - ./panel:/app:ro
+      - /sys/fs/cgroup:/host/cgroup:ro
+      - ${DOCKER_ROOT:-/var/lib/docker}/containers:/host/containers:ro
     networks: [monitoring]
 
   blackbox:
@@ -558,7 +555,7 @@ ssh root@SERVER 'bash install.sh'
 | 🚨 **Alertmanager** | ارسال هشدار به تلگرام |
 | 🖥️ **node_exporter** | متریک‌های سیستم: CPU، رم، دیسک، load |
 | 📡 **node-net** | آمار واقعی کارت‌های شبکه‌ی سرور |
-| 📦 **cAdvisor** | متریک کانتینرهای Docker |
+| 📦 **containers** | CPU و حافظه‌ی هر کانتینر Docker، مستقیم از cgroupهای کرنل (جایگزین cAdvisor که با داکر جدید کار نمی‌کند) |
 | 🌐 **Blackbox exporter** | چک آپتایم سایت‌ها، پورت‌ها و انقضای SSL |
 | 🌍 **hostip** | پیدا کردن IPv4 / IPv6 عمومی سرور |
 
@@ -612,7 +609,7 @@ nft delete table inet defender
 - فایروال شمارنده‌ها را با کتابخانه‌ی nftables در همان پروسه می‌خواند (نه اجرای برنامه‌ی `nft` در هر ثانیه)، و وقتی صفحه‌ی فایروال باز نیست هر ۲ ثانیه نمونه می‌گیرد (در حمله یا وقتی صفحه باز است هر ثانیه).
 - نمای زنده فقط اطلاعات لازم را از node_exporter می‌خواند (حدود ۱۰ برابر سبک‌تر) و فقط وقتی کسی آن را نگاه می‌کند.
 - فایل‌های پنل یک بار فشرده و در حافظه نگه داشته می‌شوند؛ مرورگر آن‌ها را نگه می‌دارد و فقط تغییرشان را می‌پرسد.
-- cAdvisor فقط CPU و حافظه‌ی کانتینرها را هر ۳۰ ثانیه جمع می‌کند و healthcheck پنل به جای پایتون از `wget` استفاده می‌کند.
+- آمار کانتینرها را یک سرویس کوچک (به جای cAdvisor) فقط وقتی Prometheus می‌پرسد، هر ۳۰ ثانیه، از کرنل می‌خواند و healthcheck پنل به جای پایتون از `wget` استفاده می‌کند.
 
 ## 🔐 امنیت
 
@@ -859,10 +856,11 @@ scrape_configs:
       - target_label: instance
         replacement: node-exporter:9100
 
-  - job_name: cadvisor
-    scrape_interval: 30s      # cAdvisor refreshes every 30 s (see docker-compose.yml)
+  # CPU and memory of each Docker container (see the containers service in docker-compose.yml).
+  - job_name: containers
+    scrape_interval: 30s
     static_configs:
-      - targets: [cadvisor:8080]
+      - targets: [containers:9338]
 
   # Uptime / SSL checks. Targets live in prometheus/targets/http.json, managed from the panel.
   - job_name: blackbox-http
@@ -2054,7 +2052,7 @@ def migrate_legacy():
 # ------------------------------------------------------------------ alert rules
 
 HOST_FS = 'fstype!~"tmpfs|overlay|squashfs"'
-DOCKER_CG = r'id=~".*docker[-/][a-f0-9]{64}(\\.scope)?"'   # cAdvisor's name label is often missing; match containers by id
+DOCKER_CG = r'id=~".*docker[-/][a-f0-9]{64}(\\.scope)?"'   # Docker containers by their cgroup (see cstats.py)
 CONTAINER = "{{ if $labels.name }}{{ $labels.name }}{{ else }}{{ $labels.id }}{{ end }}"
 RULES = [
     {"name": "InstanceDown", "group": "host", "severity": "critical", "for": 2, "expr": "up == 0",
@@ -2090,7 +2088,7 @@ RULES = [
     {"name": "ContainerHighMemory", "group": "containers", "severity": "warning", "for": 10,
      "expr": f"container_memory_working_set_bytes{{{DOCKER_CG}}} / (container_spec_memory_limit_bytes{{{DOCKER_CG}}} > 0) * 100 > {{t}}",
      "t": {"default": 90, "unit": "%", "min": 1, "max": 100},
-     "summary": f'Container {CONTAINER} memory is {{{{ $value | printf "%.0f" }}}}% of its limit'},
+     "summary": f'Container {CONTAINER} memory is {{{{ $value | printf "%.0f" }}}}% of its limit (or of the server memory if it has none)'},
     {"name": "EndpointDown", "group": "endpoints", "severity": "critical", "for": 2, "expr": "probe_success == 0",
      "summary": "{{ $labels.instance }} is unreachable"},
     {"name": "SslCertExpiringSoon", "group": "endpoints", "severity": "warning", "for": 60,
@@ -3062,6 +3060,159 @@ def main():
 
 if __name__ == "__main__":
     main()
+__MONITORING_EOF__
+  write_file panel/cstats.py 644 <<'__MONITORING_EOF__'
+#!/usr/bin/env python3
+"""CPU and memory of every Docker container, for Prometheus (replaces cAdvisor).
+
+cAdvisor cannot talk to current Docker versions (the containerd image store), so it reported no
+containers at all. This reads the same numbers straight from the kernel's cgroups, only when
+Prometheus asks (every 30 s), with the metric names the container alerts already use:
+
+  container_cpu_usage_seconds_total     CPU time used (counter)
+  container_memory_working_set_bytes    memory in use, without reclaimable file cache
+  container_memory_usage_bytes          memory in use, with file cache
+  container_spec_memory_limit_bytes     the container's memory limit; the server's memory when it has none
+
+Labels: id (the cgroup path, e.g. /system.slice/docker-<id>.scope) and name (the container name).
+Works with cgroup v2 and v1, and with the systemd and cgroupfs drivers. Standard library only.
+"""
+import glob
+import json
+import os
+import re
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+CG = os.environ.get("CGROUP_ROOT", "/host/cgroup")
+CONTAINERS = os.environ.get("DOCKER_CONTAINERS", "/host/containers")
+PORT = int(os.environ.get("PORT", "9338"))
+ID_RE = re.compile(r"docker[-/]([a-f0-9]{64})(?:\.scope)?$")
+UNLIMITED = 1 << 60          # cgroup v1 reports "no limit" as a huge number
+_names = {}
+
+
+def read(path):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def num(path):
+    text = read(path)
+    try:
+        return int(text.strip()) if text and text.strip() != "max" else None
+    except ValueError:
+        return None
+
+
+def stat(path, key):
+    for line in (read(path) or "").splitlines():
+        k, _, v = line.partition(" ")
+        if k == key:
+            return int(v)
+    return None
+
+
+def host_memory():
+    m = re.search(r"^MemTotal:\s+(\d+) kB", read("/proc/meminfo") or "", re.M)
+    return int(m.group(1)) * 1024 if m else 0
+
+
+def name_of(cid):
+    if cid not in _names:
+        try:
+            with open(os.path.join(CONTAINERS, cid, "config.v2.json")) as f:
+                _names[cid] = json.load(f).get("Name", "").lstrip("/")
+        except (OSError, ValueError):
+            return ""
+    return _names[cid]
+
+
+def v2_containers():
+    for pattern in ("system.slice/docker-*.scope", "docker/*"):
+        for path in glob.glob(os.path.join(CG, pattern)):
+            m = ID_RE.search(path)
+            if m and os.path.isdir(path):
+                rel = "/" + os.path.relpath(path, CG)
+                usage = num(os.path.join(path, "memory.current"))
+                yield {"id": rel, "cid": m.group(1), "cpu": (stat(os.path.join(path, "cpu.stat"), "usage_usec") or 0) / 1e6,
+                       "usage": usage, "inactive": stat(os.path.join(path, "memory.stat"), "inactive_file") or 0,
+                       "limit": num(os.path.join(path, "memory.max"))}
+
+
+def v1_containers():
+    cpu_root = next((d for d in ("cpuacct", "cpu,cpuacct", "cpu") if os.path.isdir(os.path.join(CG, d))), None)
+    if not cpu_root:
+        return
+    for pattern in ("system.slice/docker-*.scope", "docker/*"):
+        for path in glob.glob(os.path.join(CG, cpu_root, pattern)):
+            m = ID_RE.search(path)
+            if not (m and os.path.isdir(path)):
+                continue
+            rel = "/" + os.path.relpath(path, os.path.join(CG, cpu_root))
+            mem = os.path.join(CG, "memory", rel.lstrip("/"))
+            limit = num(os.path.join(mem, "memory.limit_in_bytes"))
+            yield {"id": rel, "cid": m.group(1), "cpu": (num(os.path.join(path, "cpuacct.usage")) or 0) / 1e9,
+                   "usage": num(os.path.join(mem, "memory.usage_in_bytes")),
+                   "inactive": stat(os.path.join(mem, "memory.stat"), "total_inactive_file") or 0,
+                   "limit": limit if limit and limit < UNLIMITED else None}
+
+
+def esc(v):
+    return v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+
+
+def metrics():
+    rows = list(v2_containers() if os.path.exists(os.path.join(CG, "cgroup.controllers")) else v1_containers())
+    host = host_memory()
+    out = {k: [] for k in ("cpu", "ws", "usage", "limit")}
+    for r in rows:
+        labels = f'{{id="{esc(r["id"])}",name="{esc(name_of(r["cid"]))}"}}'
+        out["cpu"].append(f"container_cpu_usage_seconds_total{labels} {r['cpu']:.6f}")
+        if r["usage"] is not None:
+            out["usage"].append(f"container_memory_usage_bytes{labels} {r['usage']}")
+            out["ws"].append(f"container_memory_working_set_bytes{labels} {max(0, r['usage'] - r['inactive'])}")
+        limit = min(r["limit"], host) if r["limit"] and host else (r["limit"] or host)
+        if limit:
+            out["limit"].append(f"container_spec_memory_limit_bytes{labels} {limit}")
+    live = {r["cid"] for r in rows}
+    for cid in [c for c in _names if c not in live]:     # forget removed containers
+        _names.pop(cid, None)
+    head = [
+        ("cpu", "container_cpu_usage_seconds_total", "counter", "CPU time used by the container, in seconds."),
+        ("ws", "container_memory_working_set_bytes", "gauge", "Memory in use, without reclaimable file cache."),
+        ("usage", "container_memory_usage_bytes", "gauge", "Memory in use, with file cache."),
+        ("limit", "container_spec_memory_limit_bytes", "gauge", "Memory limit of the container (the server's memory when it has none)."),
+    ]
+    text = []
+    for key, name, kind, help_ in head:
+        text += [f"# HELP {name} {help_}", f"# TYPE {name} {kind}"] + out[key]
+    text += ["# HELP container_exporter_containers Containers found.", "# TYPE container_exporter_containers gauge",
+             f"container_exporter_containers {len(rows)}"]
+    return "\n".join(text) + "\n"
+
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path.split("?")[0] not in ("/metrics", "/"):
+            self.send_error(404)
+            return
+        body = metrics().encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *a):   # Prometheus asks every 30 s: no log line for that
+        pass
+
+
+if __name__ == "__main__":
+    print(f"container stats on :{PORT} (cgroups at {CG})", flush=True)
+    ThreadingHTTPServer(("", PORT), Handler).serve_forever()
 __MONITORING_EOF__
   write_file panel/health.py 644 <<'__MONITORING_EOF__'
 """Self-diagnosis for the panel: why can't it load data? Answers with facts, not guesses.

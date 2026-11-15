@@ -483,7 +483,7 @@ def migrate_legacy():
 # ------------------------------------------------------------------ alert rules
 
 HOST_FS = 'fstype!~"tmpfs|overlay|squashfs"'
-DOCKER_CG = r'id=~".*docker[-/][a-f0-9]{64}(\\.scope)?"'   # cAdvisor's name label is often missing; match containers by id
+DOCKER_CG = r'id=~".*docker[-/][a-f0-9]{64}(\\.scope)?"'   # Docker containers by their cgroup (see cstats.py)
 CONTAINER = "{{ if $labels.name }}{{ $labels.name }}{{ else }}{{ $labels.id }}{{ end }}"
 RULES = [
     {"name": "InstanceDown", "group": "host", "severity": "critical", "for": 2, "expr": "up == 0",
@@ -519,7 +519,7 @@ RULES = [
     {"name": "ContainerHighMemory", "group": "containers", "severity": "warning", "for": 10,
      "expr": f"container_memory_working_set_bytes{{{DOCKER_CG}}} / (container_spec_memory_limit_bytes{{{DOCKER_CG}}} > 0) * 100 > {{t}}",
      "t": {"default": 90, "unit": "%", "min": 1, "max": 100},
-     "summary": f'Container {CONTAINER} memory is {{{{ $value | printf "%.0f" }}}}% of its limit'},
+     "summary": f'Container {CONTAINER} memory is {{{{ $value | printf "%.0f" }}}}% of its limit (or of the server memory if it has none)'},
     {"name": "EndpointDown", "group": "endpoints", "severity": "critical", "for": 2, "expr": "probe_success == 0",
      "summary": "{{ $labels.instance }} is unreachable"},
     {"name": "SslCertExpiringSoon", "group": "endpoints", "severity": "warning", "for": 60,
