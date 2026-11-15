@@ -1578,6 +1578,8 @@ def on_f2b_ban(jail, ip):
 
 GET = {
     "/status": lambda q: status(),
+    # what the panel's notifier polls every 10 s: no scanning of the host
+    "/brief": lambda q: {"enabled": CFG["enabled"], "notify": CFG["notify"], "last_event": EVENTS[-1]["id"] if EVENTS else 0},
     "/live": api_live,
     "/bans": lambda q: {"rows": ban_list(), "block": CFG["block"], "allow": CFG["allow"], "admin_ips": admin_ips()},
     "/ports": lambda q: ports_view(),

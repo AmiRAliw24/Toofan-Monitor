@@ -77,7 +77,8 @@ services:
     networks: [monitoring]
 
   # Only CPU and memory per container are used (the container alerts), so cAdvisor collects just
-  # those, for Docker containers only, every 30 s instead of every second (its default).
+  # those, every 30 s instead of every second (its default). No --docker_only: cAdvisor's Docker
+  # client is too old for new Docker, so containers are found through their cgroups (docker-<id>.scope).
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     restart: always
@@ -85,7 +86,6 @@ services:
     command:
       - --housekeeping_interval=30s
       - --max_housekeeping_interval=60s
-      - --docker_only=true
       - --store_container_labels=false
       - --enable_metrics=cpu,memory
     devices:

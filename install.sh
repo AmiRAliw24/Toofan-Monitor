@@ -158,7 +158,8 @@ services:
     networks: [monitoring]
 
   # Only CPU and memory per container are used (the container alerts), so cAdvisor collects just
-  # those, for Docker containers only, every 30 s instead of every second (its default).
+  # those, every 30 s instead of every second (its default). No --docker_only: cAdvisor's Docker
+  # client is too old for new Docker, so containers are found through their cgroups (docker-<id>.scope).
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     restart: always
@@ -166,7 +167,6 @@ services:
     command:
       - --housekeeping_interval=30s
       - --max_housekeeping_interval=60s
-      - --docker_only=true
       - --store_container_labels=false
       - --enable_metrics=cpu,memory
     devices:
@@ -307,6 +307,8 @@ __MONITORING_EOF__
 .env
 alertmanager/alertmanager.yml
 data/
+__pycache__/
+*.pyc
 __MONITORING_EOF__
   write_file README.md 644 <<'__MONITORING_EOF__'
 <div align="center">
@@ -3410,7 +3412,7 @@ import store
 
 SOCK = os.environ.get("DEFENDER_SOCKET", "/defender/agent.sock")
 GET_PATHS = {"status", "live", "bans", "ports", "audit", "talkers", "events", "rules", "fwrules", "ssh",
-             "f2b", "f2b/bans", "f2b/log", "f2b/jail", "f2b/files", "f2b/file", "geo", "export", "sshd", "threat"}
+             "f2b", "f2b/bans", "f2b/log", "f2b/jail", "f2b/files", "f2b/file", "geo", "export", "sshd", "threat", "brief"}
 POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unallow", "unban", "sysctl",
               "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
               "f2b/file", "f2b/file/delete", "import", "sshd/apply", "sshd/confirm", "sshd/revert", "sshd/key/add",
@@ -3532,12 +3534,12 @@ def notify_loop():
     while True:
         time.sleep(10)
         try:
-            st = call("GET", "status", timeout=10)
+            st = call("GET", "brief", timeout=10)
             if last is None:
                 last = st.get("last_event", 0)   # never re-send what happened before the panel started
                 continue
             rows = call("GET", "events", params={"since": last}, timeout=10).get("rows", [])
-            notify = (st.get("config") or {}).get("notify") or {}
+            notify = st.get("notify") or {}
             for e in rows:
                 last = max(last, e["id"])
                 if e["kind"] in ("attack_start", "attack_end", "escalate"):
@@ -7474,6 +7476,8 @@ def on_f2b_ban(jail, ip):
 
 GET = {
     "/status": lambda q: status(),
+    # what the panel's notifier polls every 10 s: no scanning of the host
+    "/brief": lambda q: {"enabled": CFG["enabled"], "notify": CFG["notify"], "last_event": EVENTS[-1]["id"] if EVENTS else 0},
     "/live": api_live,
     "/bans": lambda q: {"rows": ban_list(), "block": CFG["block"], "allow": CFG["allow"], "admin_ips": admin_ips()},
     "/ports": lambda q: ports_view(),
@@ -8072,7 +8076,9 @@ def sshd_config():
 
 def ssh_ports():
     _, ports = sshd_config()
-    from_sockets = [r["port"] for r in listening() if r["proto"] == "tcp" and r["process"] == "sshd"]
+    # sshd's sockets change only when its settings do (the agent then clears the cache): a scan of every
+    # process's open files every 2 minutes is plenty
+    from_sockets = [r["port"] for r in listening(max_age=120) if r["proto"] == "tcp" and r["process"] == "sshd"]
     return sorted(set(ports + from_sockets)) or [22]
 
 

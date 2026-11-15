@@ -152,7 +152,9 @@ def sshd_config():
 
 def ssh_ports():
     _, ports = sshd_config()
-    from_sockets = [r["port"] for r in listening() if r["proto"] == "tcp" and r["process"] == "sshd"]
+    # sshd's sockets change only when its settings do (the agent then clears the cache): a scan of every
+    # process's open files every 2 minutes is plenty
+    from_sockets = [r["port"] for r in listening(max_age=120) if r["proto"] == "tcp" and r["process"] == "sshd"]
     return sorted(set(ports + from_sockets)) or [22]
 
 
