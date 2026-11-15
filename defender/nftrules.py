@@ -31,6 +31,12 @@ SSH_NEW_PER_MIN = 12      # new SSH connections per source and minute before the
 COUNTERS = ("allow", "block", "ban", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
             "udp", "icmp", "autoban", "new", "all")
 ALWAYS_TRUSTED = ("lo", "docker*", "br-*", "veth*")
+# Cloudflare's edge (https://www.cloudflare.com/ips/). A site or proxy behind Cloudflare receives all of its
+# visitors from these addresses, so per-source limits would hit thousands of users at once.
+CDN4 = ("173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18",
+        "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+        "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22")
+CDN6 = ("2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32", "2405:8100::/32", "2a06:98c0::/29", "2c0f:f248::/32")
 
 
 def ports_expr(items):
@@ -68,7 +74,9 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=()):
     lines = ["table inet defender", "delete table inet defender", "table inet defender {"]
     lines += [f"    counter c_{c} {{ }}" for c in COUNTERS]
     lines += [set_block("allow4", "ipv4", allow4), set_block("allow6", "ipv6", allow6),
-              set_block("block4", "ipv4", block4), set_block("block6", "ipv6", block6)]
+              set_block("block4", "ipv4", block4), set_block("block6", "ipv6", block6),
+              set_block("cdn4", "ipv4", list(CDN4) if cfg.get("trust_cdn", True) else []),
+              set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else [])]
     for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
         els = ban_elements.get(name) or []
         body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
@@ -92,6 +100,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=()):
           "        ip6 saddr @block6 counter name c_block drop",
           "        ip saddr @ban4 counter name c_ban drop",
           "        ip6 saddr @ban6 counter name c_ban drop",
+          "        ip saddr @cdn4 accept",   # blocklist and bans above still apply to the CDN
+          "        ip6 saddr @cdn6 accept",
           "        counter name c_all",
           "        ct state established,related accept"]
     if cfg["ddos"].get("drop_invalid", True):

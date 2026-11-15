@@ -574,7 +574,8 @@ ssh root@SERVER 'bash install.sh'
 ### ایمنی (تا هرگز خودتان را بیرون نیندازید)
 
 - پورت **SSH** و پورت **پنل** همیشه باز می‌مانند؛ لوپ‌بک، داکر و تانل‌ها (`wg*`، `gre*`، `tun*`، …) هرگز فیلتر نمی‌شوند.
-- آی‌پی کسانی که با SSH وارد شده‌اند خودکار مجاز است و آدرس خود سرور هرگز مسدود نمی‌شود.
+- آی‌پی کسانی که با SSH وارد شده‌اند (الان یا در ۷ روز اخیر، از جمله اسکریپت‌ها و ابزارهایی که با SSH فرمان می‌زنند) خودکار مجاز است و آدرس خود سرور هرگز مسدود نمی‌شود.
+- آی‌پی‌های **Cloudflare** از محدودیت هر آی‌پی معاف‌اند (قابل خاموش کردن در تب فایروال)، چون همه‌ی کاربران سایت یا پروکسی پشت Cloudflare از همین آی‌پی‌ها می‌آیند.
 - هر تغییر فایروال **۶۰ ثانیه آزمایش** می‌شود؛ مرورگر بلافاصله تأیید می‌کند و اگر پنل دیگر در دسترس نباشد، تغییر خودش برمی‌گردد.
 - همه‌ی قوانین در یک جدول جدا (`inet defender`) هستند و فقط می‌توانند **محدود کنند**؛ قوانین داکر، fail2ban و ufw دست نمی‌خورند.
 - رفتن به حالت سخت‌گیر، همه‌ی پورت‌هایی که الان استفاده می‌شوند را از قبل در لیست مجاز می‌گذارد.
@@ -3345,7 +3346,8 @@ __MONITORING_EOF__
     df_cv_scan: "Port scans with forged TCP flags and invalid packets", df_cv_ssh: "SSH brute force (connections and failed logins)", df_cv_l7: "Not covered: floods of valid HTTP requests (use a CDN or a reverse proxy with rate limits for that).",
     // lists
     df_add_ip: "Add an address", df_ip: "IP or network", df_action: "Action", df_a_block: "Block permanently", df_a_ban1h: "Ban for 1 hour", df_a_ban24h: "Ban for 24 hours", df_a_ban7d: "Ban for 7 days", df_a_allow: "Allow (never blocked)",
-    df_admins: "Logged in over SSH from {ips}: these addresses are always allowed.", df_bans: "Banned now", df_filter: "Filter…", df_source: "Banned by", df_left: "Ends in",
+    df_admins: "Trusted because they logged in over SSH (now or in the last 7 days), so they are never limited or banned: {ips}",
+    df_cdn: "Trust Cloudflare's addresses", df_cdn_sub: "For sites and proxies behind Cloudflare: all their visitors arrive from Cloudflare's IPs, so per-IP limits would hit everyone at once. The blocklist still applies.", df_bans: "Banned now", df_filter: "Filter…", df_source: "Banned by", df_left: "Ends in",
     df_s_auto: "Flood", df_s_ssh: "SSH guard", df_s_manual: "Manual", df_s_fail2ban: "fail2ban", df_blocklist: "Blocklist", df_allowlist: "Allowlist", df_added: "Added",
     df_f2b_note: "fail2ban's bans are shown for reference; manage them with fail2ban-client.",
     // ssh
@@ -3425,7 +3427,8 @@ __MONITORING_EOF__
     df_covers: "چه چیزی مسدود می‌شود", df_cv_syn: "SYN فلاد و فلاد اتصال‌های نیمه‌باز", df_cv_conn: "فلاد اتصال و احتکار اتصال (مثل slow-loris)", df_cv_udp: "UDP فلاد و پینگ فلاد",
     df_cv_scan: "اسکن پورت با فلگ‌های جعلی و بسته‌های نامعتبر", df_cv_ssh: "حمله‌ی رمز به SSH (اتصال‌ها و ورودهای ناموفق)", df_cv_l7: "پوشش داده نمی‌شود: فلاد درخواست‌های HTTP معتبر (برای آن از CDN یا ریورس‌پروکسی با محدودیت نرخ استفاده کنید).",
     df_add_ip: "افزودن آدرس", df_ip: "آی‌پی یا شبکه", df_action: "کار", df_a_block: "مسدود همیشگی", df_a_ban1h: "مسدود ۱ ساعت", df_a_ban24h: "مسدود ۲۴ ساعت", df_a_ban7d: "مسدود ۷ روز", df_a_allow: "مجاز (هرگز مسدود نشود)",
-    df_admins: "با SSH از {ips} وارد شده‌اید: این آدرس‌ها همیشه مجازند.", df_bans: "مسدودهای فعلی", df_filter: "جستجو…", df_source: "مسدودکننده", df_left: "پایان تا",
+    df_admins: "این آدرس‌ها چون با SSH وارد شده‌اند (الان یا در ۷ روز اخیر) مورد اعتمادند و هرگز محدود یا مسدود نمی‌شوند: {ips}",
+    df_cdn: "اعتماد به آدرس‌های Cloudflare", df_cdn_sub: "برای سایت‌ها و پروکسی‌های پشت Cloudflare: همه‌ی کاربرانشان از آی‌پی‌های Cloudflare می‌آیند، پس محدودیت هر آی‌پی همه را با هم می‌بندد. لیست سیاه همچنان اعمال می‌شود.", df_bans: "مسدودهای فعلی", df_filter: "جستجو…", df_source: "مسدودکننده", df_left: "پایان تا",
     df_s_auto: "فلاد", df_s_ssh: "محافظ SSH", df_s_manual: "دستی", df_s_fail2ban: "fail2ban", df_blocklist: "لیست سیاه", df_allowlist: "لیست سفید", df_added: "افزوده‌شده",
     df_f2b_note: "مسدودی‌های fail2ban فقط برای اطلاع نمایش داده می‌شوند؛ با fail2ban-client مدیریتشان کنید.",
     df_ssh_title: "محافظ حمله‌ی رمز SSH", df_ssh_sub: "لاگ ورود SSH را می‌خواند و آدرس‌هایی که مدام ورود ناموفق دارند را مسدود می‌کند. کاربرهای واردشده و آدرس‌هایی که امروز موفق وارد شده‌اند هرگز مسدود نمی‌شوند.",
@@ -3706,6 +3709,7 @@ __MONITORING_EOF__
       <section class="sec"><div class="sec-head df-head-row"><div><h3>${icon("list")}${esc(t("df_rules"))}</h3><p class="muted">${esc(t("df_rules_sub"))}</p></div>
         <button type="button" class="btn small primary" data-a="fw-add">${icon("plus")}<span>${esc(t("df_add_rule"))}</span></button></div>${rules}</section>
       <section class="sec"><div class="sec-head"><h3>${icon("network")}${esc(t("df_ifaces"))}</h3><p class="muted">${esc(t("df_ifaces_sub"))}</p></div>
+        <form data-f="cdn" class="df-cdn"><label class="df-switch"><span class="switch"><input type="checkbox" name="trust_cdn" ${st.config.trust_cdn !== false ? "checked" : ""}><span></span></span><span><b>${esc(t("df_cdn"))}</b><small>${esc(t("df_cdn_sub"))}</small></span></label></form>
         <div class="chips">${ifaces}</div><form class="inline-field df-inline" data-f="if-add"><input name="iface" dir="ltr" list="df-iflist" placeholder="wg0" autocomplete="off" aria-label="${esc(t("df_iface_add"))}" maxlength="16"><datalist id="df-iflist">${known}</datalist><button type="submit" class="btn small">${icon("plus")}<span>${esc(t("df_iface_add"))}</span></button></form></section>
       <div class="df-actions${dirty ? " dirty" : ""}"><span class="muted">${dirty ? esc(t("df_dirty")) : ""}</span>
         <button type="button" class="btn" data-a="rules">${icon("eye")}<span>${esc(t("df_review"))}</span></button>
@@ -3904,6 +3908,7 @@ __MONITORING_EOF__
     if (!form || e.target.type !== "checkbox") return;
     const f = form.dataset.f, on = e.target.checked, name = e.target.name;
     if (f === "esc") { if (!(await apply(e.target, "config", { auto_escalate: on, _rollback: false }, t("saved")))) e.target.checked = !on; }
+    if (f === "cdn") { if (!(await apply(e.target, "config", { trust_cdn: on, _what: "cdn" }, t("df_kept")))) e.target.checked = !on; }
     if (f === "notify") { if (!(await apply(e.target, "config", { notify: { [name]: on }, _rollback: false }, t("saved")))) e.target.checked = !on; }
   }
 
@@ -4006,6 +4011,7 @@ DEFAULT = {
     "block": [],
     "ssh_guard": {"enabled": True, "l4": True, "failures": 5, "window": 10, "ban": 60, "exempt_private": True},
     "trust_logged_in": True,
+    "trust_cdn": True,
     "sysctl": {"applied": [], "original": {}},
     "notify": {"attacks": True, "bans": False},
 }
@@ -4257,12 +4263,29 @@ def own_or_admin(ip):
 
 
 _admin = {"at": 0, "ips": []}
+TRUST_DAYS = 7   # an address that logged in over SSH is trusted this long (whoever logs in is root anyway)
 
 
 def admin_ips():
+    """Never limited or banned: users logged in right now (utmp) and addresses with a successful SSH
+    login in the last TRUST_DAYS (scripts and tools that run commands over SSH never show up in utmp)."""
     if time.time() - _admin["at"] > 15:
-        _admin.update(at=time.time(), ips=hostinfo.ssh_sessions())
+        now = time.time()
+        recent = {ip for ip, t in list(GUARD["recent_ok"].items()) if now - t < TRUST_DAYS * 86400}
+        _admin.update(at=now, ips=sorted(set(hostinfo.ssh_sessions()) | recent))
     return _admin["ips"]
+
+
+def seed_recent_logins():
+    """Successful logins already in the log (current and previous file) count as recent."""
+    now = time.time()
+    for name in ("/var/log/auth.log.1", "/var/log/auth.log"):
+        for ip in OK_RE.findall(hostinfo.read(name, 50_000_000) or ""):
+            try:
+                ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            GUARD["recent_ok"][ip] = now
 
 
 # ------------------------------------------------------------------ bans
@@ -4521,7 +4544,7 @@ def status():
             "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
             "effective": effective_limits(), "profiles": nftrules.PROFILES,
             "attack": {k: v for k, v in STATE["attack"].items()},
-            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "notify")},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "notify")},
             "allow": CFG["allow"], "block": CFG["block"],
             "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
             "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
@@ -4563,7 +4586,7 @@ def _port_match(p, r):
 def _cfg_patch(body):
     """Only known keys can be changed from the panel."""
     def mut(c):
-        for k in ("enabled", "auto_escalate", "trust_logged_in"):
+        for k in ("enabled", "auto_escalate", "trust_logged_in", "trust_cdn"):
             if k in body:
                 c[k] = bool(body[k])
         if "profile" in body:
@@ -4766,6 +4789,7 @@ def main():
     os.chown(SOCK, 0, PANEL_GID)
     os.chmod(SOCK, 0o660)
     reapply_sysctl()
+    seed_recent_logins()
     try:
         apply()
         if CFG["enabled"]:
@@ -4818,6 +4842,12 @@ SSH_NEW_PER_MIN = 12      # new SSH connections per source and minute before the
 COUNTERS = ("allow", "block", "ban", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc",
             "udp", "icmp", "autoban", "new", "all")
 ALWAYS_TRUSTED = ("lo", "docker*", "br-*", "veth*")
+# Cloudflare's edge (https://www.cloudflare.com/ips/). A site or proxy behind Cloudflare receives all of its
+# visitors from these addresses, so per-source limits would hit thousands of users at once.
+CDN4 = ("173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18",
+        "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+        "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22")
+CDN6 = ("2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32", "2405:8100::/32", "2a06:98c0::/29", "2c0f:f248::/32")
 
 
 def ports_expr(items):
@@ -4855,7 +4885,9 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=()):
     lines = ["table inet defender", "delete table inet defender", "table inet defender {"]
     lines += [f"    counter c_{c} {{ }}" for c in COUNTERS]
     lines += [set_block("allow4", "ipv4", allow4), set_block("allow6", "ipv6", allow6),
-              set_block("block4", "ipv4", block4), set_block("block6", "ipv6", block6)]
+              set_block("block4", "ipv4", block4), set_block("block6", "ipv6", block6),
+              set_block("cdn4", "ipv4", list(CDN4) if cfg.get("trust_cdn", True) else []),
+              set_block("cdn6", "ipv6", list(CDN6) if cfg.get("trust_cdn", True) else [])]
     for fam, name in (("ipv4", "ban4"), ("ipv6", "ban6")):
         els = ban_elements.get(name) or []
         body = f" elements = {{ {', '.join(f'{ip} timeout {int(secs)}s' for ip, secs in els)} }};" if els else ""
@@ -4879,6 +4911,8 @@ def build(cfg, limits, ban_elements=None, ssh_ports=(), panel_ports=()):
           "        ip6 saddr @block6 counter name c_block drop",
           "        ip saddr @ban4 counter name c_ban drop",
           "        ip6 saddr @ban6 counter name c_ban drop",
+          "        ip saddr @cdn4 accept",   # blocklist and bans above still apply to the CDN
+          "        ip6 saddr @cdn6 accept",
           "        counter name c_all",
           "        ct state established,related accept"]
     if cfg["ddos"].get("drop_invalid", True):

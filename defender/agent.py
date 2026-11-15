@@ -54,6 +54,7 @@ DEFAULT = {
     "block": [],
     "ssh_guard": {"enabled": True, "l4": True, "failures": 5, "window": 10, "ban": 60, "exempt_private": True},
     "trust_logged_in": True,
+    "trust_cdn": True,
     "sysctl": {"applied": [], "original": {}},
     "notify": {"attacks": True, "bans": False},
 }
@@ -305,12 +306,29 @@ def own_or_admin(ip):
 
 
 _admin = {"at": 0, "ips": []}
+TRUST_DAYS = 7   # an address that logged in over SSH is trusted this long (whoever logs in is root anyway)
 
 
 def admin_ips():
+    """Never limited or banned: users logged in right now (utmp) and addresses with a successful SSH
+    login in the last TRUST_DAYS (scripts and tools that run commands over SSH never show up in utmp)."""
     if time.time() - _admin["at"] > 15:
-        _admin.update(at=time.time(), ips=hostinfo.ssh_sessions())
+        now = time.time()
+        recent = {ip for ip, t in list(GUARD["recent_ok"].items()) if now - t < TRUST_DAYS * 86400}
+        _admin.update(at=now, ips=sorted(set(hostinfo.ssh_sessions()) | recent))
     return _admin["ips"]
+
+
+def seed_recent_logins():
+    """Successful logins already in the log (current and previous file) count as recent."""
+    now = time.time()
+    for name in ("/var/log/auth.log.1", "/var/log/auth.log"):
+        for ip in OK_RE.findall(hostinfo.read(name, 50_000_000) or ""):
+            try:
+                ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            GUARD["recent_ok"][ip] = now
 
 
 # ------------------------------------------------------------------ bans
@@ -569,7 +587,7 @@ def status():
             "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
             "effective": effective_limits(), "profiles": nftrules.PROFILES,
             "attack": {k: v for k, v in STATE["attack"].items()},
-            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "notify")},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "trust_cdn", "notify")},
             "allow": CFG["allow"], "block": CFG["block"],
             "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
             "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
@@ -611,7 +629,7 @@ def _port_match(p, r):
 def _cfg_patch(body):
     """Only known keys can be changed from the panel."""
     def mut(c):
-        for k in ("enabled", "auto_escalate", "trust_logged_in"):
+        for k in ("enabled", "auto_escalate", "trust_logged_in", "trust_cdn"):
             if k in body:
                 c[k] = bool(body[k])
         if "profile" in body:
@@ -814,6 +832,7 @@ def main():
     os.chown(SOCK, 0, PANEL_GID)
     os.chmod(SOCK, 0o660)
     reapply_sysctl()
+    seed_recent_logins()
     try:
         apply()
         if CFG["enabled"]:
