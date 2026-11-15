@@ -1,3 +1,5 @@
 .env
 alertmanager/alertmanager.yml
 data/
+__pycache__/
+*.pyc
