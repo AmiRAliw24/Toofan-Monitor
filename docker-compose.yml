@@ -116,6 +116,26 @@ services:
       - ./panel:/app:ro
       - ./data/panel:/data
 
+  # Defender: firewall, anti-DDoS, SSH brute-force guard and kernel hardening, controlled from the panel.
+  # It needs the host's network (nftables) and PIDs (open ports, logged-in users) and root, so it is the
+  # only privileged part; the panel talks to it through a unix socket in ./data/defender. Protection is
+  # off until it is turned on in the panel. Emergency off switch: nft delete table inet defender
+  defender:
+    build: ./defender
+    image: server-monitoring-defender:1
+    pull_policy: build
+    restart: always
+    network_mode: host
+    pid: host
+    privileged: true
+    environment:
+      PANEL_PORTS: ${PANEL_PORT:-3000}
+      PANEL_GID: "65534"
+      DATA_DIR: /data
+    volumes:
+      - ./defender:/app:ro
+      - ./data/defender:/data
+
   panel:
     image: python:3.12-alpine
     restart: always
@@ -145,6 +165,8 @@ services:
       - ./prometheus/rules:/config/rules
       - ./alertmanager:/config/alertmanager
       - ./data/panel:/data
+      # The Defender agent's socket (see the defender service).
+      - ./data/defender:/defender
       # Docker control. Whoever can use this socket is root on the host: keep the panel password strong.
       # To switch it off set PANEL_DOCKER_CONTROL=0 in .env (and/or DOCKER_SOCKET=/dev/null).
       - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock

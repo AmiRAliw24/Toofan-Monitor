@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Monitoring panel backend: login, static files, a read-only JSON API over Prometheus, and the
-management API (sites, servers, alert rules, Telegram, password) and a live one-second stream (live.py).
+management API (sites, servers, alert rules, Telegram, password), a live one-second stream (live.py) and
+the Defender (firewall / anti-DDoS, proxied to its agent, see defender.py).
 
 Standard library only. Anything that changes state needs the session cookie, a JSON body and the
 X-Panel header (a cross-site page cannot send that header), and is checked against the Origin.
@@ -15,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import defender
 import dockerapi
 import health
 import icons
@@ -46,6 +48,7 @@ PUBLIC_FILES = {
 PRIVATE_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    "/defender.js": ("defender.js", "text/javascript; charset=utf-8"),
 }
 # Generated icons, served without a login so a browser tab can always show them.
 ICONS = {
@@ -237,6 +240,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(502, {"error": str(e), "saved": True})
         except dockerapi.DockerError as e:
             return self._json(502, {"error": str(e)})
+        except defender.AgentError as e:
+            return self._json(503, {"error": str(e), "agent": False})
         except PermissionError:
             return self._json(500, {"error": WRITE_HINT})
         except Exception as e:  # prometheus unreachable, bad response, ...
@@ -263,6 +268,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(*PRIVATE_FILES[path])
         if path == "/api/live":
             return self._live({k: v[0] for k, v in parse_qs(url.query).items()})
+        if path.startswith("/api/defender/"):
+            return self._run(defender.get, path[len("/api/defender/"):], {k: v[0] for k, v in parse_qs(url.query).items()})
         if path in GET_API:
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             return self._run(GET_API[path], params)
@@ -337,7 +344,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True}, [("Set-Cookie", f"{COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict")])
         if path == "/login":
             return self._login()
-        if path not in POST_API:
+        fn = POST_API.get(path)
+        if fn is None and path.startswith("/api/defender/") and path[len("/api/defender/"):] in defender.POST_PATHS:
+            name = path[len("/api/defender/"):]
+            fn = lambda body, _h: defender.post(name, body)  # noqa: E731
+        if fn is None:
             return self._json(404, {"error": "not found"})
         if not self._authed():
             return self._json(401, {"error": "unauthorized"})
@@ -347,7 +358,7 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
         except BadRequest as e:
             return self._json(400, {"error": str(e)})
-        self._run(POST_API[path], body, self)
+        self._run(fn, body, self)
 
     def _login(self):
         try:
@@ -369,6 +380,7 @@ def main():
     except OSError as e:
         print(f"WARNING: cannot prepare configuration files ({e}). {WRITE_HINT}", flush=True)
     threading.Thread(target=store.auto_loop, daemon=True).start()
+    defender.start()
     print(f"panel {VERSION} listening on :{PORT}, prometheus at {monitor.PROM}, docker control "
           f"{'on' if dockerapi.ENABLED else 'off'}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

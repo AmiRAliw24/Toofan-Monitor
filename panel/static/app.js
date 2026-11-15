@@ -523,7 +523,7 @@
   const LIVE_KEEP = 300;
   state.live = { status: "off", error: "", samples: [], es: null, instance: null, retry: 0 };
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const liveWanted = () => !document.hidden && (state.view === "overview" || state.view === "network");
+  const liveWanted = () => !document.hidden && ["overview", "network", "defender"].includes(state.view);
   function liveNow() {
     const L = state.live, s = L.samples[L.samples.length - 1];
     return L.status === "live" && s && Date.now() / 1000 - s.t < 8 ? s : null;
@@ -1632,9 +1632,26 @@
   let resizeTimer;
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (state.view === "overview" || state.view === "network") renderView(false); }, 300); });
 
-  applyLocale();
-  state.view = VIEWS.some((v) => v.id === location.hash.slice(1)) ? location.hash.slice(1) : "overview";
-  renderNav();
-  tick(true);
-  setInterval(() => { if (!document.hidden) tick(false); }, 10000);
+  // ---------------------------------------------------------------- extension point (defender.js and future pages)
+  window.Panel = {
+    t, esc, nf, num, fmtBytes, fmtRate, fmtDur, ago, level, icon, api, post, act, toast, openDialog, confirmBox,
+    table, pill, field, btnIcon, addButton, drawChart, sparkline, tween, setHTML, renderView, state,
+    registerView(view, impl, after) {
+      const i = VIEWS.findIndex((v) => v.id === after);
+      VIEWS.splice(i < 0 ? VIEWS.length : i + 1, 0, view);
+      IMPL[view.id] = impl;
+    },
+    addStrings(en, fa) { Object.assign(T.en, en); Object.assign(T.fa, fa); },
+    addIcons(map) { Object.assign(P, map); },
+    setTabs(ids) { TAB_IDS.splice(0, TAB_IDS.length, ...ids); },
+  };
+
+  // Boot once every deferred script (the extra pages) has registered itself.
+  document.addEventListener("DOMContentLoaded", () => {
+    applyLocale();
+    state.view = VIEWS.some((v) => v.id === location.hash.slice(1)) ? location.hash.slice(1) : "overview";
+    renderNav();
+    tick(true);
+    setInterval(() => { if (!document.hidden) tick(false); }, 10000);
+  });
 })();

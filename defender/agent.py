@@ -1,0 +1,833 @@
+#!/usr/bin/env python3
+"""Defender agent: firewall, anti-DDoS, SSH brute-force guard and kernel hardening for this server.
+
+Runs as root in its own container with the host's network and PID namespaces (see docker-compose.yml)
+and is controlled by the panel through a unix socket (DATA_DIR/agent.sock). Standard library only;
+nft and conntrack come from the image.
+
+Safety rules, in order of importance:
+  * protection is off until someone turns it on in the panel;
+  * the SSH and panel ports are always reachable, loopback / Docker / VPN tunnels are never filtered,
+    and the IPs of logged-in SSH users are never banned;
+  * every change to the rules is undone after ROLLBACK_SECONDS unless the panel confirms it is still
+    reachable (the browser does that by itself right after applying);
+  * all rules sit in their own table (inet defender), so removing it restores the server exactly:
+        nft delete table inet defender
+"""
+import collections
+import copy
+import ipaddress
+import json
+import os
+import re
+import signal
+import socket
+import socketserver
+import subprocess
+import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import hostinfo  # noqa: E402
+import nftrules  # noqa: E402
+
+VERSION = "1.0"
+DATA = os.environ.get("DATA_DIR", "/data")
+SOCK = os.path.join(DATA, "agent.sock")
+PANEL_GID = int(os.environ.get("PANEL_GID", "65534"))
+PANEL_PORTS = sorted({int(p) for p in re.findall(r"\d+", os.environ.get("PANEL_PORTS", "3000"))})
+ROLLBACK_SECONDS = 60
+KEEP = 300                     # live samples (5 minutes)
+DEESCALATE_AFTER = 600         # back to the chosen profile 10 minutes after an attack ended
+LOCK = threading.RLock()
+
+DEFAULT = {
+    "enabled": False,
+    "profile": "normal",
+    "limits": dict(nftrules.PROFILES["normal"]),
+    "auto_escalate": True,
+    "ddos": {"drop_invalid": True, "bad_flags": True},
+    "firewall": {"mode": "open", "ports": [], "trusted_ifaces": ["wg*", "gre*", "tun*", "ipip*", "ppp*", "tailscale*", "zt*"]},
+    "allow": [],
+    "block": [],
+    "ssh_guard": {"enabled": True, "l4": True, "failures": 5, "window": 10, "ban": 60, "exempt_private": True},
+    "trust_logged_in": True,
+    "sysctl": {"applied": [], "original": {}},
+    "notify": {"attacks": True, "bans": False},
+}
+
+
+def log(*a):
+    print(time.strftime("%H:%M:%S"), *a, flush=True)
+
+
+# ------------------------------------------------------------------ persistence
+
+def _path(name):
+    return os.path.join(DATA, name)
+
+
+def load_json(name, default):
+    try:
+        with open(_path(name)) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return copy.deepcopy(default)
+
+
+def save_json(name, obj):
+    tmp = _path(name + ".tmp")
+    with open(tmp, "w") as f:
+        json.dump(obj, f, indent=1)
+    os.replace(tmp, _path(name))
+
+
+def merged_default(cfg):
+    out = copy.deepcopy(DEFAULT)
+    for k, v in (cfg or {}).items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k].update(v)
+        else:
+            out[k] = v
+    return out
+
+
+CFG = merged_default(load_json("config.json", {}))
+BANS = load_json("bans.json", {})            # ip -> {until, reason, source}: bans the agent made (for the panel)
+EVENTS = collections.deque(load_json("events.json", []), maxlen=400)
+STATE = {
+    "applied": False, "error": "", "pending": None, "escalated": False, "escalated_at": 0,
+    "attack": {"active": False, "since": 0, "ended": 0, "peak": {}, "reason": ""},
+    "samples": collections.deque(maxlen=KEEP), "bans_count": 0, "started": time.time(),
+}
+
+
+def event(kind, **data):
+    with LOCK:
+        eid = (EVENTS[-1]["id"] + 1) if EVENTS else 1
+        EVENTS.append({"id": eid, "t": round(time.time(), 1), "kind": kind, **data})
+        save_json("events.json", list(EVENTS))
+    log("event", kind, data)
+
+
+# ------------------------------------------------------------------ nft
+
+def nft(args, stdin=None, check=True):
+    p = subprocess.run(["nft"] + args, input=stdin, capture_output=True, text=True, timeout=20)
+    if check and p.returncode != 0:
+        raise RuntimeError((p.stderr or p.stdout).strip()[-800:] or f"nft exited with {p.returncode}")
+    return p.stdout
+
+
+def table_exists():
+    return subprocess.run(["nft", "list", "table", "inet", "defender"], capture_output=True, timeout=10).returncode == 0
+
+
+def current_bans():
+    """Elements of the ban sets with their remaining time, so a rebuild of the table keeps them."""
+    out = {"ban4": [], "ban6": []}
+    if not table_exists():
+        return out
+    for name in out:
+        try:
+            data = json.loads(nft(["-j", "list", "set", "inet", "defender", name]))
+        except (RuntimeError, ValueError):
+            continue
+        for item in data.get("nftables", []):
+            for el in (item.get("set") or {}).get("elem", []) or []:
+                if isinstance(el, dict) and "elem" in el:
+                    e = el["elem"]
+                    left = e.get("expires", e.get("timeout", 0))
+                    if isinstance(e.get("val"), str) and left and left > 1:
+                        out[name].append((e["val"], left))
+                elif isinstance(el, str):
+                    out[name].append((el, 900))
+    return out
+
+
+def effective_limits():
+    return dict(nftrules.PROFILES["attack"]) if STATE["escalated"] else dict(CFG["limits"])
+
+
+def ruleset(cfg=None):
+    cfg = cfg or CFG
+    allow_extra = [{"ip": ip} for ip in admin_ips()] if cfg.get("trust_logged_in", True) else []
+    view = dict(cfg, allow=cfg["allow"] + allow_extra)
+    return nftrules.build(view, effective_limits(), current_bans(), hostinfo.ssh_ports(), PANEL_PORTS)
+
+
+def apply(cfg=None):
+    """Make the kernel match the configuration (atomic: the whole table is replaced at once)."""
+    cfg = cfg or CFG
+    with LOCK:
+        if not cfg["enabled"]:
+            if table_exists():
+                nft(["delete", "table", "inet", "defender"])
+            STATE["applied"] = False
+            STATE["error"] = ""
+            return
+        text = ruleset(cfg)
+        nft(["-c", "-f", "-"], stdin=text)      # dry run against the kernel first
+        nft(["-f", "-"], stdin=text)
+        STATE["applied"] = True
+        STATE["error"] = ""
+
+
+def change(mutator, rollback=True, what="config"):
+    """Apply a configuration change. With rollback the old rules come back unless confirmed in time."""
+    global CFG
+    with LOCK:
+        prev = copy.deepcopy(CFG)
+        new = copy.deepcopy(CFG)
+        mutator(new)
+        validate(new)
+        try:
+            apply(new)
+        except Exception as e:
+            try:
+                apply(prev)
+            except Exception:
+                pass
+            raise ValueError(f"The new rules were rejected, nothing changed: {e}")
+        CFG = new
+        save_json("config.json", CFG)
+        if rollback and (new["enabled"] or prev["enabled"]):
+            old_pending = STATE["pending"]
+            STATE["pending"] = {"until": time.time() + ROLLBACK_SECONDS,
+                                "prev": old_pending["prev"] if old_pending else prev, "what": what}
+        event("applied", what=what)
+        return status()
+
+
+def confirm():
+    with LOCK:
+        if STATE["pending"]:
+            STATE["pending"] = None
+            event("confirmed")
+    return status()
+
+
+def rollback(reason="timeout"):
+    global CFG
+    with LOCK:
+        p = STATE["pending"]
+        if not p:
+            return status()
+        STATE["pending"] = None
+        CFG = p["prev"]
+        save_json("config.json", CFG)
+        try:
+            apply(CFG)
+        except Exception as e:
+            STATE["error"] = str(e)
+        event("rollback", reason=reason)
+    return status()
+
+
+# ------------------------------------------------------------------ validation
+
+PORT_RE = re.compile(r"^\d{1,5}(-\d{1,5})?$")
+IFACE_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,15}\*?$")
+
+
+def net_str(net):
+    """1.2.3.4 for a single address, 10.0.0.0/8 for a network."""
+    return str(net.network_address) if net.num_addresses == 1 else str(net)
+
+
+def parse_net(value, allow_any=False):
+    try:
+        net = ipaddress.ip_network(str(value).strip(), strict=False)
+    except ValueError:
+        raise ValueError(f"Not an IP address or network: {value}")
+    if not allow_any and net.prefixlen < (8 if net.version == 4 else 32):
+        raise ValueError(f"{value} is too large a range")
+    return net
+
+
+def validate(cfg):
+    if cfg["profile"] not in list(nftrules.PROFILES) + ["custom"]:
+        raise ValueError("unknown profile")
+    for k, (lo, hi) in nftrules.LIMIT_KEYS.items():
+        v = cfg["limits"].get(k)
+        if not isinstance(v, (int, float)) or not lo <= v <= hi:
+            raise ValueError(f"{k}: must be between {lo} and {hi}")
+        cfg["limits"][k] = int(v)
+    fw = cfg["firewall"]
+    if fw["mode"] not in ("open", "strict"):
+        raise ValueError("mode must be open or strict")
+    seen = set()
+    for p in fw["ports"]:
+        p["port"] = str(p.get("port", "")).strip()
+        if p.get("proto") not in ("tcp", "udp", "both") or not PORT_RE.match(p["port"]):
+            raise ValueError(f"Invalid port: {p.get('port')}")
+        a, _, b = p["port"].partition("-")
+        if not (1 <= int(a) <= 65535) or (b and not int(a) < int(b) <= 65535):
+            raise ValueError(f"Invalid port range: {p['port']}")
+        if p.get("from"):
+            p["from"] = net_str(parse_net(p["from"], allow_any=True))
+        p["note"] = str(p.get("note", ""))[:80]
+        key = (p["proto"], p["port"], p.get("from") or "")
+        if key in seen:
+            raise ValueError(f"Port {p['port']} is listed twice")
+        seen.add(key)
+    if len(fw["ports"]) > 300:
+        raise ValueError("too many ports")
+    for i in fw["trusted_ifaces"]:
+        if not IFACE_RE.match(i):
+            raise ValueError(f"Invalid interface name: {i}")
+    for lst in ("allow", "block"):
+        for e in cfg[lst]:
+            e["ip"] = net_str(parse_net(e["ip"], allow_any=(lst == "allow")))
+            e["note"] = str(e.get("note", ""))[:80]
+        if len(cfg[lst]) > 5000:
+            raise ValueError("list too long")
+    g = cfg["ssh_guard"]
+    for k, lo, hi in (("failures", 2, 100), ("window", 1, 1440), ("ban", 1, 525600)):
+        if not isinstance(g.get(k), (int, float)) or not lo <= g[k] <= hi:
+            raise ValueError(f"SSH guard {k}: must be between {lo} and {hi}")
+        g[k] = int(g[k])
+
+
+def own_or_admin(ip):
+    """True for addresses that must never be blocked: this server, logged-in users, the allowlist."""
+    net = ipaddress.ip_network(ip, strict=False)
+    for a in hostinfo.local_addresses() + admin_ips():
+        try:
+            if ipaddress.ip_address(a) in net:
+                return True
+        except ValueError:
+            pass
+    return any(net.subnet_of(parse_net(a["ip"], True)) for a in CFG["allow"]
+               if ipaddress.ip_network(a["ip"], strict=False).version == net.version)
+
+
+_admin = {"at": 0, "ips": []}
+
+
+def admin_ips():
+    if time.time() - _admin["at"] > 15:
+        _admin.update(at=time.time(), ips=hostinfo.ssh_sessions())
+    return _admin["ips"]
+
+
+# ------------------------------------------------------------------ bans
+
+def ban(ip, minutes, reason, source):
+    net = parse_net(ip)
+    if net.num_addresses > 1:
+        raise ValueError("Temporary bans are for single addresses; use the blocklist for networks")
+    addr = str(net.network_address)
+    if own_or_admin(addr):
+        raise ValueError(f"{addr} is this server, a logged-in user or on the allowlist; it is never banned")
+    if not STATE["applied"]:
+        raise ValueError("Turn protection on first")
+    name = "ban4" if net.version == 4 else "ban6"
+    nft(["add", "element", "inet", "defender", name, f"{{ {addr} timeout {int(minutes)}m }}"])
+    with LOCK:
+        BANS[addr] = {"until": time.time() + minutes * 60, "reason": reason, "source": source}
+        save_json("bans.json", BANS)
+    return addr
+
+
+def unban(ip):
+    addr = str(parse_net(ip).network_address)
+    if table_exists():
+        name = "ban4" if ":" not in addr else "ban6"
+        nft(["delete", "element", "inet", "defender", name, f"{{ {addr} }}"], check=False)
+    with LOCK:
+        BANS.pop(addr, None)
+        save_json("bans.json", BANS)
+    event("unban", ip=addr)
+
+
+def ban_list():
+    now = time.time()
+    rows = []
+    for name, items in current_bans().items():
+        for ip, left in items:
+            meta = BANS.get(ip, {})
+            rows.append({"ip": ip, "left": int(left), "source": meta.get("source", "auto"), "reason": meta.get("reason", "rate")})
+    with LOCK:   # forget metadata of bans that ended
+        live = {r["ip"] for r in rows}
+        for ip in [k for k, v in BANS.items() if v["until"] < now or (STATE["applied"] and ip not in live and v["until"] - now < 5)]:
+            BANS.pop(ip, None)
+    for ip in hostinfo.fail2ban_bans():
+        rows.append({"ip": ip, "left": None, "source": "fail2ban", "reason": "fail2ban"})
+    return sorted(rows, key=lambda r: (r["source"] == "fail2ban", -(r["left"] or 0)))
+
+
+# ------------------------------------------------------------------ SSH guard (auth.log)
+
+IP = r"([0-9a-fA-F:.]+)"
+FAIL_RE = re.compile("|".join([
+    rf"Failed (?:password|publickey|none) for (?:invalid user )?\S+ from {IP}",
+    rf"Invalid user \S* ?from {IP}",
+    rf"maximum authentication attempts exceeded for (?:invalid user )?\S+ from {IP}",
+    rf"(?:Connection closed by|Disconnected from) (?:authenticating|invalid) user \S* ?{IP} port \d+ \[preauth\]",
+    rf"Did not receive identification string from {IP}",
+    rf"banner exchange: Connection from {IP} port \d+: invalid format",
+]))
+OK_RE = re.compile(r"Accepted \S+ for \S+ from ([0-9a-fA-F:.]+)")
+GUARD = {"failures": collections.defaultdict(collections.deque), "seen_24h": collections.deque(maxlen=200000),
+         "available": False, "recent_ok": {}}
+
+
+def ssh_guard_loop():
+    path = hostinfo.host_path("/var/log/auth.log")
+    f, inode = None, None
+    while True:
+        try:
+            st = os.stat(path)
+            if f is None or st.st_ino != inode or st.st_size < f.tell():
+                if f:
+                    f.close()
+                f = open(path, errors="replace")
+                if inode is None:
+                    f.seek(0, os.SEEK_END)     # first start: only new lines count
+                inode = st.st_ino
+                GUARD["available"] = True
+            for line in f.readlines():
+                ssh_line(line)
+        except OSError:
+            GUARD["available"] = False
+            f, inode = None, None
+        time.sleep(1)
+
+
+def ssh_line(line):
+    m = OK_RE.search(line)
+    if m:
+        GUARD["recent_ok"][m.group(1)] = time.time()
+        GUARD["failures"].pop(m.group(1), None)
+        return
+    m = FAIL_RE.search(line)
+    if not m:
+        return
+    ip = next(g for g in m.groups() if g)
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return
+    now = time.time()
+    GUARD["seen_24h"].append((now, ip))
+    g = CFG["ssh_guard"]
+    if not g["enabled"] or not STATE["applied"]:
+        return
+    if g.get("exempt_private") and (addr.is_private or addr in ipaddress.ip_network("100.64.0.0/10")):
+        return
+    if now - GUARD["recent_ok"].get(ip, 0) < 86400:
+        return   # logged in successfully from here today: a typo is not an attack
+    q = GUARD["failures"][ip]
+    q.append(now)
+    while q and now - q[0] > g["window"] * 60:
+        q.popleft()
+    if len(q) >= g["failures"]:
+        GUARD["failures"].pop(ip, None)
+        try:
+            ban(ip, g["ban"], "ssh", "ssh")
+            event("ssh_ban", ip=ip, failures=len(q), minutes=g["ban"])
+        except Exception as e:
+            log("ssh guard: cannot ban", ip, e)
+
+
+def ssh_stats():
+    now = time.time()
+    per = collections.Counter(ip for t, ip in GUARD["seen_24h"] if now - t < 86400)
+    return {"available": GUARD["available"], "failures_24h": sum(per.values()),
+            "top": [{"ip": ip, "n": n} for ip, n in per.most_common(10)]}
+
+
+# ------------------------------------------------------------------ live statistics and attack detection
+
+DROP_KEYS = ("block", "ban", "invalid", "badflags", "ssh", "policy", "syn", "conn", "conc", "udp", "icmp", "autoban")
+
+
+def read_counters():
+    if not STATE["applied"]:
+        return {}
+    try:
+        data = json.loads(nft(["-j", "list", "counters", "table", "inet", "defender"]))
+    except (RuntimeError, ValueError):
+        return {}
+    out = {}
+    for item in data.get("nftables", []):
+        c = item.get("counter")
+        if c and c.get("name", "").startswith("c_"):
+            out[c["name"][2:]] = c.get("packets", 0)
+    return out
+
+
+def stats_loop():
+    prev, prev_t = None, None
+    calm, hot, base = 0, 0, None
+    last_bans = 0
+    iface = hostinfo.public_iface()
+    while True:
+        t0 = time.time()
+        try:
+            cur = {"c": read_counters(), "dev": hostinfo.iface_counters(iface) if iface else None, "tcp": hostinfo.tcp_counters()}
+            if prev:
+                dt = max(0.2, t0 - prev_t)
+                rate = lambda a, b: max(0, (a - b) / dt) if a is not None and b is not None else None
+                drops = {k: rate(cur["c"].get(k), prev["c"].get(k)) or 0 for k in DROP_KEYS} if cur["c"] and prev["c"] else {}
+                ct = hostinfo.conntrack_usage()
+                s = {
+                    "t": round(t0, 2),
+                    "pps": rate((cur["dev"] or {}).get("rx_packets"), (prev["dev"] or {}).get("rx_packets")),
+                    "bps": rate((cur["dev"] or {}).get("rx_bytes"), (prev["dev"] or {}).get("rx_bytes")),
+                    "conns": rate(cur["tcp"]["passive_opens"], prev["tcp"]["passive_opens"]),
+                    "cookies": rate(cur["tcp"]["syncookies_sent"], prev["tcp"]["syncookies_sent"]),
+                    "new": rate(cur["c"].get("new"), prev["c"].get("new")) if cur["c"] and prev["c"] else None,
+                    "drop": sum(drops.values()) if drops else 0,
+                    "drops": {k: round(v, 1) for k, v in drops.items() if v},
+                    "ct": round(ct["count"] / ct["max"] * 100, 1) if ct else None,
+                    "estab": cur["tcp"]["curr_estab"],
+                }
+                if t0 - last_bans > 5:
+                    last_bans = t0
+                    STATE["bans_count"] = sum(len(v) for v in current_bans().values())
+                s["bans"] = STATE["bans_count"]
+                STATE["samples"].append(s)
+                # attack detection with hysteresis
+                pps = s["pps"] or 0
+                if base is None:
+                    base = pps
+                signals = []
+                if s["drop"] > 300:
+                    signals.append("drops")
+                if (s["cookies"] or 0) > 50:
+                    signals.append("syn_flood")
+                if pps > 20000 and pps > 6 * max(base, 1000):
+                    signals.append("traffic")
+                if (s["ct"] or 0) > 90:
+                    signals.append("conntrack")
+                att = STATE["attack"]
+                if signals:
+                    hot, calm = hot + 1, 0
+                else:
+                    calm, hot = calm + 1, 0
+                    base = base * 0.995 + pps * 0.005
+                if att["active"]:
+                    for k in ("pps", "drop", "conns", "cookies"):
+                        att["peak"][k] = max(att["peak"].get(k, 0), s.get(k) or 0)
+                if not att["active"] and hot >= 3:
+                    att.update(active=True, since=t0, peak={k: s.get(k) or 0 for k in ("pps", "drop", "conns", "cookies")}, reason=",".join(signals))
+                    event("attack_start", reason=att["reason"], pps=round(pps), drop=round(s["drop"]),
+                          top=[r["ip"] for r in hostinfo.top_sources(5, 0)])
+                    if CFG["auto_escalate"] and CFG["enabled"] and CFG["profile"] != "attack" and not STATE["escalated"]:
+                        STATE.update(escalated=True, escalated_at=t0)
+                        try:
+                            apply()
+                            event("escalate")
+                        except Exception as e:
+                            STATE["escalated"] = False
+                            log("escalate failed", e)
+                elif att["active"] and calm >= 30:
+                    att.update(active=False, ended=t0)
+                    event("attack_end", seconds=round(t0 - att["since"]), peak={k: round(v) for k, v in att["peak"].items()})
+                if STATE["escalated"] and not att["active"] and t0 - att["ended"] > DEESCALATE_AFTER:
+                    STATE["escalated"] = False
+                    try:
+                        apply()
+                        event("deescalate")
+                    except Exception as e:
+                        log("de-escalate failed", e)
+            prev, prev_t = cur, t0
+            p = STATE["pending"]
+            if p and time.time() > p["until"]:
+                rollback("timeout")
+        except Exception as e:  # never let the loop die
+            log("stats error", type(e).__name__, e)
+        time.sleep(max(0.05, 1 - (time.time() - t0)))
+
+
+def admin_refresh_loop():
+    """Logged-in users' IPs are part of the allowlist in the kernel; refresh it when they change."""
+    last = None
+    while True:
+        time.sleep(20)
+        try:
+            ips = tuple(admin_ips()) if CFG.get("trust_logged_in", True) else ()
+            if ips != last and last is not None and STATE["applied"] and not STATE["pending"]:
+                apply()
+            last = ips
+        except Exception as e:
+            log("admin refresh", e)
+
+
+# ------------------------------------------------------------------ status for the panel
+
+def status():
+    with LOCK:
+        p = STATE["pending"]
+        return {
+            "version": VERSION, "enabled": CFG["enabled"], "applied": STATE["applied"], "error": STATE["error"],
+            "pending": {"left": max(0, round(p["until"] - time.time())), "what": p["what"]} if p else None,
+            "profile": CFG["profile"], "escalated": STATE["escalated"], "limits": CFG["limits"],
+            "effective": effective_limits(), "profiles": nftrules.PROFILES,
+            "attack": {k: v for k, v in STATE["attack"].items()},
+            "config": {k: CFG[k] for k in ("auto_escalate", "ddos", "firewall", "ssh_guard", "trust_logged_in", "notify")},
+            "allow": CFG["allow"], "block": CFG["block"],
+            "ssh_ports": hostinfo.ssh_ports(), "panel_ports": PANEL_PORTS, "admin_ips": admin_ips(),
+            "iface": hostinfo.public_iface(), "interfaces": hostinfo.interfaces(),
+            "bans": STATE["bans_count"], "fail2ban": hostinfo.fail2ban_present(),
+            "last_event": EVENTS[-1]["id"] if EVENTS else 0, "uptime": round(time.time() - STATE["started"]),
+        }
+
+
+def ports_view():
+    published = hostinfo.docker_published()
+    fw = CFG["firewall"]
+    rows = []
+    for r in hostinfo.listening():
+        if not r["public"]:
+            continue
+        r = dict(r)
+        r["docker"] = (r["proto"], r["port"]) in published or r["process"] == "docker-proxy"
+        r["always"] = r["proto"] == "tcp" and (r["port"] in hostinfo.ssh_ports() or r["port"] in PANEL_PORTS)
+        r["allowed"] = r["always"] or any(_port_match(p, r) for p in fw["ports"])
+        r["restricted"] = not r["allowed"] and any(_port_match(dict(p, **{"from": ""}), r) for p in fw["ports"] if p.get("from"))
+        rows.append(r)
+    for proto, port in sorted(published):
+        if not any(r["proto"] == proto and r["port"] == port for r in rows):
+            rows.append({"proto": proto, "port": port, "addrs": [], "public": True, "process": "docker", "docker": True,
+                         "always": port in PANEL_PORTS and proto == "tcp",
+                         "allowed": any(_port_match(p, {"proto": proto, "port": port}) for p in fw["ports"])})
+    return {"rows": rows}
+
+
+def _port_match(p, r):
+    if p["proto"] not in (r["proto"], "both") or p.get("from"):
+        return False
+    a, _, b = p["port"].partition("-")
+    return int(a) <= r["port"] <= int(b or a)
+
+
+# ------------------------------------------------------------------ API over the unix socket
+
+def _cfg_patch(body):
+    """Only known keys can be changed from the panel."""
+    def mut(c):
+        for k in ("enabled", "auto_escalate", "trust_logged_in"):
+            if k in body:
+                c[k] = bool(body[k])
+        if "profile" in body:
+            c["profile"] = str(body["profile"])
+            if c["profile"] in nftrules.PROFILES:
+                c["limits"] = dict(nftrules.PROFILES[c["profile"]])
+        if "limits" in body:
+            c["limits"] = {k: body["limits"].get(k, c["limits"][k]) for k in nftrules.LIMIT_KEYS}
+            c["profile"] = next((n for n, v in nftrules.PROFILES.items() if v == c["limits"]), "custom")
+        if "ddos" in body:
+            c["ddos"].update({k: bool(body["ddos"][k]) for k in ("drop_invalid", "bad_flags") if k in body["ddos"]})
+        if "firewall" in body:
+            fw = body["firewall"]
+            if "mode" in fw:
+                c["firewall"]["mode"] = str(fw["mode"])
+            if "ports" in fw:
+                c["firewall"]["ports"] = [{"proto": str(p.get("proto", "tcp")), "port": str(p.get("port", "")),
+                                           "from": str(p.get("from") or ""), "note": str(p.get("note") or "")} for p in fw["ports"]]
+            if "trusted_ifaces" in fw:
+                c["firewall"]["trusted_ifaces"] = [str(i).strip() for i in fw["trusted_ifaces"] if str(i).strip()]
+        if "ssh_guard" in body:
+            g = body["ssh_guard"]
+            for k in ("enabled", "l4", "exempt_private"):
+                if k in g:
+                    c["ssh_guard"][k] = bool(g[k])
+            for k in ("failures", "window", "ban"):
+                if k in g:
+                    c["ssh_guard"][k] = g[k]
+        if "notify" in body:
+            c["notify"].update({k: bool(v) for k, v in body["notify"].items() if k in ("attacks", "bans")})
+    return mut
+
+
+def api_list_add(body, lst):
+    net = parse_net(body.get("ip", ""), allow_any=(lst == "allow"))
+    if lst == "block" and own_or_admin(net_str(net)):
+        raise ValueError(f"{net_str(net)} includes this server, a logged-in user or an allowlisted address")
+    minutes = body.get("minutes")
+    if lst == "block" and minutes:
+        addr = ban(net_str(net), int(minutes), str(body.get("note", "")) or "manual", "manual")
+        event("ban", ip=addr, minutes=int(minutes))
+        return status()
+
+    def mut(c):
+        c[lst] = [e for e in c[lst] if e["ip"] != net_str(net)] + [{"ip": net_str(net), "note": str(body.get("note", ""))[:80], "added": int(time.time())}]
+    out = change(mut, rollback=False, what=lst)
+    event("block" if lst == "block" else "allow", ip=net_str(net))
+    return out
+
+
+def api_list_remove(body, lst):
+    ip = net_str(parse_net(body.get("ip", ""), allow_any=True))
+    out = change(lambda c: c.__setitem__(lst, [e for e in c[lst] if e["ip"] != ip]), rollback=False, what=lst)
+    if lst == "block" and "/" not in ip:
+        unban(ip)
+    return out
+
+
+def api_sysctl(body):
+    keys = [k for k, _, _ in hostinfo.SYSCTLS]
+    want = [k for k in body.get("keys", keys) if k in keys]
+    rec = {k: r for k, r, _ in hostinfo.SYSCTLS}
+    with LOCK:
+        sc = CFG["sysctl"]
+        if body.get("action") == "restore":
+            for k in want:
+                if k in sc["original"]:
+                    try:
+                        hostinfo.sysctl_set(k, sc["original"][k])
+                    except OSError as e:
+                        raise ValueError(f"{k}: {e}")
+                sc["applied"] = [a for a in sc["applied"] if a != k]
+            event("sysctl", action="restore", n=len(want))
+        else:
+            for k in want:
+                cur = hostinfo.sysctl_get(k)
+                if cur is None:
+                    continue
+                sc["original"].setdefault(k, cur)
+                if not hostinfo.sysctl_ok(k, cur, rec[k]):
+                    try:
+                        hostinfo.sysctl_set(k, rec[k])
+                    except OSError as e:
+                        raise ValueError(f"{k}: {e}")
+                if k not in sc["applied"]:
+                    sc["applied"].append(k)
+            event("sysctl", action="apply", n=len(want))
+        save_json("config.json", CFG)
+    return {"rows": hostinfo.sysctl_report(), "applied": CFG["sysctl"]["applied"]}
+
+
+def reapply_sysctl():
+    rec = {k: r for k, r, _ in hostinfo.SYSCTLS}
+    for k in CFG["sysctl"]["applied"]:
+        try:
+            if not hostinfo.sysctl_ok(k, hostinfo.sysctl_get(k), rec[k]):
+                hostinfo.sysctl_set(k, rec[k])
+        except (OSError, KeyError) as e:
+            log("sysctl", k, e)
+
+
+def api_audit():
+    checks = hostinfo.audit({"enabled": STATE["applied"], "mode": CFG["firewall"]["mode"]})
+    return {"checks": checks, "score": hostinfo.score(checks), "sysctl": hostinfo.sysctl_report(),
+            "sysctl_applied": CFG["sysctl"]["applied"]}
+
+
+def api_live(q):
+    since = float(q.get("since", 0) or 0)
+    return {"samples": [s for s in STATE["samples"] if s["t"] > since], "attack": STATE["attack"],
+            "escalated": STATE["escalated"], "applied": STATE["applied"], "bans": STATE["bans_count"],
+            "pending": status()["pending"]}
+
+
+GET = {
+    "/status": lambda q: status(),
+    "/live": api_live,
+    "/bans": lambda q: {"rows": ban_list(), "block": CFG["block"], "allow": CFG["allow"], "admin_ips": admin_ips()},
+    "/ports": lambda q: ports_view(),
+    "/audit": lambda q: api_audit(),
+    "/talkers": lambda q: {"rows": hostinfo.top_sources()},
+    "/events": lambda q: {"rows": [e for e in EVENTS if e["id"] > int(q.get("since", 0) or 0)][-200:]},
+    "/rules": lambda q: {"text": ruleset() if CFG["enabled"] else ruleset(dict(CFG, enabled=True))},
+    "/ssh": lambda q: {**ssh_stats(), "config": CFG["ssh_guard"], "fail2ban": hostinfo.fail2ban_present()},
+}
+POST = {
+    "/config": lambda b: change(_cfg_patch(b), rollback=bool(b.get("_rollback", True)), what=str(b.get("_what", "config"))[:40]),
+    "/confirm": lambda b: confirm(),
+    "/revert": lambda b: rollback("manual"),
+    "/block": lambda b: api_list_add(b, "block"),
+    "/unblock": lambda b: api_list_remove(b, "block"),
+    "/allow": lambda b: api_list_add(b, "allow"),
+    "/unallow": lambda b: api_list_remove(b, "allow"),
+    "/unban": lambda b: (unban(b.get("ip", "")), status())[1],
+    "/sysctl": api_sysctl,
+}
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "defender"
+
+    def log_message(self, fmt, *args):
+        pass
+
+    def address_string(self):
+        return "panel"
+
+    def _send(self, code, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _route(self, table, arg):
+        path = self.path.split("?", 1)[0]
+        fn = table.get(path)
+        if not fn:
+            return self._send(404, {"error": "not found"})
+        try:
+            return self._send(200, fn(arg))
+        except ValueError as e:
+            return self._send(400, {"error": str(e)})
+        except Exception as e:
+            log("api error", path, type(e).__name__, e)
+            return self._send(500, {"error": f"{type(e).__name__}: {e}"})
+
+    def do_GET(self):
+        q = {}
+        if "?" in self.path:
+            for part in self.path.split("?", 1)[1].split("&"):
+                k, _, v = part.partition("=")
+                q[k] = v
+        self._route(GET, q)
+
+    def do_POST(self):
+        try:
+            n = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(min(n, 1_000_000)) or b"{}")
+            if not isinstance(body, dict):
+                raise ValueError
+        except ValueError:
+            return self._send(400, {"error": "bad request"})
+        self._route(POST, body)
+
+
+class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    daemon_threads = True
+
+
+def main():
+    os.makedirs(DATA, exist_ok=True)
+    os.chmod(DATA, 0o711)
+    try:
+        os.unlink(SOCK)
+    except FileNotFoundError:
+        pass
+    srv = Server(SOCK, Handler)
+    os.chown(SOCK, 0, PANEL_GID)
+    os.chmod(SOCK, 0o660)
+    reapply_sysctl()
+    try:
+        apply()
+        if CFG["enabled"]:
+            event("started", protection="on")
+    except Exception as e:
+        STATE["error"] = str(e)
+        log("cannot apply rules:", e)
+    for target in (stats_loop, ssh_guard_loop, admin_refresh_loop):
+        threading.Thread(target=target, daemon=True).start()
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))   # the rules stay in the kernel while the agent restarts
+    log(f"defender {VERSION} ready on {SOCK}; protection {'on' if CFG['enabled'] else 'off'}, "
+        f"ssh ports {hostinfo.ssh_ports()}, panel ports {PANEL_PORTS}")
+    srv.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

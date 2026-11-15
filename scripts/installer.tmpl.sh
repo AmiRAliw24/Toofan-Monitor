@@ -62,6 +62,9 @@ fi
 
 if [ "$ACTION" != install ]; then
   [ -f "$INSTALL_DIR/docker-compose.yml" ] || die "No installation found in $INSTALL_DIR."
+  # The Defender's firewall rules live in the kernel, not in a container: remove them too.
+  if command -v nft >/dev/null 2>&1; then nft delete table inet defender 2>/dev/null || true
+  else docker run --rm --network host --privileged server-monitoring-defender:1 nft delete table inet defender >/dev/null 2>&1 || true; fi
   if [ "$ACTION" = purge ]; then
     compose down -v --remove-orphans
     rm -rf "$INSTALL_DIR"
@@ -226,7 +229,9 @@ ensure_docker
 docker_gid=$(stat -c %g /var/run/docker.sock 2>/dev/null || true)
 [ -n "$docker_gid" ] && set_env_key DOCKER_GID "$docker_gid"
 log "Pulling images and starting the stack"
-compose pull --quiet < /dev/null
+# The defender image is built here (it only adds nftables to python:alpine), not pulled.
+compose pull --quiet --ignore-buildable < /dev/null
+compose build --quiet defender < /dev/null
 remove_legacy_grafana
 choose_port PANEL_PORT panel 8080 3000
 compose up -d --remove-orphans < /dev/null
@@ -237,6 +242,8 @@ compose up -d --remove-orphans < /dev/null
 compose restart prometheus alertmanager blackbox < /dev/null >/dev/null 2>&1 || true
 # The panel's Python code is loaded once at start, so an updated server.py needs a restart.
 compose restart panel < /dev/null >/dev/null 2>&1 || true
+# Same for the Defender agent; its firewall rules stay in place while it restarts.
+compose restart defender < /dev/null >/dev/null 2>&1 || true
 
 set -a; . "$INSTALL_DIR/.env"; set +a
 log "Waiting for the panel to become healthy"
