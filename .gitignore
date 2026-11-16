@@ -3,3 +3,4 @@ alertmanager/alertmanager.yml
 data/
 __pycache__/
 *.pyc
+graphify-out/

@@ -113,6 +113,10 @@
       // rules
       rl_rule: "Rule", rl_enabled: "On", rl_threshold: "Threshold", rl_for: "Must last", rl_reset_confirm: "Restore every rule to its default threshold and switch all rules on?",
       rl_saved: "Rule saved and applied", rl_reset_ok: "Defaults restored",
+      rn_InstanceDown: "Target down", rn_HighCpuUsage: "High CPU", rn_HighMemoryUsage: "High memory", rn_DiskSpaceLow: "Disk almost full",
+      rn_DiskWillFillIn24h: "Disk will fill up", rn_HighLoad: "High load", rn_HostRebooted: "Server rebooted", rn_ContainerHighCpu: "Container: high CPU",
+      rn_ContainerHighMemory: "Container: high memory", rn_EndpointDown: "Site or port down", rn_SslCertExpiringSoon: "SSL certificate expiring",
+      rn_SlowEndpoint: "Slow site", sev_critical: "critical", sev_warning: "warning", sev_info: "info",
       rd_InstanceDown: "A monitored target (server, exporter or checker) stopped responding.",
       rd_HighCpuUsage: "CPU usage stays above the threshold.",
       rd_HighMemoryUsage: "Memory usage stays above the threshold.",
@@ -239,6 +243,10 @@
       at_btn: "ارسال هشدار آزمایشی", at_ok: "هشدار آزمایشی ارسال شد. تلگرام تا حدود ۳۰ ثانیه دیگر پیام می‌گیرد.",
       rl_rule: "قانون", rl_enabled: "روشن", rl_threshold: "آستانه", rl_for: "مدت پایداری", rl_reset_confirm: "همه‌ی قانون‌ها به آستانه‌ی پیش‌فرض برگردند و روشن شوند؟",
       rl_saved: "قانون ذخیره و اعمال شد", rl_reset_ok: "پیش‌فرض‌ها برگشتند",
+      rn_InstanceDown: "تارگت قطع شده", rn_HighCpuUsage: "پردازنده‌ی بالا", rn_HighMemoryUsage: "حافظه‌ی بالا", rn_DiskSpaceLow: "دیسک تقریباً پر",
+      rn_DiskWillFillIn24h: "دیسک به‌زودی پر می‌شود", rn_HighLoad: "بار زیاد", rn_HostRebooted: "سرور ری‌استارت شد", rn_ContainerHighCpu: "کانتینر: پردازنده‌ی بالا",
+      rn_ContainerHighMemory: "کانتینر: حافظه‌ی بالا", rn_EndpointDown: "سایت یا پورت قطع", rn_SslCertExpiringSoon: "گواهی SSL رو به انقضا",
+      rn_SlowEndpoint: "سایت کند", sev_critical: "بحرانی", sev_warning: "هشدار", sev_info: "اطلاع",
       rd_InstanceDown: "یکی از تارگت‌ها (سرور، اکسپورتر یا چک‌کننده) پاسخ نمی‌دهد.",
       rd_HighCpuUsage: "مصرف پردازنده مدتی بالاتر از آستانه می‌ماند.",
       rd_HighMemoryUsage: "مصرف رم مدتی بالاتر از آستانه می‌ماند.",
@@ -772,9 +780,10 @@
     setHTML(hero.querySelector("h2"), esc(t("h_" + ["ok", "warn", "bad"][sev])));
     setHTML(hero.querySelector("p"), esc(issues.length ? issues.join(" · ") : t("h_ok_sub")));
 
-    const io = o.io && o.io[0] != null ? `${num(esc(`${t("io_r")} ${fmtRate(o.io[0])} · ${t("io_w")} ${fmtRate(o.io[1])}`))}` : "";
+    // only the numbers are left-to-right: the words around them follow the page language
+    const io = o.io && o.io[0] != null ? `${esc(t("io_r"))} ${num(esc(fmtRate(o.io[0])))} · ${esc(t("io_w"))} ${num(esc(fmtRate(o.io[1])))}` : "";
     setGauge("cpu", o.cpu, o.host.cores != null ? `${num(nf(o.host.cores, 0))} ${esc(t("cores"))}` : "", o.host.cpu_model ? num(esc(o.host.cpu_model)) : "");
-    setGauge("mem", memPct, `${num(fmtBytes(o.mem.used))} ${esc(t("of"))} ${num(fmtBytes(o.mem.total))}`, o.swap && o.swap.total ? num(esc(`${t("swap")} ${fmtBytes(o.swap.used)} / ${fmtBytes(o.swap.total)}`)) : "");
+    setGauge("mem", memPct, `${num(fmtBytes(o.mem.used))} ${esc(t("of"))} ${num(fmtBytes(o.mem.total))}`, o.swap && o.swap.total ? `${esc(t("swap"))} ${num(esc(`${fmtBytes(o.swap.used)} / ${fmtBytes(o.swap.total)}`))}` : "");
     setGauge("disk", d ? d.pct : null, d ? `${num(fmtBytes(d.used))} ${esc(t("of"))} ${num(fmtBytes(d.total))}` : "", d ? num(esc(d.mount)) + (io ? `<br>${io}` : "") : "");
 
     tween(tileEl("rx"), o.net.rx, (v) => num(fmtRate(v)));
@@ -843,7 +852,7 @@
           { h: "response", cell: (r) => num(r.m ? fmtMs(r.m.duration) : "–") },
           { h: "http", cell: (r) => num(r.m && r.m.http ? r.m.http : "–") },
           { h: "ssl_h", cell: (r) => (!r.m || r.m.ssl_days == null ? "–" : pill(r.m.ssl_days < 7 ? "bad" : r.m.ssl_days < 14 ? "warn" : "ok", nf(r.m.ssl_days, 0), false)) },
-          { h: "actions", cell: (r) => `<div class="row-actions">${btnIcon("search", t("probe"), `data-act="probe" data-kind="${r.kind}" data-target="${esc(r.target)}"`)}${r.fixed ? "" : btnIcon("trash", t("remove"), `data-act="del" data-kind="${r.kind}" data-target="${esc(r.target)}"`, "danger")}</div>` },
+          { h: "actions", cell: (r) => `<div class="row-actions">${btnIcon("search", t("probe"), `data-act="probe" data-kind="${esc(r.kind)}" data-target="${esc(r.target)}"`)}${r.fixed ? "" : btnIcon("trash", t("remove"), `data-act="del" data-kind="${r.kind}" data-target="${esc(r.target)}"`, "danger")}</div>` },
         ];
         const events = (checks.auto && checks.auto.events) || [];
         const evText = (e) => (e.action === "mode" ? t("auto_ev_mode", { from: e.from, mode: t("mode_" + e.mode) }) : e.action === "merge" ? t("auto_ev_merge", { from: e.from, to: e.to }) : t("auto_ev_replace", { from: e.from, to: e.to }));
@@ -918,7 +927,7 @@
         const sev = { critical: "bad", warning: "warn", info: "info" };
         const note = rows.length ? "" : `<div class="notice ok">${icon("okmark")}<span>${esc(t("no_alerts"))}</span></div>`;
         return note + (rows.length ? table([
-          { h: "severity", cell: (r) => pill(sev[r.severity] || "", r.severity || "–", false) },
+          { h: "severity", cell: (r) => pill(sev[r.severity] || "", r.severity && T[state.lang]["sev_" + r.severity] ? t("sev_" + r.severity) : r.severity || "–", false) },
           { h: "alert", cls: "strong", cell: (r) => esc(r.name) },
           { h: "instance", cell: (r) => num(esc(r.instance || "–")) },
           { h: "summary", cls: "wrap-cell", cell: (r) => esc(r.summary) },
@@ -1022,8 +1031,8 @@
         const sev = { critical: "bad", warning: "warn", info: "info" };
         const cols = [
           { h: "rl_enabled", cell: (r) => `<label class="switch"><input type="checkbox" data-f="enabled" ${r.enabled ? "checked" : ""} aria-label="${esc(r.name)}"><span></span></label>` },
-          { h: "rl_rule", cls: "strong", cell: (r) => `${esc(r.name)}<div class="sub-line">${esc(t("rd_" + r.name))}</div>` },
-          { h: "severity", cell: (r) => pill(sev[r.severity] || "", r.severity, false) },
+          { h: "rl_rule", cls: "strong", cell: (r) => `${esc(T[state.lang]["rn_" + r.name] ? t("rn_" + r.name) : r.name)} <code class="rule-code" dir="ltr">${esc(r.name)}</code><div class="sub-line">${esc(t("rd_" + r.name))}</div>` },
+          { h: "severity", cell: (r) => pill(sev[r.severity] || "", T[state.lang]["sev_" + r.severity] ? t("sev_" + r.severity) : r.severity, false) },
           { h: "rl_threshold", cell: (r) => (r.has_threshold ? `<span class="inline-field"><input type="number" data-f="value" step="any" min="${r.min}" max="${r.max}" value="${esc(r.value)}" aria-label="${esc(t("rl_threshold"))}"><small>${esc(r.unit)}</small></span>` : "–") },
           { h: "rl_for", cell: (r) => `<span class="inline-field"><input type="number" data-f="for" step="1" min="0" max="1440" value="${esc(r.for)}" aria-label="${esc(t("rl_for"))}"><small>${esc(t("minutes"))}</small></span>` },
           { h: "", raw: true, cell: () => `<button type="button" class="btn small primary" data-save disabled>${esc(t("save"))}</button>` },

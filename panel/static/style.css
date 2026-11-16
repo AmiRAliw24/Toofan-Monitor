@@ -259,7 +259,8 @@ select {
 .chip b { color: var(--ink); font-weight: 700; }
 
 .gauges { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); }
+.tiles { display: flex; flex-wrap: wrap; gap: 14px; }   /* the last row stretches: no empty slot after an odd number of tiles */
+.tiles > * { flex: 1 1 196px; min-width: 0; }
 
 .stat { position: relative; padding: 16px 18px; min-width: 0; transition: border-color .15s, transform .15s; }
 .stat[data-go] { cursor: pointer; }
@@ -514,7 +515,8 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
   .stat.gauge { padding: 14px 16px; }
   .ring, .ring svg { width: 92px; height: 92px; }
   .ring .center { font-size: 21px; }
-  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tiles > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   .stat { padding: 14px; }
   .stat .value { font-size: 23px; }
   .stat .value.tight { font-size: 17px; }
@@ -585,7 +587,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
 }
 
 @media (max-width: 380px) {
-  .tiles { grid-template-columns: minmax(0, 1fr); }
+  .tiles { display: grid; grid-template-columns: minmax(0, 1fr); }
   .top-title { font-size: 15px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
@@ -941,3 +943,21 @@ label.btn input[type="file"] { display: none; }
 .df-left i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--s-warn); border-radius: 4px; }
 [dir="rtl"] .df-left i::after { inset: 0 0 0 auto; }
 .df-rowbtns { display: inline-flex; gap: 6px; align-items: center; }
+.rule-code { font-size: 11px; color: var(--faint); background: none; padding: 0; margin-inline-start: 4px; }
+
+/* login: language / theme switches and show-password */
+.login-tools { position: fixed; top: max(16px, env(safe-area-inset-top, 0px)); inset-inline-end: 16px; display: flex; gap: 8px; z-index: 10; }
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-inline-end: 48px; }
+.pw-toggle { position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; display: grid; place-items: center;
+  border: 0; border-radius: 10px; background: none; color: var(--muted); cursor: pointer; }
+.pw-toggle:hover { color: var(--ink); background: var(--surface-2); }
+.pw-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pw-toggle .ico { width: 18px; height: 18px; }
+
+/* touch screens: buttons at least 40px so they are easy to hit */
+@media (pointer: coarse) {
+  .btn.small { height: 40px; }
+  .btn.small.icon { width: 40px; }
+  .df-seg button { padding: 9px 14px; }
+}

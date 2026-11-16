@@ -62,6 +62,7 @@ def by_label(expr, label):
 
 INSTANCE_RE = re.compile(r"^[A-Za-z0-9_.:\-\[\]]{1,128}$")
 VIRTUAL_NICS = 'device!~"lo|veth.*|docker.*|br-.*|virbr.*|cni.*|cali.*|flannel.*|ifb.*"'
+FALLBACK_NICS = re.compile(r"^(gre0|gretap0|erspan0|ip6gre0|ip6tnl0|ip6_vti0|ip_vti0|sit0|tunl0)$")
 REAL_FS = 'fstype!~"tmpfs|overlay|squashfs|devtmpfs|ramfs|fuse.*|nsfs|proc|sysfs|cgroup.*"'
 
 
@@ -171,10 +172,21 @@ def api_network(q):
     rx = by_label(f"rate(node_network_receive_bytes_total{{{n},{VIRTUAL_NICS}}}[2m])", "device")
     tx = by_label(f"rate(node_network_transmit_bytes_total{{{n},{VIRTUAL_NICS}}}[2m])", "device")
     speed = by_label(f"node_network_speed_bytes{{{n},{VIRTUAL_NICS}}}", "device")
-    rows = [{"device": d, "up": up.get(d) == 1 if d in up else True, "rx": rx.get(d), "tx": tx.get(d),
+    # Tunnels (WireGuard, GRE, ...) report their state as "unknown", which node_network_up counts as down
+    # although they carry traffic: treat "unknown" with traffic as up.
+    unknown = set(by_label(f'node_network_info{{{n},{VIRTUAL_NICS},operstate="unknown"}}', "device"))
+
+    def is_up(d):
+        if up.get(d) == 1 or d not in up:
+            return True
+        return d in unknown and bool((rx_total.get(d) or 0) + (tx_total.get(d) or 0))
+
+    rows = [{"device": d, "up": is_up(d), "rx": rx.get(d), "tx": tx.get(d),
              "rx_total": rx_total.get(d), "tx_total": tx_total.get(d),
              "speed": speed.get(d) if (speed.get(d) or 0) > 0 else None}
-            for d in sorted(set(rx_total) | set(tx_total) | set(up))]
+            for d in sorted(set(rx_total) | set(tx_total) | set(up))
+            # the kernel's placeholder devices for tunnel modules (gre0, erspan0, ...) never carry traffic
+            if not (FALLBACK_NICS.match(d) and not (rx_total.get(d) or 0) and not (tx_total.get(d) or 0))]
     out = {"rows": rows}
     if not rows:
         out["exporter"] = net_exporter_status()

@@ -306,6 +306,7 @@ alertmanager/alertmanager.yml
 data/
 __pycache__/
 *.pyc
+graphify-out/
 __MONITORING_EOF__
   write_file README.md 644 <<'__MONITORING_EOF__'
 <div align="center">
@@ -2686,6 +2687,7 @@ def by_label(expr, label):
 
 INSTANCE_RE = re.compile(r"^[A-Za-z0-9_.:\-\[\]]{1,128}$")
 VIRTUAL_NICS = 'device!~"lo|veth.*|docker.*|br-.*|virbr.*|cni.*|cali.*|flannel.*|ifb.*"'
+FALLBACK_NICS = re.compile(r"^(gre0|gretap0|erspan0|ip6gre0|ip6tnl0|ip6_vti0|ip_vti0|sit0|tunl0)$")
 REAL_FS = 'fstype!~"tmpfs|overlay|squashfs|devtmpfs|ramfs|fuse.*|nsfs|proc|sysfs|cgroup.*"'
 
 
@@ -2795,10 +2797,21 @@ def api_network(q):
     rx = by_label(f"rate(node_network_receive_bytes_total{{{n},{VIRTUAL_NICS}}}[2m])", "device")
     tx = by_label(f"rate(node_network_transmit_bytes_total{{{n},{VIRTUAL_NICS}}}[2m])", "device")
     speed = by_label(f"node_network_speed_bytes{{{n},{VIRTUAL_NICS}}}", "device")
-    rows = [{"device": d, "up": up.get(d) == 1 if d in up else True, "rx": rx.get(d), "tx": tx.get(d),
+    # Tunnels (WireGuard, GRE, ...) report their state as "unknown", which node_network_up counts as down
+    # although they carry traffic: treat "unknown" with traffic as up.
+    unknown = set(by_label(f'node_network_info{{{n},{VIRTUAL_NICS},operstate="unknown"}}', "device"))
+
+    def is_up(d):
+        if up.get(d) == 1 or d not in up:
+            return True
+        return d in unknown and bool((rx_total.get(d) or 0) + (tx_total.get(d) or 0))
+
+    rows = [{"device": d, "up": is_up(d), "rx": rx.get(d), "tx": tx.get(d),
              "rx_total": rx_total.get(d), "tx_total": tx_total.get(d),
              "speed": speed.get(d) if (speed.get(d) or 0) > 0 else None}
-            for d in sorted(set(rx_total) | set(tx_total) | set(up))]
+            for d in sorted(set(rx_total) | set(tx_total) | set(up))
+            # the kernel's placeholder devices for tunnel modules (gre0, erspan0, ...) never carry traffic
+            if not (FALLBACK_NICS.match(d) and not (rx_total.get(d) or 0) and not (tx_total.get(d) or 0))]
     out = {"rows": rows}
     if not rows:
         out["exporter"] = net_exporter_status()
@@ -10521,6 +10534,10 @@ __MONITORING_EOF__
   <script src="/login.js" defer></script>
 </head>
 <body>
+  <div class="login-tools">
+    <button type="button" class="btn small" id="lang"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg><span></span></button>
+    <button type="button" class="btn small icon" id="theme"></button>
+  </div>
   <div class="login-page">
     <form class="card login-card" id="form" autocomplete="on">
       <div class="brand">
@@ -10538,7 +10555,8 @@ __MONITORING_EOF__
       </div>
       <div class="field">
         <label for="password" data-i18n="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <div class="pw-wrap"><input id="password" name="password" type="password" autocomplete="current-password" required>
+          <button type="button" class="pw-toggle" id="pw-toggle" aria-pressed="false"></button></div>
       </div>
       <div class="field" id="otp-field" hidden>
         <label for="otp" data-i18n="otp">Code from your authenticator app</label>
@@ -10667,6 +10685,10 @@ __MONITORING_EOF__
       // rules
       rl_rule: "Rule", rl_enabled: "On", rl_threshold: "Threshold", rl_for: "Must last", rl_reset_confirm: "Restore every rule to its default threshold and switch all rules on?",
       rl_saved: "Rule saved and applied", rl_reset_ok: "Defaults restored",
+      rn_InstanceDown: "Target down", rn_HighCpuUsage: "High CPU", rn_HighMemoryUsage: "High memory", rn_DiskSpaceLow: "Disk almost full",
+      rn_DiskWillFillIn24h: "Disk will fill up", rn_HighLoad: "High load", rn_HostRebooted: "Server rebooted", rn_ContainerHighCpu: "Container: high CPU",
+      rn_ContainerHighMemory: "Container: high memory", rn_EndpointDown: "Site or port down", rn_SslCertExpiringSoon: "SSL certificate expiring",
+      rn_SlowEndpoint: "Slow site", sev_critical: "critical", sev_warning: "warning", sev_info: "info",
       rd_InstanceDown: "A monitored target (server, exporter or checker) stopped responding.",
       rd_HighCpuUsage: "CPU usage stays above the threshold.",
       rd_HighMemoryUsage: "Memory usage stays above the threshold.",
@@ -10793,6 +10815,10 @@ __MONITORING_EOF__
       at_btn: "ارسال هشدار آزمایشی", at_ok: "هشدار آزمایشی ارسال شد. تلگرام تا حدود ۳۰ ثانیه دیگر پیام می‌گیرد.",
       rl_rule: "قانون", rl_enabled: "روشن", rl_threshold: "آستانه", rl_for: "مدت پایداری", rl_reset_confirm: "همه‌ی قانون‌ها به آستانه‌ی پیش‌فرض برگردند و روشن شوند؟",
       rl_saved: "قانون ذخیره و اعمال شد", rl_reset_ok: "پیش‌فرض‌ها برگشتند",
+      rn_InstanceDown: "تارگت قطع شده", rn_HighCpuUsage: "پردازنده‌ی بالا", rn_HighMemoryUsage: "حافظه‌ی بالا", rn_DiskSpaceLow: "دیسک تقریباً پر",
+      rn_DiskWillFillIn24h: "دیسک به‌زودی پر می‌شود", rn_HighLoad: "بار زیاد", rn_HostRebooted: "سرور ری‌استارت شد", rn_ContainerHighCpu: "کانتینر: پردازنده‌ی بالا",
+      rn_ContainerHighMemory: "کانتینر: حافظه‌ی بالا", rn_EndpointDown: "سایت یا پورت قطع", rn_SslCertExpiringSoon: "گواهی SSL رو به انقضا",
+      rn_SlowEndpoint: "سایت کند", sev_critical: "بحرانی", sev_warning: "هشدار", sev_info: "اطلاع",
       rd_InstanceDown: "یکی از تارگت‌ها (سرور، اکسپورتر یا چک‌کننده) پاسخ نمی‌دهد.",
       rd_HighCpuUsage: "مصرف پردازنده مدتی بالاتر از آستانه می‌ماند.",
       rd_HighMemoryUsage: "مصرف رم مدتی بالاتر از آستانه می‌ماند.",
@@ -11326,9 +11352,10 @@ __MONITORING_EOF__
     setHTML(hero.querySelector("h2"), esc(t("h_" + ["ok", "warn", "bad"][sev])));
     setHTML(hero.querySelector("p"), esc(issues.length ? issues.join(" · ") : t("h_ok_sub")));
 
-    const io = o.io && o.io[0] != null ? `${num(esc(`${t("io_r")} ${fmtRate(o.io[0])} · ${t("io_w")} ${fmtRate(o.io[1])}`))}` : "";
+    // only the numbers are left-to-right: the words around them follow the page language
+    const io = o.io && o.io[0] != null ? `${esc(t("io_r"))} ${num(esc(fmtRate(o.io[0])))} · ${esc(t("io_w"))} ${num(esc(fmtRate(o.io[1])))}` : "";
     setGauge("cpu", o.cpu, o.host.cores != null ? `${num(nf(o.host.cores, 0))} ${esc(t("cores"))}` : "", o.host.cpu_model ? num(esc(o.host.cpu_model)) : "");
-    setGauge("mem", memPct, `${num(fmtBytes(o.mem.used))} ${esc(t("of"))} ${num(fmtBytes(o.mem.total))}`, o.swap && o.swap.total ? num(esc(`${t("swap")} ${fmtBytes(o.swap.used)} / ${fmtBytes(o.swap.total)}`)) : "");
+    setGauge("mem", memPct, `${num(fmtBytes(o.mem.used))} ${esc(t("of"))} ${num(fmtBytes(o.mem.total))}`, o.swap && o.swap.total ? `${esc(t("swap"))} ${num(esc(`${fmtBytes(o.swap.used)} / ${fmtBytes(o.swap.total)}`))}` : "");
     setGauge("disk", d ? d.pct : null, d ? `${num(fmtBytes(d.used))} ${esc(t("of"))} ${num(fmtBytes(d.total))}` : "", d ? num(esc(d.mount)) + (io ? `<br>${io}` : "") : "");
 
     tween(tileEl("rx"), o.net.rx, (v) => num(fmtRate(v)));
@@ -11397,7 +11424,7 @@ __MONITORING_EOF__
           { h: "response", cell: (r) => num(r.m ? fmtMs(r.m.duration) : "–") },
           { h: "http", cell: (r) => num(r.m && r.m.http ? r.m.http : "–") },
           { h: "ssl_h", cell: (r) => (!r.m || r.m.ssl_days == null ? "–" : pill(r.m.ssl_days < 7 ? "bad" : r.m.ssl_days < 14 ? "warn" : "ok", nf(r.m.ssl_days, 0), false)) },
-          { h: "actions", cell: (r) => `<div class="row-actions">${btnIcon("search", t("probe"), `data-act="probe" data-kind="${r.kind}" data-target="${esc(r.target)}"`)}${r.fixed ? "" : btnIcon("trash", t("remove"), `data-act="del" data-kind="${r.kind}" data-target="${esc(r.target)}"`, "danger")}</div>` },
+          { h: "actions", cell: (r) => `<div class="row-actions">${btnIcon("search", t("probe"), `data-act="probe" data-kind="${esc(r.kind)}" data-target="${esc(r.target)}"`)}${r.fixed ? "" : btnIcon("trash", t("remove"), `data-act="del" data-kind="${r.kind}" data-target="${esc(r.target)}"`, "danger")}</div>` },
         ];
         const events = (checks.auto && checks.auto.events) || [];
         const evText = (e) => (e.action === "mode" ? t("auto_ev_mode", { from: e.from, mode: t("mode_" + e.mode) }) : e.action === "merge" ? t("auto_ev_merge", { from: e.from, to: e.to }) : t("auto_ev_replace", { from: e.from, to: e.to }));
@@ -11472,7 +11499,7 @@ __MONITORING_EOF__
         const sev = { critical: "bad", warning: "warn", info: "info" };
         const note = rows.length ? "" : `<div class="notice ok">${icon("okmark")}<span>${esc(t("no_alerts"))}</span></div>`;
         return note + (rows.length ? table([
-          { h: "severity", cell: (r) => pill(sev[r.severity] || "", r.severity || "–", false) },
+          { h: "severity", cell: (r) => pill(sev[r.severity] || "", r.severity && T[state.lang]["sev_" + r.severity] ? t("sev_" + r.severity) : r.severity || "–", false) },
           { h: "alert", cls: "strong", cell: (r) => esc(r.name) },
           { h: "instance", cell: (r) => num(esc(r.instance || "–")) },
           { h: "summary", cls: "wrap-cell", cell: (r) => esc(r.summary) },
@@ -11576,8 +11603,8 @@ __MONITORING_EOF__
         const sev = { critical: "bad", warning: "warn", info: "info" };
         const cols = [
           { h: "rl_enabled", cell: (r) => `<label class="switch"><input type="checkbox" data-f="enabled" ${r.enabled ? "checked" : ""} aria-label="${esc(r.name)}"><span></span></label>` },
-          { h: "rl_rule", cls: "strong", cell: (r) => `${esc(r.name)}<div class="sub-line">${esc(t("rd_" + r.name))}</div>` },
-          { h: "severity", cell: (r) => pill(sev[r.severity] || "", r.severity, false) },
+          { h: "rl_rule", cls: "strong", cell: (r) => `${esc(T[state.lang]["rn_" + r.name] ? t("rn_" + r.name) : r.name)} <code class="rule-code" dir="ltr">${esc(r.name)}</code><div class="sub-line">${esc(t("rd_" + r.name))}</div>` },
+          { h: "severity", cell: (r) => pill(sev[r.severity] || "", T[state.lang]["sev_" + r.severity] ? t("sev_" + r.severity) : r.severity, false) },
           { h: "rl_threshold", cell: (r) => (r.has_threshold ? `<span class="inline-field"><input type="number" data-f="value" step="any" min="${r.min}" max="${r.max}" value="${esc(r.value)}" aria-label="${esc(t("rl_threshold"))}"><small>${esc(r.unit)}</small></span>` : "–") },
           { h: "rl_for", cell: (r) => `<span class="inline-field"><input type="number" data-f="for" step="1" min="0" max="1440" value="${esc(r.for)}" aria-label="${esc(t("rl_for"))}"><small>${esc(t("minutes"))}</small></span>` },
           { h: "", raw: true, cell: () => `<button type="button" class="btn small primary" data-save disabled>${esc(t("save"))}</button>` },
@@ -12227,21 +12254,47 @@ __MONITORING_EOF__
   const T = {
     en: { title: "Server Monitor", signin_sub: "Sign in to continue", user: "Username", password: "Password", signin: "Sign in", otp: "Code from your authenticator app",
       otp_need: "Enter the 6-digit code from your authenticator app.", bad: "Wrong username or password", bad_otp: "Wrong username, password or code",
-      locked: "Too many wrong attempts from this address. Try again in {m} minutes.", busy: "Too many requests. Wait a moment and try again.", net: "Could not reach the server" },
+      locked: "Too many wrong attempts from this address. Try again in {m} minutes.", busy: "Too many requests. Wait a moment and try again.", net: "Could not reach the server",
+      other: "فارسی", show: "Show password", hide: "Hide password", dark: "Dark theme (switch to light)", light: "Light theme (switch to dark)" },
     fa: { title: "مانیتورینگ سرور", signin_sub: "برای ادامه وارد شوید", user: "نام کاربری", password: "رمز عبور", signin: "ورود", otp: "کد برنامه‌ی احراز هویت",
       otp_need: "کد ۶ رقمی برنامه‌ی احراز هویت (مثل Google Authenticator) را وارد کنید.", bad: "نام کاربری یا رمز عبور اشتباه است", bad_otp: "نام کاربری، رمز یا کد اشتباه است",
-      locked: "تلاش اشتباه زیادی از این آدرس شده. {m} دقیقه‌ی دیگر دوباره امتحان کنید.", busy: "درخواست زیاد است. کمی صبر کنید و دوباره امتحان کنید.", net: "ارتباط با سرور برقرار نشد" },
+      locked: "تلاش اشتباه زیادی از این آدرس شده. {m} دقیقه‌ی دیگر دوباره امتحان کنید.", busy: "درخواست زیاد است. کمی صبر کنید و دوباره امتحان کنید.", net: "ارتباط با سرور برقرار نشد",
+      other: "English", show: "نمایش رمز", hide: "پنهان کردن رمز", dark: "تم تیره (تغییر به روشن)", light: "تم روشن (تغییر به تیره)" },
   };
-  let lang = "en";
-  try { lang = localStorage.getItem("lang") || lang; } catch (e) { /* storage blocked */ }
-  if (!T[lang]) lang = "en";
-  const theme = document.documentElement.dataset.theme || "dark";   // chosen by boot.js before the first paint
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
+  let lang = null;
+  try { lang = localStorage.getItem("lang"); } catch (e) { /* storage blocked */ }
+  if (!T[lang]) lang = (navigator.language || "").toLowerCase().startsWith("fa") ? "fa" : "en";   // first visit: the browser's language
+  let theme = document.documentElement.dataset.theme || "dark";   // chosen by boot.js before the first paint
   const t = (k, v = {}) => T[lang][k].replace(/\{(\w+)\}/g, (_, x) => v[x]);
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.lang = lang;
-  document.documentElement.dir = lang === "fa" ? "rtl" : "ltr";
-  document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = T[lang][el.dataset.i18n]; });
-  document.title = T[lang].signin + " - " + T[lang].title;
+  const SUN = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  const MOON = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+  const EYE = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  const pw = document.getElementById("password"), pwBtn = document.getElementById("pw-toggle");
+  function paint() {
+    const d = document.documentElement;
+    d.dataset.theme = theme;
+    d.lang = lang;
+    d.dir = lang === "fa" ? "rtl" : "ltr";
+    document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = T[lang][el.dataset.i18n]; });
+    document.title = T[lang].signin + " - " + T[lang].title;
+    document.querySelector("#lang span").textContent = t("other");
+    const th = document.getElementById("theme");
+    th.innerHTML = theme === "dark" ? SUN : MOON;
+    th.setAttribute("aria-label", t(theme));
+    th.title = t(theme);
+    const shown = pw.type === "text";
+    pwBtn.innerHTML = shown ? EYE_OFF : EYE;
+    pwBtn.setAttribute("aria-label", t(shown ? "hide" : "show"));
+    pwBtn.setAttribute("aria-pressed", String(shown));
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#070b12" : "#eef2f8");
+  }
+  paint();
+  document.getElementById("lang").addEventListener("click", () => { lang = lang === "fa" ? "en" : "fa"; save("lang", lang); paint(); });
+  document.getElementById("theme").addEventListener("click", () => { theme = theme === "dark" ? "light" : "dark"; save("theme", theme); paint(); });
+  pwBtn.addEventListener("click", () => { pw.type = pw.type === "password" ? "text" : "password"; paint(); pw.focus(); });
 
   const form = document.getElementById("form"), err = document.getElementById("error"), btn = document.getElementById("submit");
   const otpBox = document.getElementById("otp-field"), otp = document.getElementById("otp");
@@ -12539,7 +12592,8 @@ select {
 .chip b { color: var(--ink); font-weight: 700; }
 
 .gauges { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); }
+.tiles { display: flex; flex-wrap: wrap; gap: 14px; }   /* the last row stretches: no empty slot after an odd number of tiles */
+.tiles > * { flex: 1 1 196px; min-width: 0; }
 
 .stat { position: relative; padding: 16px 18px; min-width: 0; transition: border-color .15s, transform .15s; }
 .stat[data-go] { cursor: pointer; }
@@ -12794,7 +12848,8 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
   .stat.gauge { padding: 14px 16px; }
   .ring, .ring svg { width: 92px; height: 92px; }
   .ring .center { font-size: 21px; }
-  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tiles > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   .stat { padding: 14px; }
   .stat .value { font-size: 23px; }
   .stat .value.tight { font-size: 17px; }
@@ -12865,7 +12920,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
 }
 
 @media (max-width: 380px) {
-  .tiles { grid-template-columns: minmax(0, 1fr); }
+  .tiles { display: grid; grid-template-columns: minmax(0, 1fr); }
   .top-title { font-size: 15px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
@@ -13221,6 +13276,24 @@ label.btn input[type="file"] { display: none; }
 .df-left i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--s-warn); border-radius: 4px; }
 [dir="rtl"] .df-left i::after { inset: 0 0 0 auto; }
 .df-rowbtns { display: inline-flex; gap: 6px; align-items: center; }
+.rule-code { font-size: 11px; color: var(--faint); background: none; padding: 0; margin-inline-start: 4px; }
+
+/* login: language / theme switches and show-password */
+.login-tools { position: fixed; top: max(16px, env(safe-area-inset-top, 0px)); inset-inline-end: 16px; display: flex; gap: 8px; z-index: 10; }
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-inline-end: 48px; }
+.pw-toggle { position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; display: grid; place-items: center;
+  border: 0; border-radius: 10px; background: none; color: var(--muted); cursor: pointer; }
+.pw-toggle:hover { color: var(--ink); background: var(--surface-2); }
+.pw-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pw-toggle .ico { width: 18px; height: 18px; }
+
+/* touch screens: buttons at least 40px so they are easy to hit */
+@media (pointer: coarse) {
+  .btn.small { height: 40px; }
+  .btn.small.icon { width: 40px; }
+  .df-seg button { padding: 9px 14px; }
+}
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'
 /* Vazirmatn (SIL Open Font License 1.1) - Latin + Persian/Arabic subset, embedded so the panel needs no external font host. */
