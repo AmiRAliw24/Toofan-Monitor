@@ -430,7 +430,7 @@ DOCKER_MIRROR=https://docker.arvancloud.ir ALPINE_MIRROR=https://mirror.arvanclo
 اگر خود GitHub هم باز نمی‌شود، `install.sh` را از اولین منبعی که جواب بدهد بگیرید:
 
 ```bash
-for u in https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh; do curl -fsSL -m 120 "$u" -o install.sh && break; done; sudo bash install.sh
+for u in https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh; do curl -fsSL -m 300 "$u" -o install.sh && bash -n install.sh && tail -1 install.sh | grep -q "^main" && break; echo "incomplete from $u, trying the next one"; done; sudo bash install.sh
 ```
 
 <details>
