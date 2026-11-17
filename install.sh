@@ -13731,11 +13731,41 @@ choose_alpine_mirror() {
   warn "No Alpine package mirror answered; building the firewall image may fail (set ALPINE_MIRROR=https://... and run again)."
 }
 
-# True if something is already listening on TCP port $1 (reads /proc, so no extra tools are needed).
+# True if TCP port $1 is taken: something listens on it, a socket holds it without listening
+# (Docker does that for published ports when its userland proxy is off), or another container
+# publishes it. Reads /proc first, so no extra tools are needed.
 port_in_use() {
   local hex f; hex=$(printf '%04X' "$1")
-  for f in /proc/net/tcp /proc/net/tcp6; do if [ -r "$f" ]; then cat "$f"; fi; done |
-    awk -v h=":$hex" '$4 == "0A" && substr($2, length($2) - 4) == h { found = 1 } END { exit !found }'
+  if for f in /proc/net/tcp /proc/net/tcp6; do if [ -r "$f" ]; then cat "$f"; fi; done |
+    awk -v h=":$hex" 'substr($2, length($2) - 4) == h && ($4 == "0A" || ($4 == "07" && $3 ~ /^0+:0000$/)) { found = 1 } END { exit !found }'
+  then return 0; fi
+  if command -v ss >/dev/null 2>&1 && ss -Htan "sport = :$1" 2>/dev/null | grep -q .; then return 0; fi
+  command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}} {{.Ports}}' 2>/dev/null |
+    grep -v '^server-monitoring-panel-' | grep -Eq ":$1->"
+}
+
+# compose up; if Docker still finds the panel's port taken (something grabbed it after the check,
+# or the check could not see it), move the panel to the next free port and try again.
+start_stack() {
+  local out tries=0 rc
+  out=$(mktemp)
+  while :; do
+    compose up -d --remove-orphans < /dev/null 2>&1 | tee "$out"
+    rc=${PIPESTATUS[0]}
+    [ "$rc" = 0 ] && { rm -f "$out"; return 0; }
+    if grep -q "bind host port.*:${PANEL_PORT}/tcp: address already in use\|port is already allocated" "$out" && [ "$tries" -lt 20 ]; then
+      tries=$((tries + 1))
+      RESERVED+="$PANEL_PORT "
+      local old=$PANEL_PORT p=$((PANEL_PORT + 1))
+      while port_in_use "$p" || [[ $RESERVED == *" $p "* ]]; do p=$((p + 1)); done
+      PANEL_PORT=$p
+      set_env_key PANEL_PORT "$p"
+      warn "Port $old is already taken by another program - starting the panel on port $p instead."
+      continue
+    fi
+    rm -f "$out"
+    return "$rc"
+  done
 }
 
 RESERVED=" "
@@ -13888,7 +13918,8 @@ choose_alpine_mirror
 compose build --quiet defender < /dev/null
 remove_legacy_grafana
 choose_port PANEL_PORT panel 8080 3000
-compose up -d --remove-orphans < /dev/null
+PANEL_PORT=$(sed -n "s/^PANEL_PORT='\{0,1\}\([0-9]*\).*/\1/p" "$INSTALL_DIR/.env" | tail -1)
+start_stack || die "The containers did not start (see the error above)."
 # Config files are bind-mounted, so running containers need a nudge to re-read them.
 # Restart, never `compose kill -s SIGHUP`: Docker records any kill (even a harmless HUP) as a
 # manual stop, and the restart policy then leaves those containers down after the next reboot.
