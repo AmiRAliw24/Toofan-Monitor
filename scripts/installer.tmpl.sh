@@ -13,9 +13,11 @@
 #   bash install.sh --no-start      # write files only, don't start containers
 #   bash install.sh --uninstall     # stop and remove containers (keeps data volumes)
 #   bash install.sh --purge         # also delete data volumes and the install dir
+#   bash install.sh --update        # download the newest installer (from the first source that works) and run it
 #
 # Optional env vars: INSTALL_DIR, PANEL_USER, PANEL_PASSWORD, PANEL_BIND, PANEL_PORT,
-#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SITES (comma-separated URLs), PROMETHEUS_RETENTION,
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_API (a proxy / local Bot API server where api.telegram.org
+#   is blocked), SITES (comma-separated URLs), PROMETHEUS_RETENTION, PROMETHEUS_RETENTION_SIZE (default 5GB),
 #   DOCKER_MIRROR (comma-separated registry mirrors to use), ALPINE_MIRROR (Alpine package mirror),
 #   and the fallback lists DOCKER_SCRIPT_URLS, DOCKER_CE_MIRRORS, GITHUB_PROXIES, REGISTRY_MIRRORS, ALPINE_MIRRORS
 #
@@ -36,6 +38,7 @@ for arg in "$@"; do
     --no-start) NO_START=1 ;;
     --uninstall) ACTION=uninstall ;;
     --purge) ACTION=purge ;;
+    --update) ACTION=update ;;
     -h|--help) awk 'NR > 1 && /^set -euo/ { exit } NR > 1' "$0" 2>/dev/null || echo 'See the header of install.sh for usage.'; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
@@ -68,7 +71,7 @@ if [ "$NO_START" = 0 ] || [ "$ACTION" != install ]; then
   [ "$(id -u)" = 0 ] || die "Run as root (e.g. sudo bash $0)."
 fi
 
-if [ "$ACTION" != install ]; then
+if [ "$ACTION" = uninstall ] || [ "$ACTION" = purge ]; then
   [ -f "$INSTALL_DIR/docker-compose.yml" ] || die "No installation found in $INSTALL_DIR."
   # The Defender's firewall rules live in the kernel, not in a container: remove them too.
   if command -v nft >/dev/null 2>&1; then nft delete table inet defender 2>/dev/null || true
@@ -264,16 +267,25 @@ ensure_registry() {
   set_mirrors "$mirrors"
 }
 
+# One pull of every image. Newer Compose has --ignore-buildable (skips the firewall image, which is
+# built here); an older or a future one without it gets --ignore-pull-failures, then a plain pull.
+pull_once() {
+  compose pull --quiet --ignore-buildable < /dev/null 2>/dev/null && return 0
+  compose pull --help 2>/dev/null | grep -q -- --ignore-buildable && return 1    # the flag exists: a real failure
+  compose pull --quiet --ignore-pull-failures < /dev/null && return 0
+  compose pull < /dev/null
+}
+
 # Pulls the images. When that fails with the mirrors all set, each mirror is tried on its own.
 pull_images() {
-  compose pull --quiet --ignore-buildable < /dev/null && return 0
+  pull_once && return 0
   local m mirrors
   mirrors=$(live_mirrors)
   [ -n "$mirrors" ] || return 1
   for m in $(printf '%s' "$mirrors" | tr ',' ' '); do
     warn "Download failed - trying the registry mirror $m on its own"
     set_mirrors "$m"
-    if compose pull --quiet --ignore-buildable < /dev/null; then
+    if pull_once; then
       set_mirrors "$mirrors"     # keep them all for later pulls
       return 0
     fi
@@ -357,6 +369,21 @@ set_env_key() {
   if grep -q "^$1=" "$INSTALL_DIR/.env"; then sed -i "s|^$1=.*|$1='$2'|" "$INSTALL_DIR/.env"
   else echo "$1='$2'" >> "$INSTALL_DIR/.env"; fi
 }
+
+# ---------------------------------------------------------------- self-update
+# The newest installer from GitHub, or a copy of it (jsDelivr, GitHub proxies) when GitHub is blocked.
+INSTALLER_URLS=${INSTALLER_URLS:-"https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh,https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh,https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh"}
+if [ "$ACTION" = update ]; then
+  new=$(mktemp)
+  urls=()
+  while read -r u; do [ -n "$u" ] && urls+=("$u"); done < <(split_list "$INSTALLER_URLS")
+  log "Downloading the newest installer"
+  fetch_first "$new" - "${urls[@]}" || die "Could not download the installer from any source."
+  # a broken or truncated download (or an error page) must never run
+  bash -n "$new" 2>/dev/null && grep -q '^extract_files()' "$new" || die "The downloaded installer is not valid; nothing was changed."
+  log "Running the new installer (your settings in $INSTALL_DIR/.env are kept)"
+  exec bash "$new" -y
+fi
 
 # ---------------------------------------------------------------- main
 FRESH=1; [ -f "$INSTALL_DIR/.env" ] && FRESH=0

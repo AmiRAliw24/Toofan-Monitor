@@ -18,7 +18,8 @@ import socket
 import threading
 import time
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+
+import sources
 
 # kind: what the list contains. safe: almost no chance of blocking real users (turned on by "recommended").
 FEEDS = {
@@ -139,12 +140,26 @@ def _merge(nets):
 
 
 def _download(url):
-    req = Request(url, headers={"User-Agent": "server-monitor-firewall/1.1", "Accept-Encoding": "identity"})
-    with urlopen(req, timeout=40) as r:
-        body = r.read(MAX_BYTES + 1)
-    if len(body) > MAX_BYTES:
-        raise ValueError("the list is larger than 40 MB")
-    return body.decode("utf-8", "replace")
+    """The list from its URL, or when that fails from another copy (jsDelivr / proxies for GitHub files)."""
+    return sources.fetch_any([url], check=_looks_like_list, timeout=40, limit=MAX_BYTES)
+
+
+def _looks_like_list(text):
+    """Cheap test that a download is an address list and not an error page: one of the first entries parses."""
+    seen = 0
+    for line in text.splitlines():
+        line = line.split("#")[0].split(";")[0].strip()
+        if not line:
+            continue
+        token = RANGE_RE.match(line).group(1) if RANGE_RE.match(line) else line.replace(",", " ").split()[0]
+        try:
+            ipaddress.ip_network(token, strict=False)
+            return True
+        except ValueError:
+            seen += 1
+            if seen > 50:
+                return False
+    return False
 
 
 def fetch(data, fid, feed, max_age, force=False):

@@ -36,6 +36,7 @@ import geo  # noqa: E402
 import hostinfo  # noqa: E402
 import nftlib  # noqa: E402
 import nftrules  # noqa: E402
+import sources  # noqa: E402
 import sshmgr  # noqa: E402
 import sysfw  # noqa: E402
 import threat  # noqa: E402
@@ -514,7 +515,9 @@ def admin_ips():
     login in the last TRUST_DAYS (scripts and tools that run commands over SSH never show up in utmp)."""
     if time.time() - _admin["at"] > 15:
         now = time.time()
-        recent = {ip for ip, t in list(GUARD["recent_ok"].items()) if now - t < TRUST_DAYS * 86400}
+        for ip in [ip for ip, t in list(GUARD["recent_ok"].items()) if now - t >= TRUST_DAYS * 86400]:
+            GUARD["recent_ok"].pop(ip, None)     # trust ends after TRUST_DAYS; nothing piles up over the years
+        recent = set(GUARD["recent_ok"])
         _admin.update(at=now, ips=sorted(set(hostinfo.ssh_sessions()) | recent))
     return _admin["ips"]
 
@@ -658,6 +661,9 @@ def ssh_line(line):
     q.append(now)
     while q and now - q[0] > g["window"] * 60:
         q.popleft()
+    if len(GUARD["failures"]) > 5000:     # years of scanners: drop addresses with nothing left in the window
+        for k in [k for k, v in GUARD["failures"].items() if not v or now - v[-1] > g["window"] * 60]:
+            GUARD["failures"].pop(k, None)
     if len(q) >= g["failures"]:
         GUARD["failures"].pop(ip, None)
         try:
@@ -1626,10 +1632,48 @@ def api_geo(q):
     return {"block": CFG["geo"]["block"], "info": geo.info(DATA, CFG["geo"]["block"])}
 
 
+def load_cdn(download=False):
+    """Cloudflare's address ranges: the last downloaded copy (data/cdn.json), refreshed weekly from
+    cloudflare.com; the list built into nftrules stays in use when nothing could ever be downloaded."""
+    path = _path("cdn.json")
+    cur = load_json("cdn.json", {})
+    if download and time.time() - cur.get("at", 0) > 7 * 86400:
+        try:
+            def nets(text, version):
+                out = []
+                for line in text.split():
+                    try:
+                        n = ipaddress.ip_network(line.strip(), strict=False)
+                    except ValueError:
+                        continue
+                    if n.version == version and n.prefixlen >= (8 if version == 4 else 16):
+                        out.append(str(n))
+                return out
+            v4 = nets(sources.fetch(["https://www.cloudflare.com/ips-v4", "https://www.cloudflare.com/ips-v4/"],
+                                    check=lambda t: len(nets(t, 4)) >= 5, timeout=20), 4)
+            v6 = nets(sources.fetch(["https://www.cloudflare.com/ips-v6", "https://www.cloudflare.com/ips-v6/"],
+                                    check=lambda t: len(nets(t, 6)) >= 3, timeout=20), 6)
+            cur = {"at": time.time(), "v4": v4, "v6": v6}
+            save_json("cdn.json", cur)
+        except Exception as e:  # unreachable: keep the copy we have (or the built-in list)
+            log("cloudflare ranges:", str(e)[:200])
+    changed = False
+    if cur.get("v4") and os.path.exists(path):
+        new4, new6 = tuple(cur["v4"]), tuple(cur.get("v6") or nftrules.CDN6)
+        changed = (new4, new6) != (nftrules.CDN4, nftrules.CDN6)
+        nftrules.CDN4, nftrules.CDN6 = new4, new6
+    return changed
+
+
 def geo_refresh_loop():
     """Country lists change slowly; refresh them weekly and re-apply when one changed."""
     while True:
         time.sleep(6 * 3600)
+        try:
+            if load_cdn(download=True) and CFG["enabled"] and CFG.get("trust_cdn", True) and not STATE["pending"]:
+                apply()
+        except Exception as e:
+            log("cloudflare refresh", e)
         try:
             codes = sorted(set(CFG["geo"]["block"]) | {c for r in CFG["rules"] if r.get("enabled", True) for c in r.get("countries") or []})
             if not codes or not CFG["enabled"]:
@@ -1804,6 +1848,7 @@ def main():
     os.chmod(SOCK, 0o660)
     reapply_sysctl()
     seed_recent_logins()
+    load_cdn()      # the last downloaded copy of Cloudflare's ranges, if there is one
     try:
         apply()
         if CFG["enabled"]:

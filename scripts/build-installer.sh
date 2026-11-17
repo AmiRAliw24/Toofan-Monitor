@@ -38,6 +38,7 @@ FILES=(
   defender/threat.py:644
   defender/nftlib.py:644
   defender/sysfw.py:644
+  defender/sources.py:644
   panel/static/index.html:644
   panel/static/login.html:644
   panel/static/app.js:644

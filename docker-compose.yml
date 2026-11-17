@@ -4,14 +4,24 @@ name: server-monitoring
 # marks a container as "manually stopped" after any `docker kill`, even a harmless SIGHUP,
 # and unless-stopped then leaves it down on the next boot; prometheus going missing that way
 # shows up in the panel as a DNS error ("Try again") for the name prometheus.
+# Container logs are capped (3 x 10 MB per service): left alone for years they would fill the disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   prometheus:
     image: prom/prometheus:v2.55.1
     restart: always
+    logging: *logging
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+      # and never more than this on disk, whatever the time limit says
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-5GB}
       - --web.enable-lifecycle
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -25,6 +35,7 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.27.0
     restart: always
+    logging: *logging
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
@@ -39,6 +50,7 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.8.2
     restart: always
+    logging: *logging
     pid: host
     command:
       - --path.rootfs=/host
@@ -57,6 +69,7 @@ services:
   node-net:
     image: prom/node-exporter:v1.8.2
     restart: always
+    logging: *logging
     pid: host
     privileged: true
     user: root
@@ -82,6 +95,7 @@ services:
   containers:
     image: python:3.12-alpine
     restart: always
+    logging: *logging
     command: ["python", "-u", "/app/cstats.py"]
     read_only: true
     cap_drop: [ALL]
@@ -97,6 +111,7 @@ services:
   blackbox:
     image: prom/blackbox-exporter:v0.25.0
     restart: always
+    logging: *logging
     command: --config.file=/etc/blackbox/blackbox.yml
     volumes:
       - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
@@ -107,6 +122,7 @@ services:
   hostip:
     image: python:3.12-alpine
     restart: always
+    logging: *logging
     command: ["python", "-u", "/app/hostip.py"]
     network_mode: host
     user: "65534:65534"
@@ -133,6 +149,7 @@ services:
     image: server-monitoring-defender:1
     pull_policy: build
     restart: always
+    logging: *logging
     network_mode: host
     pid: host
     privileged: true
@@ -147,6 +164,7 @@ services:
   panel:
     image: python:3.12-alpine
     restart: always
+    logging: *logging
     command: ["python", "-u", "/app/server.py"]
     user: "65534:65534"
     # Group that owns /var/run/docker.sock (the installer sets DOCKER_GID); lets the panel manage containers.
@@ -164,6 +182,8 @@ services:
       PANEL_PASSWORD: ${PANEL_PASSWORD:?set PANEL_PASSWORD in .env}
       PANEL_LISTEN_PORT: "8080"
       PANEL_DOCKER_CONTROL: ${PANEL_DOCKER_CONTROL:-1}
+      # Telegram's API, or a proxy / local Bot API server where api.telegram.org is blocked
+      TELEGRAM_API: ${TELEGRAM_API:-https://api.telegram.org}
       CONFIG_DIR: /config
       DATA_DIR: /data
     volumes:

@@ -13,9 +13,11 @@
 #   bash install.sh --no-start      # write files only, don't start containers
 #   bash install.sh --uninstall     # stop and remove containers (keeps data volumes)
 #   bash install.sh --purge         # also delete data volumes and the install dir
+#   bash install.sh --update        # download the newest installer (from the first source that works) and run it
 #
 # Optional env vars: INSTALL_DIR, PANEL_USER, PANEL_PASSWORD, PANEL_BIND, PANEL_PORT,
-#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SITES (comma-separated URLs), PROMETHEUS_RETENTION,
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_API (a proxy / local Bot API server where api.telegram.org
+#   is blocked), SITES (comma-separated URLs), PROMETHEUS_RETENTION, PROMETHEUS_RETENTION_SIZE (default 5GB),
 #   DOCKER_MIRROR (comma-separated registry mirrors to use), ALPINE_MIRROR (Alpine package mirror),
 #   and the fallback lists DOCKER_SCRIPT_URLS, DOCKER_CE_MIRRORS, GITHUB_PROXIES, REGISTRY_MIRRORS, ALPINE_MIRRORS
 #
@@ -36,6 +38,7 @@ for arg in "$@"; do
     --no-start) NO_START=1 ;;
     --uninstall) ACTION=uninstall ;;
     --purge) ACTION=purge ;;
+    --update) ACTION=update ;;
     -h|--help) awk 'NR > 1 && /^set -euo/ { exit } NR > 1' "$0" 2>/dev/null || echo 'See the header of install.sh for usage.'; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
@@ -68,7 +71,7 @@ if [ "$NO_START" = 0 ] || [ "$ACTION" != install ]; then
   [ "$(id -u)" = 0 ] || die "Run as root (e.g. sudo bash $0)."
 fi
 
-if [ "$ACTION" != install ]; then
+if [ "$ACTION" = uninstall ] || [ "$ACTION" = purge ]; then
   [ -f "$INSTALL_DIR/docker-compose.yml" ] || die "No installation found in $INSTALL_DIR."
   # The Defender's firewall rules live in the kernel, not in a container: remove them too.
   if command -v nft >/dev/null 2>&1; then nft delete table inet defender 2>/dev/null || true
@@ -93,14 +96,24 @@ name: server-monitoring
 # marks a container as "manually stopped" after any `docker kill`, even a harmless SIGHUP,
 # and unless-stopped then leaves it down on the next boot; prometheus going missing that way
 # shows up in the panel as a DNS error ("Try again") for the name prometheus.
+# Container logs are capped (3 x 10 MB per service): left alone for years they would fill the disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   prometheus:
     image: prom/prometheus:v2.55.1
     restart: always
+    logging: *logging
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+      # and never more than this on disk, whatever the time limit says
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-5GB}
       - --web.enable-lifecycle
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -114,6 +127,7 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.27.0
     restart: always
+    logging: *logging
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
@@ -128,6 +142,7 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.8.2
     restart: always
+    logging: *logging
     pid: host
     command:
       - --path.rootfs=/host
@@ -146,6 +161,7 @@ services:
   node-net:
     image: prom/node-exporter:v1.8.2
     restart: always
+    logging: *logging
     pid: host
     privileged: true
     user: root
@@ -171,6 +187,7 @@ services:
   containers:
     image: python:3.12-alpine
     restart: always
+    logging: *logging
     command: ["python", "-u", "/app/cstats.py"]
     read_only: true
     cap_drop: [ALL]
@@ -186,6 +203,7 @@ services:
   blackbox:
     image: prom/blackbox-exporter:v0.25.0
     restart: always
+    logging: *logging
     command: --config.file=/etc/blackbox/blackbox.yml
     volumes:
       - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
@@ -196,6 +214,7 @@ services:
   hostip:
     image: python:3.12-alpine
     restart: always
+    logging: *logging
     command: ["python", "-u", "/app/hostip.py"]
     network_mode: host
     user: "65534:65534"
@@ -222,6 +241,7 @@ services:
     image: server-monitoring-defender:1
     pull_policy: build
     restart: always
+    logging: *logging
     network_mode: host
     pid: host
     privileged: true
@@ -236,6 +256,7 @@ services:
   panel:
     image: python:3.12-alpine
     restart: always
+    logging: *logging
     command: ["python", "-u", "/app/server.py"]
     user: "65534:65534"
     # Group that owns /var/run/docker.sock (the installer sets DOCKER_GID); lets the panel manage containers.
@@ -253,6 +274,8 @@ services:
       PANEL_PASSWORD: ${PANEL_PASSWORD:?set PANEL_PASSWORD in .env}
       PANEL_LISTEN_PORT: "8080"
       PANEL_DOCKER_CONTROL: ${PANEL_DOCKER_CONTROL:-1}
+      # Telegram's API, or a proxy / local Bot API server where api.telegram.org is blocked
+      TELEGRAM_API: ${TELEGRAM_API:-https://api.telegram.org}
       CONFIG_DIR: /config
       DATA_DIR: /data
     volumes:
@@ -669,6 +692,8 @@ rm data/panel/auth.json && docker compose restart panel
 | `PANEL_DOCKER_CONTROL` | `1` | `0` یعنی پنل اصلاً به داکر دسترسی ندارد |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | خالی | اتصال اولیه‌ی تلگرام (بعداً از صفحه‌ی اعلان‌ها هم می‌شود) |
 | `PROMETHEUS_RETENTION` | `30d` | مدت نگهداری داده‌ها |
+| `PROMETHEUS_RETENTION_SIZE` | `5GB` | بیشترین فضای دیسک برای داده‌ها، هر چه مدت نگهداری بگوید |
+| `TELEGRAM_API` | `https://api.telegram.org` | آدرس API تلگرام؛ جایی که مسدود است، یک پراکسی یا Bot API Server محلی |
 | `PUBLIC_IP_LOOKUP` | `1` | `0` یعنی نمایش آی‌پی عمومی خاموش |
 | `DOCKER_GID` | خودکار | گروه صاحب `docker.sock` (نصب‌کننده پر می‌کند) |
 
@@ -719,6 +744,13 @@ docker compose up -d
 <br>
 
 ## 🔧 عیب‌یابی
+
+### 🕰️ کار در درازمدت (بدون نگهداری)
+
+- **به‌روزرسانی:** `bash install.sh --update` نسخه‌ی جدید نصب‌کننده را از اولین منبعی که جواب بدهد (GitHub یا پراکسی‌هایش) می‌گیرد، سالم بودنش را بررسی می‌کند و اجرا می‌کند؛ تنظیمات `.env` می‌مانند.
+- **هر دانلود چند منبع دارد:** نصب Docker و Compose، ایمیج‌ها، بسته‌های Alpine، لیست کشورها (ipdeny ← دو لیست روی GitHub ← jsDelivr ← پراکسی‌ها)، لیست‌های تهدید و آدرس‌های Cloudflare. اگر منبعی از کار بیفتد یا مسدود شود، بعدی امتحان می‌شود و دانلود خالی یا صفحه‌ی خطا هیچ‌وقت جای نسخه‌ی سالم قبلی را نمی‌گیرد.
+- **دیسک پر نمی‌شود:** لاگ هر کانتینر حداکثر ۳۰ مگابایت، داده‌های Prometheus حداکثر `PROMETHEUS_RETENTION_SIZE`، و همه‌ی فایل‌ها و جدول‌های داخلی (رویدادها، مسدودی‌ها، لاگ امنیت، محافظ SSH) سقف دارند.
+- **نسخه‌ها ثابت‌اند:** ایمیج‌ها با نسخه‌ی مشخص و Compose با چک‌سام دانلود می‌شوند، پس یک نسخه‌ی جدید و ناسازگار ناخواسته نصب نمی‌شود. آدرس‌های Cloudflare هر هفته بروز می‌شوند و اگر نشد، لیست داخلی می‌ماند.
 
 ### 🇮🇷 نصب روی سرورهای ایران (خطای 403)
 
@@ -6317,6 +6349,7 @@ import geo  # noqa: E402
 import hostinfo  # noqa: E402
 import nftlib  # noqa: E402
 import nftrules  # noqa: E402
+import sources  # noqa: E402
 import sshmgr  # noqa: E402
 import sysfw  # noqa: E402
 import threat  # noqa: E402
@@ -6795,7 +6828,9 @@ def admin_ips():
     login in the last TRUST_DAYS (scripts and tools that run commands over SSH never show up in utmp)."""
     if time.time() - _admin["at"] > 15:
         now = time.time()
-        recent = {ip for ip, t in list(GUARD["recent_ok"].items()) if now - t < TRUST_DAYS * 86400}
+        for ip in [ip for ip, t in list(GUARD["recent_ok"].items()) if now - t >= TRUST_DAYS * 86400]:
+            GUARD["recent_ok"].pop(ip, None)     # trust ends after TRUST_DAYS; nothing piles up over the years
+        recent = set(GUARD["recent_ok"])
         _admin.update(at=now, ips=sorted(set(hostinfo.ssh_sessions()) | recent))
     return _admin["ips"]
 
@@ -6939,6 +6974,9 @@ def ssh_line(line):
     q.append(now)
     while q and now - q[0] > g["window"] * 60:
         q.popleft()
+    if len(GUARD["failures"]) > 5000:     # years of scanners: drop addresses with nothing left in the window
+        for k in [k for k, v in GUARD["failures"].items() if not v or now - v[-1] > g["window"] * 60]:
+            GUARD["failures"].pop(k, None)
     if len(q) >= g["failures"]:
         GUARD["failures"].pop(ip, None)
         try:
@@ -7907,10 +7945,48 @@ def api_geo(q):
     return {"block": CFG["geo"]["block"], "info": geo.info(DATA, CFG["geo"]["block"])}
 
 
+def load_cdn(download=False):
+    """Cloudflare's address ranges: the last downloaded copy (data/cdn.json), refreshed weekly from
+    cloudflare.com; the list built into nftrules stays in use when nothing could ever be downloaded."""
+    path = _path("cdn.json")
+    cur = load_json("cdn.json", {})
+    if download and time.time() - cur.get("at", 0) > 7 * 86400:
+        try:
+            def nets(text, version):
+                out = []
+                for line in text.split():
+                    try:
+                        n = ipaddress.ip_network(line.strip(), strict=False)
+                    except ValueError:
+                        continue
+                    if n.version == version and n.prefixlen >= (8 if version == 4 else 16):
+                        out.append(str(n))
+                return out
+            v4 = nets(sources.fetch(["https://www.cloudflare.com/ips-v4", "https://www.cloudflare.com/ips-v4/"],
+                                    check=lambda t: len(nets(t, 4)) >= 5, timeout=20), 4)
+            v6 = nets(sources.fetch(["https://www.cloudflare.com/ips-v6", "https://www.cloudflare.com/ips-v6/"],
+                                    check=lambda t: len(nets(t, 6)) >= 3, timeout=20), 6)
+            cur = {"at": time.time(), "v4": v4, "v6": v6}
+            save_json("cdn.json", cur)
+        except Exception as e:  # unreachable: keep the copy we have (or the built-in list)
+            log("cloudflare ranges:", str(e)[:200])
+    changed = False
+    if cur.get("v4") and os.path.exists(path):
+        new4, new6 = tuple(cur["v4"]), tuple(cur.get("v6") or nftrules.CDN6)
+        changed = (new4, new6) != (nftrules.CDN4, nftrules.CDN6)
+        nftrules.CDN4, nftrules.CDN6 = new4, new6
+    return changed
+
+
 def geo_refresh_loop():
     """Country lists change slowly; refresh them weekly and re-apply when one changed."""
     while True:
         time.sleep(6 * 3600)
+        try:
+            if load_cdn(download=True) and CFG["enabled"] and CFG.get("trust_cdn", True) and not STATE["pending"]:
+                apply()
+        except Exception as e:
+            log("cloudflare refresh", e)
         try:
             codes = sorted(set(CFG["geo"]["block"]) | {c for r in CFG["rules"] if r.get("enabled", True) for c in r.get("countries") or []})
             if not codes or not CFG["enabled"]:
@@ -8085,6 +8161,7 @@ def main():
     os.chmod(SOCK, 0o660)
     reapply_sysctl()
     seed_recent_logins()
+    load_cdn()      # the last downloaded copy of Cloudflare's ranges, if there is one
     try:
         apply()
         if CFG["enabled"]:
@@ -9530,15 +9607,23 @@ def watch_log(on_ban):
         time.sleep(2)
 __MONITORING_EOF__
   write_file defender/geo.py 644 <<'__MONITORING_EOF__'
-"""Country blocking: IP ranges per country from ipdeny.com (aggregated zones), cached for a week."""
+"""Country ranges for the rules: from ipdeny.com, or when that fails from the country lists on GitHub
+(herrbischoff/country-ip-blocks, ipverse/rir-ip, also through jsDelivr and GitHub proxies). Cached for a
+week; a failed or empty download never replaces the copy that is already there."""
 import ipaddress
 import os
 import re
 import time
-from urllib.request import Request, urlopen
+import sources
 
-URL4 = "https://www.ipdeny.com/ipblocks/data/aggregated/{cc}-aggregated.zone"
-URL6 = "https://www.ipdeny.com/ipv6/ipaddresses/aggregated/{cc}-aggregated.zone"
+URLS = {
+    4: ["https://www.ipdeny.com/ipblocks/data/aggregated/{cc}-aggregated.zone",
+        "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/{cc}.cidr",
+        "https://raw.githubusercontent.com/ipverse/rir-ip/master/country/{cc}/ipv4-aggregated.txt"],
+    6: ["https://www.ipdeny.com/ipv6/ipaddresses/aggregated/{cc}-aggregated.zone",
+        "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv6/{cc}.cidr",
+        "https://raw.githubusercontent.com/ipverse/rir-ip/master/country/{cc}/ipv6-aggregated.txt"],
+}
 MAX_AGE = 7 * 86400
 CC_RE = re.compile(r"^[a-z]{2}$")
 
@@ -9547,12 +9632,6 @@ def _dir(data):
     d = os.path.join(data, "geo")
     os.makedirs(d, exist_ok=True)
     return d
-
-
-def _fetch(url):
-    req = Request(url, headers={"User-Agent": "server-monitor-firewall/1.0"})
-    with urlopen(req, timeout=25) as r:
-        return r.read(20_000_000).decode("ascii", "replace")
 
 
 def _parse(text, version):
@@ -9576,12 +9655,12 @@ def zones(data, cc, refresh=False, download=True):
         raise ValueError(f"unknown country code: {cc}")
     d = _dir(data)
     res = []
-    for version, url in ((4, URL4), (6, URL6)):
+    for version in (4, 6):
         path = os.path.join(d, f"{cc}.{version}")
         fresh = os.path.exists(path) and time.time() - os.path.getmtime(path) < MAX_AGE
         if download and (refresh or not fresh):
             try:
-                text = _fetch(url.format(cc=cc))
+                text = sources.fetch_any([u.format(cc=cc) for u in URLS[version]], check=lambda t, v=version: bool(_parse(t, v)), timeout=25)
                 nets = _parse(text, version)
                 tmp = path + ".tmp"
                 with open(tmp, "w") as f:
@@ -9911,7 +9990,8 @@ import socket
 import threading
 import time
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+
+import sources
 
 # kind: what the list contains. safe: almost no chance of blocking real users (turned on by "recommended").
 FEEDS = {
@@ -10032,12 +10112,26 @@ def _merge(nets):
 
 
 def _download(url):
-    req = Request(url, headers={"User-Agent": "server-monitor-firewall/1.1", "Accept-Encoding": "identity"})
-    with urlopen(req, timeout=40) as r:
-        body = r.read(MAX_BYTES + 1)
-    if len(body) > MAX_BYTES:
-        raise ValueError("the list is larger than 40 MB")
-    return body.decode("utf-8", "replace")
+    """The list from its URL, or when that fails from another copy (jsDelivr / proxies for GitHub files)."""
+    return sources.fetch_any([url], check=_looks_like_list, timeout=40, limit=MAX_BYTES)
+
+
+def _looks_like_list(text):
+    """Cheap test that a download is an address list and not an error page: one of the first entries parses."""
+    seen = 0
+    for line in text.splitlines():
+        line = line.split("#")[0].split(";")[0].strip()
+        if not line:
+            continue
+        token = RANGE_RE.match(line).group(1) if RANGE_RE.match(line) else line.replace(",", " ").split()[0]
+        try:
+            ipaddress.ip_network(token, strict=False)
+            return True
+        except ValueError:
+            seen += 1
+            if seen > 50:
+                return False
+    return False
 
 
 def fetch(data, fid, feed, max_age, force=False):
@@ -10491,6 +10585,64 @@ def ufw_enable(keep_tcp):
 def ufw_disable():
     _run(["ufw", "disable"])
     return ufw_status()
+__MONITORING_EOF__
+  write_file defender/sources.py 644 <<'__MONITORING_EOF__'
+"""Downloads that keep working when one source goes away or is blocked.
+
+Every list the firewall downloads (country ranges, threat lists, Cloudflare's addresses) is fetched
+from the first source that answers with usable content; a source that fails (blocked, 403, gone,
+timeout, or an error page instead of a list) is skipped and the next one tried. Files on GitHub also
+get their jsDelivr copy and GitHub proxies as extra sources, for servers where GitHub is blocked.
+GITHUB_PROXIES (comma-separated URL prefixes) replaces the default proxies.
+"""
+import os
+import re
+from urllib.request import Request, urlopen
+
+GITHUB_PROXIES = [p.strip() for p in os.environ.get("GITHUB_PROXIES", "https://ghfast.top/,https://gh-proxy.com/").split(",") if p.strip()]
+RAW_RE = re.compile(r"^https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$")
+UA = "server-monitor-firewall/1.2"
+
+
+def alternatives(url):
+    """The URL itself, then other places the same file can be fetched from."""
+    out = [url]
+    m = RAW_RE.match(url)
+    if m:
+        owner, repo, branch, path = m.groups()
+        out.append(f"https://cdn.jsdelivr.net/gh/{owner}/{repo}@{branch}/{path}")
+        out += [(p if p.endswith("/") else p + "/") + url for p in GITHUB_PROXIES]
+    return out
+
+
+def fetch(urls, check=None, timeout=40, limit=40_000_000):
+    """Text of the first URL that answers with content `check` accepts; ValueError with every reason."""
+    errors = []
+    for url in urls:
+        try:
+            req = Request(url, headers={"User-Agent": UA, "Accept-Encoding": "identity"})
+            with urlopen(req, timeout=timeout) as r:
+                body = r.read(limit + 1)
+            if len(body) > limit:
+                raise ValueError("too large")
+            text = body.decode("utf-8", "replace")
+            if check and not check(text):
+                raise ValueError("not a usable list (maybe an error page)")
+            return text
+        except Exception as e:  # blocked, 403/404, timeout, bad content: try the next source
+            errors.append(f"{url.split('/')[2]}: {type(e).__name__}: {e}"[:160])
+    raise ValueError("; ".join(errors) or "no source")
+
+
+def fetch_any(urls, **kw):
+    """Like fetch(), with every URL expanded to its alternatives."""
+    seen, all_urls = set(), []
+    for u in urls:
+        for a in alternatives(u):
+            if a not in seen:
+                seen.add(a)
+                all_urls.append(a)
+    return fetch(all_urls, **kw)
 __MONITORING_EOF__
   write_file panel/static/index.html 644 <<'__MONITORING_EOF__'
 <!doctype html>
@@ -13524,16 +13676,25 @@ ensure_registry() {
   set_mirrors "$mirrors"
 }
 
+# One pull of every image. Newer Compose has --ignore-buildable (skips the firewall image, which is
+# built here); an older or a future one without it gets --ignore-pull-failures, then a plain pull.
+pull_once() {
+  compose pull --quiet --ignore-buildable < /dev/null 2>/dev/null && return 0
+  compose pull --help 2>/dev/null | grep -q -- --ignore-buildable && return 1    # the flag exists: a real failure
+  compose pull --quiet --ignore-pull-failures < /dev/null && return 0
+  compose pull < /dev/null
+}
+
 # Pulls the images. When that fails with the mirrors all set, each mirror is tried on its own.
 pull_images() {
-  compose pull --quiet --ignore-buildable < /dev/null && return 0
+  pull_once && return 0
   local m mirrors
   mirrors=$(live_mirrors)
   [ -n "$mirrors" ] || return 1
   for m in $(printf '%s' "$mirrors" | tr ',' ' '); do
     warn "Download failed - trying the registry mirror $m on its own"
     set_mirrors "$m"
-    if compose pull --quiet --ignore-buildable < /dev/null; then
+    if pull_once; then
       set_mirrors "$mirrors"     # keep them all for later pulls
       return 0
     fi
@@ -13617,6 +13778,21 @@ set_env_key() {
   if grep -q "^$1=" "$INSTALL_DIR/.env"; then sed -i "s|^$1=.*|$1='$2'|" "$INSTALL_DIR/.env"
   else echo "$1='$2'" >> "$INSTALL_DIR/.env"; fi
 }
+
+# ---------------------------------------------------------------- self-update
+# The newest installer from GitHub, or a copy of it (jsDelivr, GitHub proxies) when GitHub is blocked.
+INSTALLER_URLS=${INSTALLER_URLS:-"https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh,https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh,https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh"}
+if [ "$ACTION" = update ]; then
+  new=$(mktemp)
+  urls=()
+  while read -r u; do [ -n "$u" ] && urls+=("$u"); done < <(split_list "$INSTALLER_URLS")
+  log "Downloading the newest installer"
+  fetch_first "$new" - "${urls[@]}" || die "Could not download the installer from any source."
+  # a broken or truncated download (or an error page) must never run
+  bash -n "$new" 2>/dev/null && grep -q '^extract_files()' "$new" || die "The downloaded installer is not valid; nothing was changed."
+  log "Running the new installer (your settings in $INSTALL_DIR/.env are kept)"
+  exec bash "$new" -y
+fi
 
 # ---------------------------------------------------------------- main
 FRESH=1; [ -f "$INSTALL_DIR/.env" ] && FRESH=0
