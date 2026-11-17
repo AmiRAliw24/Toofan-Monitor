@@ -13,7 +13,13 @@
 #   bash install.sh --purge         # also delete data volumes and the install dir
 #
 # Optional env vars: INSTALL_DIR, PANEL_USER, PANEL_PASSWORD, PANEL_BIND, PANEL_PORT,
-#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SITES (comma-separated URLs), PROMETHEUS_RETENTION
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SITES (comma-separated URLs), PROMETHEUS_RETENTION,
+#   DOCKER_MIRROR (comma-separated registry mirrors, used when Docker Hub is blocked),
+#   ALPINE_MIRROR (Alpine package mirror for building the firewall image, when the default is blocked)
+#
+# Servers where Docker's own sites are blocked (for example in Iran, where get.docker.com and
+# Docker Hub answer 403): Docker is installed from the distribution's packages instead, and a
+# reachable registry mirror is set up automatically.
 set -euo pipefail
 
 # Everything lives in main() so bash parses the whole script before running anything.
@@ -207,7 +213,10 @@ services:
   # only privileged part; the panel talks to it through a unix socket in ./data/defender. Protection is
   # off until it is turned on in the panel. Emergency off switch: nft delete table inet defender
   defender:
-    build: ./defender
+    build:
+      context: ./defender
+      args:
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
     image: server-monitoring-defender:1
     pull_policy: build
     restart: always
@@ -708,6 +717,20 @@ docker compose up -d
 <br>
 
 ## 🔧 عیب‌یابی
+
+### 🇮🇷 نصب روی سرورهای ایران (خطای 403)
+
+`get.docker.com` و Docker Hub به آی‌پی‌های ایران جواب `403` می‌دهند. نصب‌کننده خودش این را تشخیص می‌دهد:
+
+- اگر `get.docker.com` در دسترس نباشد، Docker را از مخزن خود سیستم‌عامل نصب می‌کند (`docker.io` و `docker-compose-v2`) و اگر Compose در مخزن نبود، آن را از GitHub می‌گیرد.
+- اگر Docker Hub مسدود باشد، از بین آینه‌های ایرانی (ArvanCloud و چند آینه‌ی دیگر) آن‌هایی را که جواب می‌دهند در `/etc/docker/daemon.json` می‌گذارد.
+- اگر مخزن بسته‌های Alpine هم مسدود باشد، ایمیج فایروال با یک آینه‌ی Alpine ساخته می‌شود.
+
+آینه‌ی دلخواه هم می‌شود داد:
+
+```bash
+DOCKER_MIRROR=https://docker.arvancloud.ir ALPINE_MIRROR=https://mirror.arvancloud.ir/alpine bash install.sh
+```
 
 <details>
 <summary><b>⚡ آمار زنده چطور کار می‌کند؟</b></summary>
@@ -6235,7 +6258,9 @@ __MONITORING_EOF__
 # Defender agent: only the tools it drives. Its Python code is mounted from ./defender, so updating
 # the code needs a restart, not a rebuild.
 FROM python:3.12-alpine
-RUN apk add --no-cache nftables conntrack-tools iproute2 util-linux-misc
+# ALPINE_MIRROR: an Alpine package mirror for servers where Alpine's CDN is blocked (set by the installer)
+ARG ALPINE_MIRROR=
+RUN if [ -n "$ALPINE_MIRROR" ]; then sed -i "s#https\?://dl-cdn.alpinelinux.org/alpine#${ALPINE_MIRROR%/}#" /etc/apk/repositories; fi  && apk add --no-cache nftables conntrack-tools iproute2 util-linux-misc
 ENV PYTHONDONTWRITEBYTECODE=1
 CMD ["python", "-u", "/app/agent.py"]
 __MONITORING_EOF__
@@ -13311,15 +13336,122 @@ __MONITORING_EOF__
 }
 
 # ---------------------------------------------------------------- docker
+# HTTP status of a URL ("000" when it cannot be reached at all).
+http_code() { curl -s -o /dev/null -m 15 -w '%{http_code}' "$1" 2>/dev/null || true; }
+
+# Docker from the distribution's own packages: they come from the distro mirrors, which stay
+# reachable where download.docker.com is blocked.
+install_docker_distro() {
+  if command -v apt-get >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq || true
+    apt-get install -y -qq docker.io || return 1
+    # Compose v2 is packaged as docker-compose-v2 (Ubuntu) or docker-compose-plugin (Docker's repo, mirrors)
+    apt-get install -y -qq docker-compose-v2 >/dev/null 2>&1 || apt-get install -y -qq docker-compose-plugin >/dev/null 2>&1 || true
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y -q moby-engine >/dev/null 2>&1 || dnf install -y -q docker >/dev/null 2>&1 || return 1
+    dnf install -y -q docker-compose-plugin >/dev/null 2>&1 || dnf install -y -q docker-compose >/dev/null 2>&1 || true
+  elif command -v yum >/dev/null 2>&1; then
+    yum install -y -q docker >/dev/null 2>&1 || return 1
+  else
+    return 1
+  fi
+}
+
+# The Compose v2 plugin as a single binary from its GitHub releases, when no package has it.
+install_compose_plugin() {
+  local arch dir=/usr/local/lib/docker/cli-plugins ver=v2.29.7
+  case "$(uname -m)" in
+    x86_64|amd64) arch=x86_64 ;; aarch64|arm64) arch=aarch64 ;; armv7l) arch=armv7 ;;
+    *) return 1 ;;
+  esac
+  mkdir -p "$dir"
+  curl -fsSL -m 120 "https://github.com/docker/compose/releases/download/$ver/docker-compose-linux-$arch" -o "$dir/docker-compose.tmp" || return 1
+  chmod 755 "$dir/docker-compose.tmp" && mv "$dir/docker-compose.tmp" "$dir/docker-compose"
+}
+
 ensure_docker() {
   if ! command -v docker >/dev/null 2>&1; then
-    log "Docker not found - installing via get.docker.com"
     command -v curl >/dev/null 2>&1 || die "curl is required to install Docker."
-    curl -fsSL https://get.docker.com | sh
+    log "Docker not found - installing it"
+    local script
+    if script=$(curl -fsSL -m 60 https://get.docker.com 2>/dev/null) && [ -n "$script" ] && printf '%s\n' "$script" | sh; then
+      :
+    else
+      warn "get.docker.com is not reachable from this server (blocked or down) - installing Docker from the distribution's packages instead"
+      install_docker_distro || die "Could not install Docker. Install it by hand (e.g. apt-get install docker.io docker-compose-v2) and run this installer again."
+    fi
   fi
   command -v systemctl >/dev/null 2>&1 && systemctl enable --now docker >/dev/null 2>&1 || true
-  docker compose version >/dev/null 2>&1 || die "Docker Compose plugin is missing. Install 'docker-compose-plugin' and re-run."
+  if ! docker compose version >/dev/null 2>&1; then
+    log "Docker Compose plugin missing - installing it"
+    install_compose_plugin || true
+    docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing. Install 'docker-compose-v2' or 'docker-compose-plugin' and re-run."
+  fi
   docker info >/dev/null 2>&1 || die "Docker daemon is not running."
+  ensure_registry
+}
+
+# Docker Hub answers 401 to an anonymous /v2/ request when it is reachable; 403 (blocked, e.g. in
+# Iran) or no answer means images have to come through a mirror. The first mirrors that answer are
+# written to /etc/docker/daemon.json (kept merged with anything already there).
+REGISTRY_MIRRORS="https://docker.arvancloud.ir,https://docker.iranserver.com,https://registry.docker.ir,https://mirror.gcr.io"
+ensure_registry() {
+  local code mirrors="" m c
+  code=$(http_code https://registry-1.docker.io/v2/)
+  if [ "$code" = 401 ] || [ "$code" = 200 ]; then return 0; fi
+  if [ -z "${DOCKER_MIRROR:-}" ] && docker info 2>/dev/null | grep -q 'Registry Mirrors'; then
+    log "Docker Hub is not reachable (HTTP $code); using the registry mirror already set up"
+    return 0
+  fi
+  warn "Docker Hub is not reachable from this server (HTTP $code) - looking for a registry mirror"
+  for m in $(printf '%s' "${DOCKER_MIRROR:-$REGISTRY_MIRRORS}" | tr ',' ' '); do
+    c=$(http_code "${m%/}/v2/")
+    case "$c" in 200|401) mirrors="$mirrors${mirrors:+,}${m%/}" ;; esac
+  done
+  [ -n "$mirrors" ] || die "Docker Hub is blocked and no registry mirror answered. Set DOCKER_MIRROR=https://your.mirror and run again."
+  log "Using registry mirror(s): $mirrors"
+  mkdir -p /etc/docker
+  if command -v python3 >/dev/null 2>&1; then
+    MIRRORS="$mirrors" python3 - <<'PY'
+import json, os
+path = "/etc/docker/daemon.json"
+try:
+    with open(path) as f:
+        cfg = json.load(f)
+except (OSError, ValueError):
+    cfg = {}
+cfg["registry-mirrors"] = os.environ["MIRRORS"].split(",")
+with open(path + ".tmp", "w") as f:
+    json.dump(cfg, f, indent=2)
+os.replace(path + ".tmp", path)
+PY
+  elif [ ! -s /etc/docker/daemon.json ]; then
+    printf '{\n  "registry-mirrors": ["%s"]\n}\n' "$(printf '%s' "$mirrors" | sed 's/,/", "/g')" > /etc/docker/daemon.json
+  else
+    die "Add \"registry-mirrors\": [\"${mirrors%%,*}\"] to /etc/docker/daemon.json by hand (python3 is missing to merge it) and run again."
+  fi
+  systemctl restart docker 2>/dev/null || service docker restart 2>/dev/null || true
+  sleep 3
+  docker info >/dev/null 2>&1 || die "Docker did not come back after setting the registry mirror; check /etc/docker/daemon.json."
+}
+
+# The firewall image adds nftables with apk. When Alpine's CDN is blocked, use a mirror that answers.
+ALPINE_MIRRORS="https://mirror.arvancloud.ir/alpine,https://mirrors.pardisco.co/alpine,https://dl-cdn.alpinelinux.org/alpine"
+choose_alpine_mirror() {
+  local m c
+  [ -n "${ALPINE_MIRROR:-}" ] && { set_env_key ALPINE_MIRROR "$ALPINE_MIRROR"; return 0; }
+  c=$(http_code https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/x86_64/APKINDEX.tar.gz)
+  [ "$c" = 200 ] && return 0
+  for m in $(printf '%s' "$ALPINE_MIRRORS" | tr ',' ' '); do
+    c=$(http_code "$m/latest-stable/main/x86_64/APKINDEX.tar.gz")
+    if [ "$c" = 200 ]; then
+      log "Alpine's CDN is not reachable; building the firewall image with the mirror $m"
+      set_env_key ALPINE_MIRROR "$m"
+      return 0
+    fi
+  done
+  warn "No Alpine package mirror answered; building the firewall image may fail (set ALPINE_MIRROR=https://... and run again)."
 }
 
 # True if something is already listening on TCP port $1 (reads /proc, so no extra tools are needed).
@@ -13459,7 +13591,8 @@ docker_gid=$(stat -c %g /var/run/docker.sock 2>/dev/null || true)
 [ -n "$docker_gid" ] && set_env_key DOCKER_GID "$docker_gid"
 log "Pulling images and starting the stack"
 # The defender image is built here (it only adds nftables to python:alpine), not pulled.
-compose pull --quiet --ignore-buildable < /dev/null
+compose pull --quiet --ignore-buildable < /dev/null || die "Could not download the images. If Docker Hub is blocked here, set DOCKER_MIRROR=https://your.mirror and run again."
+choose_alpine_mirror
 compose build --quiet defender < /dev/null
 remove_legacy_grafana
 choose_port PANEL_PORT panel 8080 3000

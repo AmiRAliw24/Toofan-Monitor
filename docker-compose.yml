@@ -126,7 +126,10 @@ services:
   # only privileged part; the panel talks to it through a unix socket in ./data/defender. Protection is
   # off until it is turned on in the panel. Emergency off switch: nft delete table inet defender
   defender:
-    build: ./defender
+    build:
+      context: ./defender
+      args:
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
     image: server-monitoring-defender:1
     pull_policy: build
     restart: always

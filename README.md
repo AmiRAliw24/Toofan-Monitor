@@ -398,6 +398,20 @@ docker compose up -d
 
 ## 🔧 عیب‌یابی
 
+### 🇮🇷 نصب روی سرورهای ایران (خطای 403)
+
+`get.docker.com` و Docker Hub به آی‌پی‌های ایران جواب `403` می‌دهند. نصب‌کننده خودش این را تشخیص می‌دهد:
+
+- اگر `get.docker.com` در دسترس نباشد، Docker را از مخزن خود سیستم‌عامل نصب می‌کند (`docker.io` و `docker-compose-v2`) و اگر Compose در مخزن نبود، آن را از GitHub می‌گیرد.
+- اگر Docker Hub مسدود باشد، از بین آینه‌های ایرانی (ArvanCloud و چند آینه‌ی دیگر) آن‌هایی را که جواب می‌دهند در `/etc/docker/daemon.json` می‌گذارد.
+- اگر مخزن بسته‌های Alpine هم مسدود باشد، ایمیج فایروال با یک آینه‌ی Alpine ساخته می‌شود.
+
+آینه‌ی دلخواه هم می‌شود داد:
+
+```bash
+DOCKER_MIRROR=https://docker.arvancloud.ir ALPINE_MIRROR=https://mirror.arvancloud.ir/alpine bash install.sh
+```
+
 <details>
 <summary><b>⚡ آمار زنده چطور کار می‌کند؟</b></summary>
 
