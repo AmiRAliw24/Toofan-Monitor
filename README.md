@@ -400,16 +400,28 @@ docker compose up -d
 
 ### 🇮🇷 نصب روی سرورهای ایران (خطای 403)
 
-`get.docker.com` و Docker Hub به آی‌پی‌های ایران جواب `403` می‌دهند. نصب‌کننده خودش این را تشخیص می‌دهد:
+`get.docker.com` و Docker Hub به آی‌پی‌های ایران جواب `403` می‌دهند. نصب‌کننده برای هر چیزی که دانلود می‌کند چند منبع دارد و **اگر یکی خطا داد، سراغ بعدی می‌رود**:
 
-- اگر `get.docker.com` در دسترس نباشد، Docker را از مخزن خود سیستم‌عامل نصب می‌کند (`docker.io` و `docker-compose-v2`) و اگر Compose در مخزن نبود، آن را از GitHub می‌گیرد.
-- اگر Docker Hub مسدود باشد، از بین آینه‌های ایرانی (ArvanCloud و چند آینه‌ی دیگر) آن‌هایی را که جواب می‌دهند در `/etc/docker/daemon.json` می‌گذارد.
-- اگر مخزن بسته‌های Alpine هم مسدود باشد، ایمیج فایروال با یک آینه‌ی Alpine ساخته می‌شود.
+| چه چیزی | منبع‌ها به ترتیب |
+|---|---|
+| اسکریپت نصب Docker | get.docker.com ← GitHub ← jsDelivr ← پراکسی GitHub (ghfast) |
+| بسته‌های Docker | download.docker.com ← آینه‌ی آروان ← Aliyun ← Tsinghua ← بسته‌های خود سیستم‌عامل |
+| Docker Compose | مخزن سیستم‌عامل ← GitHub ← پراکسی‌های GitHub (ghfast، gh-proxy، ghproxy)، با بررسی SHA-256 |
+| ایمیج‌ها (Docker Hub) | Docker Hub ← آروان، ایران‌سرور، docker.ir، hamdocker، haiocloud، focker، mirror.gcr.io |
+| بسته‌های Alpine (ایمیج فایروال) | CDN خود Alpine ← آروان ← dl-2 ← dl-4 ← Aliyun |
 
-آینه‌ی دلخواه هم می‌شود داد:
+- فایل‌هایی که از پراکسی می‌آیند با چک‌سام رسمی بررسی می‌شوند؛ فایل دست‌کاری‌شده رد می‌شود و منبع بعدی امتحان می‌شود.
+- از آینه‌های Docker Hub همه‌ی آن‌هایی که جواب می‌دهند به ترتیب تنظیم می‌شوند؛ اگر دانلود ایمیج‌ها شکست بخورد، هر آینه جداگانه امتحان می‌شود.
+- هر لیست را می‌شود با متغیری به همان اسم عوض کرد (`DOCKER_SCRIPT_URLS`، `DOCKER_CE_MIRRORS`، `GITHUB_PROXIES`، `REGISTRY_MIRRORS`، `ALPINE_MIRRORS`)، یا یک آینه‌ی مشخص داد:
 
 ```bash
 DOCKER_MIRROR=https://docker.arvancloud.ir ALPINE_MIRROR=https://mirror.arvancloud.ir/alpine bash install.sh
+```
+
+اگر خود GitHub هم باز نمی‌شود، `install.sh` را از اولین منبعی که جواب بدهد بگیرید:
+
+```bash
+for u in https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh; do curl -fsSL -m 120 "$u" -o install.sh && break; done; sudo bash install.sh
 ```
 
 <details>

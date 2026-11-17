@@ -4,8 +4,10 @@
 # node_exporter + container stats + Blackbox exporter under /opt/server-monitoring.
 #
 # Usage (as root):
-#   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/desktop-tutorial/HEAD/install.sh | sudo bash          # one-liner, interactive
-#   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/desktop-tutorial/HEAD/install.sh | sudo bash -s -- -y # one-liner, no questions (uses env vars)
+#   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh | sudo bash          # one-liner, interactive
+#   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh | sudo bash -s -- -y # one-liner, no questions (uses env vars)
+#   # where GitHub is blocked, fetch it from the first source that works:
+#   for u in https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh; do curl -fsSL -m 120 "$u" -o install.sh && break; done; sudo bash install.sh
 #   bash install.sh                 # interactive
 #   bash install.sh -y              # non-interactive, uses env vars / defaults
 #   bash install.sh --no-start      # write files only, don't start containers
@@ -14,12 +16,12 @@
 #
 # Optional env vars: INSTALL_DIR, PANEL_USER, PANEL_PASSWORD, PANEL_BIND, PANEL_PORT,
 #   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SITES (comma-separated URLs), PROMETHEUS_RETENTION,
-#   DOCKER_MIRROR (comma-separated registry mirrors, used when Docker Hub is blocked),
-#   ALPINE_MIRROR (Alpine package mirror for building the firewall image, when the default is blocked)
+#   DOCKER_MIRROR (comma-separated registry mirrors to use), ALPINE_MIRROR (Alpine package mirror),
+#   and the fallback lists DOCKER_SCRIPT_URLS, DOCKER_CE_MIRRORS, GITHUB_PROXIES, REGISTRY_MIRRORS, ALPINE_MIRRORS
 #
-# Servers where Docker's own sites are blocked (for example in Iran, where get.docker.com and
-# Docker Hub answer 403): Docker is installed from the distribution's packages instead, and a
-# reachable registry mirror is set up automatically.
+# Everything downloaded has several sources (official, GitHub proxies, ArvanCloud and other mirrors);
+# when one fails (blocked, 403, timeout, bad checksum) the next is tried. So it also installs on
+# servers where Docker's or GitHub's sites are blocked (Iran: get.docker.com and Docker Hub answer 403).
 set -euo pipefail
 
 # Everything lives in main() so bash parses the whole script before running anything.
@@ -34,7 +36,7 @@ for arg in "$@"; do
     --no-start) NO_START=1 ;;
     --uninstall) ACTION=uninstall ;;
     --purge) ACTION=purge ;;
-    -h|--help) sed -n '2,19p' "$0" 2>/dev/null || echo 'See the header of install.sh for usage.'; exit 0 ;;
+    -h|--help) awk 'NR > 1 && /^set -euo/ { exit } NR > 1' "$0" 2>/dev/null || echo 'See the header of install.sh for usage.'; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -720,16 +722,28 @@ docker compose up -d
 
 ### 🇮🇷 نصب روی سرورهای ایران (خطای 403)
 
-`get.docker.com` و Docker Hub به آی‌پی‌های ایران جواب `403` می‌دهند. نصب‌کننده خودش این را تشخیص می‌دهد:
+`get.docker.com` و Docker Hub به آی‌پی‌های ایران جواب `403` می‌دهند. نصب‌کننده برای هر چیزی که دانلود می‌کند چند منبع دارد و **اگر یکی خطا داد، سراغ بعدی می‌رود**:
 
-- اگر `get.docker.com` در دسترس نباشد، Docker را از مخزن خود سیستم‌عامل نصب می‌کند (`docker.io` و `docker-compose-v2`) و اگر Compose در مخزن نبود، آن را از GitHub می‌گیرد.
-- اگر Docker Hub مسدود باشد، از بین آینه‌های ایرانی (ArvanCloud و چند آینه‌ی دیگر) آن‌هایی را که جواب می‌دهند در `/etc/docker/daemon.json` می‌گذارد.
-- اگر مخزن بسته‌های Alpine هم مسدود باشد، ایمیج فایروال با یک آینه‌ی Alpine ساخته می‌شود.
+| چه چیزی | منبع‌ها به ترتیب |
+|---|---|
+| اسکریپت نصب Docker | get.docker.com ← GitHub ← jsDelivr ← پراکسی GitHub (ghfast) |
+| بسته‌های Docker | download.docker.com ← آینه‌ی آروان ← Aliyun ← Tsinghua ← بسته‌های خود سیستم‌عامل |
+| Docker Compose | مخزن سیستم‌عامل ← GitHub ← پراکسی‌های GitHub (ghfast، gh-proxy، ghproxy)، با بررسی SHA-256 |
+| ایمیج‌ها (Docker Hub) | Docker Hub ← آروان، ایران‌سرور، docker.ir، hamdocker، haiocloud، focker، mirror.gcr.io |
+| بسته‌های Alpine (ایمیج فایروال) | CDN خود Alpine ← آروان ← dl-2 ← dl-4 ← Aliyun |
 
-آینه‌ی دلخواه هم می‌شود داد:
+- فایل‌هایی که از پراکسی می‌آیند با چک‌سام رسمی بررسی می‌شوند؛ فایل دست‌کاری‌شده رد می‌شود و منبع بعدی امتحان می‌شود.
+- از آینه‌های Docker Hub همه‌ی آن‌هایی که جواب می‌دهند به ترتیب تنظیم می‌شوند؛ اگر دانلود ایمیج‌ها شکست بخورد، هر آینه جداگانه امتحان می‌شود.
+- هر لیست را می‌شود با متغیری به همان اسم عوض کرد (`DOCKER_SCRIPT_URLS`، `DOCKER_CE_MIRRORS`، `GITHUB_PROXIES`، `REGISTRY_MIRRORS`، `ALPINE_MIRRORS`)، یا یک آینه‌ی مشخص داد:
 
 ```bash
 DOCKER_MIRROR=https://docker.arvancloud.ir ALPINE_MIRROR=https://mirror.arvancloud.ir/alpine bash install.sh
+```
+
+اگر خود GitHub هم باز نمی‌شود، `install.sh` را از اولین منبعی که جواب بدهد بگیرید:
+
+```bash
+for u in https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh; do curl -fsSL -m 120 "$u" -o install.sh && break; done; sudo bash install.sh
 ```
 
 <details>
@@ -13336,8 +13350,62 @@ __MONITORING_EOF__
 }
 
 # ---------------------------------------------------------------- docker
+# ---------------------------------------------------------------- downloads with fallbacks
+# Several sources for everything that is fetched from the internet: the first one that works is used,
+# and when one fails (blocked, 403, timeout, wrong checksum) the next is tried. This matters on
+# servers where Docker's or GitHub's own sites are blocked (Iran: get.docker.com and Docker Hub
+# answer 403). Each list can be replaced with an env var of the same name (comma-separated).
+DOCKER_SCRIPT_URLS=${DOCKER_SCRIPT_URLS:-"https://get.docker.com,https://raw.githubusercontent.com/docker/docker-install/master/install.sh,https://cdn.jsdelivr.net/gh/docker/docker-install@master/install.sh,https://ghfast.top/https://raw.githubusercontent.com/docker/docker-install/master/install.sh"}
+DOCKER_CE_MIRRORS=${DOCKER_CE_MIRRORS:-"https://download.docker.com,https://mirror.arvancloud.ir/docker-ce,https://mirrors.aliyun.com/docker-ce,https://mirrors.tuna.tsinghua.edu.cn/docker-ce"}
+GITHUB_PROXIES=${GITHUB_PROXIES:-",https://ghfast.top/,https://gh-proxy.com/,https://ghproxy.net/"}
+REGISTRY_MIRRORS=${DOCKER_MIRROR:-${REGISTRY_MIRRORS:-"https://docker.arvancloud.ir,https://docker.iranserver.com,https://registry.docker.ir,https://hub.hamdocker.ir,https://docker.haiocloud.com,https://focker.ir,https://mirror.gcr.io"}}
+ALPINE_MIRRORS=${ALPINE_MIRRORS:-"https://dl-cdn.alpinelinux.org/alpine,https://mirror.arvancloud.ir/alpine,https://dl-2.alpinelinux.org/alpine,https://dl-4.alpinelinux.org/alpine,https://mirrors.aliyun.com/alpine"}
+COMPOSE_VERSION=v2.29.7
+COMPOSE_SHA256_x86_64=383ce6698cd5d5bbf958d2c8489ed75094e34a77d340404d9f32c4ae9e12baf0
+COMPOSE_SHA256_aarch64=6e9fbd5daa20dca5d7d89145081ae8155d68ef2928b497d9f85b54fe0f9dbb2c
+
+# one item per line, ending with a newline (without it `read` would drop the last item)
+split_list() { printf '%s\n' "$1" | tr ',' '\n' | sed 's/[[:space:]]//g'; }
+
 # HTTP status of a URL ("000" when it cannot be reached at all).
-http_code() { curl -s -o /dev/null -m 15 -w '%{http_code}' "$1" 2>/dev/null || true; }
+http_code() { curl -s -o /dev/null --connect-timeout 8 -m 15 -w '%{http_code}' "$1" 2>/dev/null || true; }
+
+# fetch_first <file> <sha256 or -> <url>...  Downloads from the first URL that works. With a checksum,
+# a download that does not match counts as failed and the next URL is tried.
+fetch_first() {
+  local out=$1 sum=$2 u; shift 2
+  for u in "$@"; do
+    [ -n "$u" ] || continue
+    if curl -fsSL --connect-timeout 10 -m 600 "$u" -o "$out.part" 2>/dev/null && [ -s "$out.part" ]; then
+      if [ "$sum" = - ] || printf '%s  %s\n' "$sum" "$out.part" | sha256sum -c - >/dev/null 2>&1; then
+        mv "$out.part" "$out"
+        log "  downloaded from $u"
+        return 0
+      fi
+      warn "  $u: the file does not match its checksum - skipped"
+    else
+      warn "  $u: not reachable - trying the next source"
+    fi
+  done
+  rm -f "$out.part"
+  return 1
+}
+
+# Docker with Docker's install script: the script and the packages each from the first source that works.
+install_docker_script() {
+  local script=/tmp/get-docker.$$.sh m urls=()
+  while read -r m; do urls+=("$m"); done < <(split_list "$DOCKER_SCRIPT_URLS")
+  fetch_first "$script" - "${urls[@]}" || return 1
+  while read -r m; do
+    [ -n "$m" ] || continue
+    case "$(http_code "${m%/}/linux/")" in 200|301|302) ;; *) warn "  Docker packages: $m not reachable - trying the next mirror"; continue ;; esac
+    log "  installing Docker packages from $m"
+    if DOWNLOAD_URL=${m%/} sh "$script"; then rm -f "$script"; return 0; fi
+    warn "  installing from $m failed - trying the next mirror"
+  done < <(split_list "$DOCKER_CE_MIRRORS")
+  rm -f "$script"
+  return 1
+}
 
 # Docker from the distribution's own packages: they come from the distro mirrors, which stay
 # reachable where download.docker.com is blocked.
@@ -13358,62 +13426,64 @@ install_docker_distro() {
   fi
 }
 
-# The Compose v2 plugin as a single binary from its GitHub releases, when no package has it.
+# The Compose v2 plugin binary from its GitHub release, directly or through a GitHub proxy; every
+# copy is checked against the release's SHA-256, so a proxy cannot hand out a modified binary.
 install_compose_plugin() {
-  local arch dir=/usr/local/lib/docker/cli-plugins ver=v2.29.7
+  local arch sum dir=/usr/local/lib/docker/cli-plugins p urls=()
   case "$(uname -m)" in
-    x86_64|amd64) arch=x86_64 ;; aarch64|arm64) arch=aarch64 ;; armv7l) arch=armv7 ;;
+    x86_64|amd64) arch=x86_64; sum=$COMPOSE_SHA256_x86_64 ;;
+    aarch64|arm64) arch=aarch64; sum=$COMPOSE_SHA256_aarch64 ;;
     *) return 1 ;;
   esac
+  while IFS= read -r p; do
+    urls+=("${p}https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-linux-$arch")
+  done < <(printf '%s\n' "$GITHUB_PROXIES" | tr ',' '\n')
   mkdir -p "$dir"
-  curl -fsSL -m 120 "https://github.com/docker/compose/releases/download/$ver/docker-compose-linux-$arch" -o "$dir/docker-compose.tmp" || return 1
-  chmod 755 "$dir/docker-compose.tmp" && mv "$dir/docker-compose.tmp" "$dir/docker-compose"
+  fetch_first "$dir/docker-compose" "$sum" "${urls[@]}" || return 1
+  chmod 755 "$dir/docker-compose"
 }
 
 ensure_docker() {
   if ! command -v docker >/dev/null 2>&1; then
     command -v curl >/dev/null 2>&1 || die "curl is required to install Docker."
-    log "Docker not found - installing it"
-    local script
-    if script=$(curl -fsSL -m 60 https://get.docker.com 2>/dev/null) && [ -n "$script" ] && printf '%s\n' "$script" | sh; then
-      :
+    log "Docker not found - installing it (trying each source until one works)"
+    if install_docker_script; then :
     else
-      warn "get.docker.com is not reachable from this server (blocked or down) - installing Docker from the distribution's packages instead"
-      install_docker_distro || die "Could not install Docker. Install it by hand (e.g. apt-get install docker.io docker-compose-v2) and run this installer again."
+      warn "Docker's install script did not work from any source - installing Docker from the distribution's packages"
+      install_docker_distro || die "Could not install Docker from any source. Install it by hand (e.g. apt-get install docker.io docker-compose-v2) and run this installer again."
     fi
   fi
   command -v systemctl >/dev/null 2>&1 && systemctl enable --now docker >/dev/null 2>&1 || true
   if ! docker compose version >/dev/null 2>&1; then
     log "Docker Compose plugin missing - installing it"
-    install_compose_plugin || true
-    docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing. Install 'docker-compose-v2' or 'docker-compose-plugin' and re-run."
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get install -y -qq docker-compose-v2 >/dev/null 2>&1 || apt-get install -y -qq docker-compose-plugin >/dev/null 2>&1 || true
+    fi
+    docker compose version >/dev/null 2>&1 || install_compose_plugin || true
+    docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing and could not be downloaded from any source. Install 'docker-compose-v2' or 'docker-compose-plugin' and re-run."
   fi
   docker info >/dev/null 2>&1 || die "Docker daemon is not running."
   ensure_registry
 }
 
-# Docker Hub answers 401 to an anonymous /v2/ request when it is reachable; 403 (blocked, e.g. in
-# Iran) or no answer means images have to come through a mirror. The first mirrors that answer are
-# written to /etc/docker/daemon.json (kept merged with anything already there).
-REGISTRY_MIRRORS="https://docker.arvancloud.ir,https://docker.iranserver.com,https://registry.docker.ir,https://mirror.gcr.io"
-ensure_registry() {
-  local code mirrors="" m c
-  code=$(http_code https://registry-1.docker.io/v2/)
-  if [ "$code" = 401 ] || [ "$code" = 200 ]; then return 0; fi
-  if [ -z "${DOCKER_MIRROR:-}" ] && docker info 2>/dev/null | grep -q 'Registry Mirrors'; then
-    log "Docker Hub is not reachable (HTTP $code); using the registry mirror already set up"
-    return 0
-  fi
-  warn "Docker Hub is not reachable from this server (HTTP $code) - looking for a registry mirror"
-  for m in $(printf '%s' "${DOCKER_MIRROR:-$REGISTRY_MIRRORS}" | tr ',' ' '); do
-    c=$(http_code "${m%/}/v2/")
-    case "$c" in 200|401) mirrors="$mirrors${mirrors:+,}${m%/}" ;; esac
-  done
-  [ -n "$mirrors" ] || die "Docker Hub is blocked and no registry mirror answered. Set DOCKER_MIRROR=https://your.mirror and run again."
-  log "Using registry mirror(s): $mirrors"
+# Registry mirrors that answer right now (an anonymous /v2/ request gets 200 or 401 from a live one).
+live_mirrors() {
+  local m out=""
+  while read -r m; do
+    [ -n "$m" ] || continue
+    case "$(http_code "${m%/}/v2/")" in
+      200|401) out="$out${out:+,}${m%/}" ;;
+      *) warn "  registry mirror ${m%/} not reachable - skipped" >&2 ;;
+    esac
+  done < <(split_list "$REGISTRY_MIRRORS")
+  printf '%s' "$out"
+}
+
+# Writes "registry-mirrors" into /etc/docker/daemon.json (merged with what is there) and restarts Docker.
+set_mirrors() {
   mkdir -p /etc/docker
   if command -v python3 >/dev/null 2>&1; then
-    MIRRORS="$mirrors" python3 - <<'PY'
+    MIRRORS="$1" python3 - <<'PY'
 import json, os
 path = "/etc/docker/daemon.json"
 try:
@@ -13421,36 +13491,71 @@ try:
         cfg = json.load(f)
 except (OSError, ValueError):
     cfg = {}
-cfg["registry-mirrors"] = os.environ["MIRRORS"].split(",")
+cfg["registry-mirrors"] = [m for m in os.environ["MIRRORS"].split(",") if m]
 with open(path + ".tmp", "w") as f:
     json.dump(cfg, f, indent=2)
 os.replace(path + ".tmp", path)
 PY
-  elif [ ! -s /etc/docker/daemon.json ]; then
-    printf '{\n  "registry-mirrors": ["%s"]\n}\n' "$(printf '%s' "$mirrors" | sed 's/,/", "/g')" > /etc/docker/daemon.json
+  elif [ ! -s /etc/docker/daemon.json ] || grep -q '^{[[:space:]]*"registry-mirrors"' /etc/docker/daemon.json; then
+    printf '{\n  "registry-mirrors": ["%s"]\n}\n' "$(printf '%s' "$1" | sed 's/,/", "/g')" > /etc/docker/daemon.json
   else
-    die "Add \"registry-mirrors\": [\"${mirrors%%,*}\"] to /etc/docker/daemon.json by hand (python3 is missing to merge it) and run again."
+    die "Add \"registry-mirrors\": [\"${1%%,*}\"] to /etc/docker/daemon.json by hand (python3 is missing to merge it) and run again."
   fi
   systemctl restart docker 2>/dev/null || service docker restart 2>/dev/null || true
-  sleep 3
-  docker info >/dev/null 2>&1 || die "Docker did not come back after setting the registry mirror; check /etc/docker/daemon.json."
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do docker info >/dev/null 2>&1 && return 0; sleep 2; done
+  die "Docker did not come back after setting the registry mirrors; check /etc/docker/daemon.json."
 }
 
-# The firewall image adds nftables with apk. When Alpine's CDN is blocked, use a mirror that answers.
-ALPINE_MIRRORS="https://mirror.arvancloud.ir/alpine,https://mirrors.pardisco.co/alpine,https://dl-cdn.alpinelinux.org/alpine"
-choose_alpine_mirror() {
-  local m c
-  [ -n "${ALPINE_MIRROR:-}" ] && { set_env_key ALPINE_MIRROR "$ALPINE_MIRROR"; return 0; }
-  c=$(http_code https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/x86_64/APKINDEX.tar.gz)
-  [ "$c" = 200 ] && return 0
-  for m in $(printf '%s' "$ALPINE_MIRRORS" | tr ',' ' '); do
-    c=$(http_code "$m/latest-stable/main/x86_64/APKINDEX.tar.gz")
-    if [ "$c" = 200 ]; then
-      log "Alpine's CDN is not reachable; building the firewall image with the mirror $m"
-      set_env_key ALPINE_MIRROR "$m"
+# Docker Hub answers 401 to an anonymous /v2/ request when it is reachable; 403 (blocked, e.g. in
+# Iran) or no answer means images have to come through mirrors. Every mirror that answers is set,
+# in order: Docker itself moves on to the next one when a mirror fails during a pull.
+ensure_registry() {
+  local code mirrors
+  code=$(http_code https://registry-1.docker.io/v2/)
+  if [ "$code" = 401 ] || [ "$code" = 200 ]; then [ -z "${DOCKER_MIRROR:-}" ] && return 0; fi
+  [ -n "${DOCKER_MIRROR:-}" ] || warn "Docker Hub is not reachable from this server (HTTP $code) - looking for registry mirrors"
+  mirrors=$(live_mirrors)
+  if [ -z "$mirrors" ]; then
+    docker info 2>/dev/null | grep -q 'Registry Mirrors' && { warn "No mirror from the list answered; keeping the mirrors already set up."; return 0; }
+    die "Docker Hub is blocked and no registry mirror answered. Set DOCKER_MIRROR=https://your.mirror and run again."
+  fi
+  log "Using registry mirror(s), in this order: $mirrors"
+  set_mirrors "$mirrors"
+}
+
+# Pulls the images. When that fails with the mirrors all set, each mirror is tried on its own.
+pull_images() {
+  compose pull --quiet --ignore-buildable < /dev/null && return 0
+  local m mirrors
+  mirrors=$(live_mirrors)
+  [ -n "$mirrors" ] || return 1
+  for m in $(printf '%s' "$mirrors" | tr ',' ' '); do
+    warn "Download failed - trying the registry mirror $m on its own"
+    set_mirrors "$m"
+    if compose pull --quiet --ignore-buildable < /dev/null; then
+      set_mirrors "$mirrors"     # keep them all for later pulls
       return 0
     fi
   done
+  set_mirrors "$mirrors"
+  return 1
+}
+
+# The firewall image adds nftables with apk: use the first Alpine mirror that answers.
+choose_alpine_mirror() {
+  local m c
+  [ -n "${ALPINE_MIRROR:-}" ] && { set_env_key ALPINE_MIRROR "$ALPINE_MIRROR"; return 0; }
+  while read -r m; do
+    [ -n "$m" ] || continue
+    c=$(http_code "${m%/}/latest-stable/main/x86_64/APKINDEX.tar.gz")
+    if [ "$c" = 200 ]; then
+      case "$m" in https://dl-cdn.alpinelinux.org/*) set_env_key ALPINE_MIRROR "" ;;
+        *) log "Alpine's CDN is not reachable; building the firewall image with the mirror $m"; set_env_key ALPINE_MIRROR "${m%/}" ;; esac
+      return 0
+    fi
+    warn "  Alpine mirror ${m%/} not reachable - trying the next one"
+  done < <(split_list "$ALPINE_MIRRORS")
   warn "No Alpine package mirror answered; building the firewall image may fail (set ALPINE_MIRROR=https://... and run again)."
 }
 
@@ -13591,7 +13696,7 @@ docker_gid=$(stat -c %g /var/run/docker.sock 2>/dev/null || true)
 [ -n "$docker_gid" ] && set_env_key DOCKER_GID "$docker_gid"
 log "Pulling images and starting the stack"
 # The defender image is built here (it only adds nftables to python:alpine), not pulled.
-compose pull --quiet --ignore-buildable < /dev/null || die "Could not download the images. If Docker Hub is blocked here, set DOCKER_MIRROR=https://your.mirror and run again."
+pull_images || die "Could not download the images from Docker Hub or any mirror. Set DOCKER_MIRROR=https://your.mirror and run again."
 choose_alpine_mirror
 compose build --quiet defender < /dev/null
 remove_legacy_grafana
