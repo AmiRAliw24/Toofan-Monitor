@@ -54,10 +54,19 @@ services:
     pid: host
     command:
       - --path.rootfs=/host
-      # Network stats come from node-net below: inside a container this collector would only
-      # see the container's own virtual interface, not the server's real network cards.
-      - --no-collector.netdev
-      - --no-collector.netclass
+      # Only what the panel and its alerts use (about 40 collectors run by default). Network stats come
+      # from node-net below: inside a container netdev would only see the container's own interface.
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.cpu.info
+      - --collector.meminfo
+      - --collector.loadavg
+      - --collector.filesystem
+      - --collector.diskstats
+      - --collector.stat
+      - --collector.uname
+      - --collector.os
+      - --collector.time
       - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
     volumes:
       - /:/host:ro,rslave

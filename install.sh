@@ -146,10 +146,19 @@ services:
     pid: host
     command:
       - --path.rootfs=/host
-      # Network stats come from node-net below: inside a container this collector would only
-      # see the container's own virtual interface, not the server's real network cards.
-      - --no-collector.netdev
-      - --no-collector.netclass
+      # Only what the panel and its alerts use (about 40 collectors run by default). Network stats come
+      # from node-net below: inside a container netdev would only see the container's own interface.
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.cpu.info
+      - --collector.meminfo
+      - --collector.loadavg
+      - --collector.filesystem
+      - --collector.diskstats
+      - --collector.stat
+      - --collector.uname
+      - --collector.os
+      - --collector.time
       - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
     volumes:
       - /:/host:ro,rslave
@@ -894,8 +903,10 @@ docker compose restart panel
 __MONITORING_EOF__
   write_file prometheus/prometheus.yml 644 <<'__MONITORING_EOF__'
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  # 30 s is plenty for history and alerts (the panel's rates use 2-minute windows); the live view reads
+  # the exporters itself. Half the work of the default 15 s for Prometheus and every exporter.
+  scrape_interval: 30s
+  evaluation_interval: 30s
 
 rule_files:
   - /etc/prometheus/rules/*.yml
@@ -928,7 +939,6 @@ scrape_configs:
 
   # CPU and memory of each Docker container (see the containers service in docker-compose.yml).
   - job_name: containers
-    scrape_interval: 30s
     static_configs:
       - targets: [containers:9338]
 
@@ -6944,7 +6954,7 @@ def ssh_guard_loop():
         except OSError:
             GUARD["available"] = False
             f, inode = None, None
-        time.sleep(1)
+        time.sleep(2)     # auth.log once every 2 s is plenty for a ban after N wrong passwords
 
 
 def ssh_line(line):
@@ -7020,7 +7030,8 @@ WATCH_SECONDS = 20     # the firewall page asked for live numbers this recently:
 
 def stats_loop():
     """Samples traffic and the firewall's counters, and detects attacks. Every second while someone
-    watches the firewall page or something looks wrong; every 2 seconds otherwise (half the work)."""
+    watches the firewall page or something looks wrong; every 3 seconds otherwise (a third of the work;
+    the first sign of an attack switches back to every second)."""
     prev, prev_t = None, None
     calm, hot, base = 0, 0, None
     last_bans = last_expire = 0
@@ -7109,7 +7120,7 @@ def stats_loop():
                 last_expire = t0
                 expire_rules()
             busy = hot or STATE["attack"]["active"] or STATE["pending"] or STATE.get("ssh_pending")
-            step = 1 if busy or t0 - STATE.get("watched", 0) < WATCH_SECONDS else 2
+            step = 1 if busy or t0 - STATE.get("watched", 0) < WATCH_SECONDS else 3
         except Exception as e:  # never let the loop die
             log("stats error", type(e).__name__, e)
         time.sleep(max(0.05, step - (time.time() - t0)))

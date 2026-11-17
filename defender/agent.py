@@ -631,7 +631,7 @@ def ssh_guard_loop():
         except OSError:
             GUARD["available"] = False
             f, inode = None, None
-        time.sleep(1)
+        time.sleep(2)     # auth.log once every 2 s is plenty for a ban after N wrong passwords
 
 
 def ssh_line(line):
@@ -707,7 +707,8 @@ WATCH_SECONDS = 20     # the firewall page asked for live numbers this recently:
 
 def stats_loop():
     """Samples traffic and the firewall's counters, and detects attacks. Every second while someone
-    watches the firewall page or something looks wrong; every 2 seconds otherwise (half the work)."""
+    watches the firewall page or something looks wrong; every 3 seconds otherwise (a third of the work;
+    the first sign of an attack switches back to every second)."""
     prev, prev_t = None, None
     calm, hot, base = 0, 0, None
     last_bans = last_expire = 0
@@ -796,7 +797,7 @@ def stats_loop():
                 last_expire = t0
                 expire_rules()
             busy = hot or STATE["attack"]["active"] or STATE["pending"] or STATE.get("ssh_pending")
-            step = 1 if busy or t0 - STATE.get("watched", 0) < WATCH_SECONDS else 2
+            step = 1 if busy or t0 - STATE.get("watched", 0) < WATCH_SECONDS else 3
         except Exception as e:  # never let the loop die
             log("stats error", type(e).__name__, e)
         time.sleep(max(0.05, step - (time.time() - t0)))

@@ -1,6 +1,8 @@
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  # 30 s is plenty for history and alerts (the panel's rates use 2-minute windows); the live view reads
+  # the exporters itself. Half the work of the default 15 s for Prometheus and every exporter.
+  scrape_interval: 30s
+  evaluation_interval: 30s
 
 rule_files:
   - /etc/prometheus/rules/*.yml
@@ -33,7 +35,6 @@ scrape_configs:
 
   # CPU and memory of each Docker container (see the containers service in docker-compose.yml).
   - job_name: containers
-    scrape_interval: 30s
     static_configs:
       - targets: [containers:9338]
 
