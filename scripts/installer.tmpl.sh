@@ -7,8 +7,9 @@
 #   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh | sudo bash          # one-liner, interactive
 #   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh | sudo bash -s -- -y # one-liner, no questions (uses env vars)
 #   # where GitHub is blocked, fetch it from the first source that works:
-#   for u in https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh; do curl -fsSL -m 120 "$u" -o install.sh && break; done; sudo bash install.sh
-#   bash install.sh                 # interactive
+#   for u in https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh; do curl -fsSL -m 300 "$u" -o install.sh && bash -n install.sh && tail -1 install.sh | grep -q "^main" && break; done; sudo bash install.sh
+#   bash install.sh                 # interactive; where it is already installed, opens a menu
+#                                   # (update, change port / login / listen address, 2FA off, status, uninstall)
 #   bash install.sh -y              # non-interactive, uses env vars / defaults
 #   bash install.sh --no-start      # write files only, don't start containers
 #   bash install.sh --uninstall     # stop and remove containers (keeps data volumes)
@@ -71,12 +72,13 @@ if [ "$NO_START" = 0 ] || [ "$ACTION" != install ]; then
   [ "$(id -u)" = 0 ] || die "Run as root (e.g. sudo bash $0)."
 fi
 
-if [ "$ACTION" = uninstall ] || [ "$ACTION" = purge ]; then
+# remove_install keep|purge - stop and remove the stack; purge also deletes the data and the install dir.
+remove_install() {
   [ -f "$INSTALL_DIR/docker-compose.yml" ] || die "No installation found in $INSTALL_DIR."
   # The Defender's firewall rules live in the kernel, not in a container: remove them too.
   if command -v nft >/dev/null 2>&1; then nft delete table inet defender 2>/dev/null || true
   else docker run --rm --network host --privileged server-monitoring-defender:1 nft delete table inet defender >/dev/null 2>&1 || true; fi
-  if [ "$ACTION" = purge ]; then
+  if [ "$1" = purge ]; then
     compose down -v --remove-orphans
     rm -rf "$INSTALL_DIR"
     log "Removed containers, data volumes and $INSTALL_DIR."
@@ -84,8 +86,28 @@ if [ "$ACTION" = uninstall ] || [ "$ACTION" = purge ]; then
     compose down --remove-orphans
     log "Containers stopped and removed. Data volumes and $INSTALL_DIR are kept (use --purge to delete)."
   fi
+}
+
+if [ "$ACTION" = uninstall ] || [ "$ACTION" = purge ]; then
+  if [ "$ACTION" = purge ]; then remove_install purge; else remove_install keep; fi
   exit 0
 fi
+
+# True when someone can answer questions (no -y, and a terminal is attached even under curl | bash).
+interactive() { [ "$ASSUME_YES" = 0 ] && { : < /dev/tty; } 2>/dev/null; }
+
+# prompt_port <busy port> <suggested free port> - asks for another panel port, prints the answer.
+prompt_port() {
+  local busy=$1 sug=$2 reply
+  while :; do
+    read -r -p "Port $busy is already in use on this server. Panel port to use instead [$sug]: " reply < /dev/tty || reply=""
+    reply=${reply:-$sug}
+    if ! [[ $reply =~ ^[0-9]{1,5}$ ]] || [ "$reply" -lt 1 ] || [ "$reply" -gt 65535 ]; then echo "  Enter a number from 1 to 65535." > /dev/tty; continue; fi
+    if [ "$reply" != "$sug" ] && port_in_use "$reply"; then echo "  Port $reply is in use too." > /dev/tty; continue; fi
+    echo "$reply"
+    return 0
+  done
+}
 
 # ---------------------------------------------------------------- embedded files
 extract_files() {
@@ -338,9 +360,10 @@ start_stack() {
       RESERVED+="$PANEL_PORT "
       local old=$PANEL_PORT p=$((PANEL_PORT + 1))
       while port_in_use "$p" || [[ $RESERVED == *" $p "* ]]; do p=$((p + 1)); done
+      if interactive; then p=$(prompt_port "$old" "$p")
+      else warn "Port $old is already taken by another program - starting the panel on port $p instead."; fi
       PANEL_PORT=$p
       set_env_key PANEL_PORT "$p"
-      warn "Port $old is already taken by another program - starting the panel on port $p instead."
       continue
     fi
     rm -f "$out"
@@ -363,8 +386,11 @@ choose_port() {
   if [ "$cur" != "$want" ]; then
     while port_in_use "$p" || [[ $RESERVED == *" $p "* ]]; do p=$((p + 1)); done
   fi
+  if [ "$p" != "$want" ]; then
+    if interactive; then p=$(prompt_port "$want" "$p")
+    else warn "Port $want is already in use by another program - using $p for $svc instead."; fi
+  fi
   RESERVED+="$p "
-  if [ "$p" != "$want" ]; then warn "Port $want is already in use by another program - using $p for $svc instead."; fi
   if grep -q "^$var=" "$INSTALL_DIR/.env"; then sed -i "s/^$var=.*/$var='$p'/" "$INSTALL_DIR/.env"
   else echo "$var='$p'" >> "$INSTALL_DIR/.env"; fi
 }
@@ -394,11 +420,138 @@ remove_legacy_grafana() {
   docker rm -f $ids >/dev/null
 }
 
-# set_env_key KEY VALUE - add or update a single-quoted value in .env
+# set_env_key KEY VALUE - add or update a single-quoted value in .env. No sed on the value, so any
+# character but ' and newline is safe; `cat >` keeps the file's mode (0600).
 set_env_key() {
-  if grep -q "^$1=" "$INSTALL_DIR/.env"; then sed -i "s|^$1=.*|$1='$2'|" "$INSTALL_DIR/.env"
-  else echo "$1='$2'" >> "$INSTALL_DIR/.env"; fi
+  local f="$INSTALL_DIR/.env" tmp
+  tmp=$(mktemp)
+  { grep -v "^$1=" "$f" 2>/dev/null || true; printf "%s='%s'\n" "$1" "$2"; } > "$tmp"
+  cat "$tmp" > "$f"
+  rm -f "$tmp"
 }
+
+# ---------------------------------------------------------------- management menu
+# Running the installer again where it is already installed opens this menu (interactive runs only;
+# -y, --update and the other flags skip it).
+env_get() { sed -n "s/^$1=//p" "$INSTALL_DIR/.env" 2>/dev/null | tail -1 | sed "s/^'\(.*\)'\$/\1/"; }
+server_ip() { local ip; ip=$(hostname -I 2>/dev/null | awk '{print $1}'); echo "${ip:-<server-ip>}"; }
+panel_url() {
+  local port; port=$(env_get PANEL_PORT)
+  if [ "$(env_get PANEL_BIND)" = 127.0.0.1 ]; then echo "http://127.0.0.1:${port:-3000}  (this server only: ssh -L ${port:-3000}:127.0.0.1:${port:-3000} root@$(server_ip))"
+  else echo "http://$(server_ip):${port:-3000}"; fi
+}
+wait_panel() {
+  local port; port=$(env_get PANEL_PORT)
+  for _ in $(seq 1 45); do
+    if curl -fsS "http://127.0.0.1:${port:-3000}/healthz" >/dev/null 2>&1; then log "The panel is up: $(panel_url)"; return 0; fi
+    sleep 2
+  done
+  warn "The panel did not answer yet. See: docker compose --project-directory $INSTALL_DIR logs panel"
+}
+apply_env() {   # recreate the containers whose settings changed
+  PANEL_PORT=$(env_get PANEL_PORT)
+  if start_stack; then wait_panel; else warn "The containers did not start (see the error above)."; fi
+}
+bad_value() { case "$1" in *\'*|*$'\n'*) return 0 ;; esac; return 1; }
+
+menu_port() {
+  local cur new
+  cur=$(env_get PANEL_PORT); cur=${cur:-3000}
+  read -r -p "New panel port (now $cur, empty = keep): " new < /dev/tty || return 0
+  if [ -z "$new" ] || [ "$new" = "$cur" ]; then echo "  Unchanged."; return 0; fi
+  if ! [[ $new =~ ^[0-9]{1,5}$ ]] || [ "$new" -lt 1 ] || [ "$new" -gt 65535 ]; then warn "Enter a number from 1 to 65535."; return 0; fi
+  if port_in_use "$new"; then warn "Port $new is already in use on this server - choose another one."; return 0; fi
+  set_env_key PANEL_PORT "$new"
+  log "Moving the panel to port $new (the firewall keeps the new port open)"
+  apply_env
+}
+
+menu_login() {
+  local u p p2 gen=0 cur
+  cur=$(env_get PANEL_USER)
+  read -r -p "Username [${cur:-admin}]: " u < /dev/tty || return 0
+  u=${u:-${cur:-admin}}
+  if bad_value "$u" || [[ $u == *[:\|]* ]] || [ ${#u} -gt 64 ]; then warn "That username is not allowed - nothing changed."; return 0; fi
+  read -r -s -p "New password (empty = generate a strong one): " p < /dev/tty || return 0; echo
+  if [ -z "$p" ]; then
+    p=$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20); gen=1
+  else
+    read -r -s -p "Repeat the password: " p2 < /dev/tty || return 0; echo
+    if [ "$p" != "$p2" ]; then warn "The passwords differ - nothing changed."; return 0; fi
+    if [ ${#p} -lt 8 ] || bad_value "$p"; then warn "Use at least 8 characters and no single quote - nothing changed."; return 0; fi
+  fi
+  set_env_key PANEL_USER "$u"
+  set_env_key PANEL_PASSWORD "$p"
+  # a password changed inside the panel is kept there and would win over .env
+  rm -f "$INSTALL_DIR/data/panel/auth.json"
+  log "Login changed; other sessions are signed out"
+  apply_env
+  echo "  Login:    $u / $([ "$gen" = 1 ] && echo "$p  (saved in $INSTALL_DIR/.env)" || echo "(the password you typed)")"
+}
+
+menu_bind() {
+  local c
+  echo "  1) Any network (0.0.0.0)"
+  echo "  2) This server only (127.0.0.1, open it through an SSH tunnel)"
+  read -r -p "Choose [1-2, empty = keep $(env_get PANEL_BIND)]: " c < /dev/tty || return 0
+  case "$c" in
+    1) set_env_key PANEL_BIND 0.0.0.0 ;;
+    2) set_env_key PANEL_BIND 127.0.0.1 ;;
+    *) echo "  Unchanged."; return 0 ;;
+  esac
+  apply_env
+}
+
+manage_menu() {
+  local c
+  while :; do
+    echo
+    printf '\033[1m Server monitoring is installed in %s\033[0m\n' "$INSTALL_DIR"
+    echo "   Panel:    $(panel_url)"
+    echo "   User:     $(env_get PANEL_USER)"
+    compose ps -a --format '{{.Service}} {{.State}}' 2>/dev/null < /dev/null | awk '
+      { n++; if ($2 == "running") r++; else bad = bad " " $1 " (" $2 ")" }
+      END { if (n) printf "   Services: %d of %d running%s\n", r, n, (bad != "" ? " - not running:" bad : "") }' || true
+    echo
+    echo "   1) Update / repair (write the files again, keep settings and data)"
+    echo "   2) Download the newest version and install it"
+    echo "   3) Change the panel port"
+    echo "   4) Change the panel username and password"
+    echo "   5) Change who can open the panel (any network / this server only)"
+    echo "   6) Turn off two-step login (lost the authenticator app)"
+    echo "   7) Status and the panel's recent log"
+    echo "   8) Restart all services"
+    echo "   9) Uninstall (keep the data)"
+    echo "  10) Uninstall and delete all data"
+    echo "   0) Exit"
+    read -r -p "Choose [0-10]: " c < /dev/tty || exit 0
+    case "$c" in
+      1) return 0 ;;
+      2) ACTION=update; return 0 ;;
+      3) menu_port ;;
+      4) menu_login ;;
+      5) menu_bind ;;
+      6) rm -f "$INSTALL_DIR/data/panel/totp.json"
+         compose restart panel < /dev/null >/dev/null 2>&1 || true
+         log "Two-step login is off; sign in with the password and turn it on again in the panel." ;;
+      7) compose ps -a < /dev/null || true; echo; compose logs --tail 30 panel < /dev/null || true ;;
+      8) log "Restarting all services (the firewall rules stay in place)"
+         compose restart < /dev/null || true; wait_panel ;;
+      9) remove_install keep; exit 0 ;;
+      10) read -r -p "This deletes all monitoring data and $INSTALL_DIR. Type DELETE to confirm: " c < /dev/tty || c=""
+          if [ "$c" = DELETE ]; then remove_install purge; exit 0; fi
+          echo "  Nothing deleted." ;;
+      0|q) exit 0 ;;
+      "") ;;
+      *) warn "Unknown choice: $c" ;;
+    esac
+  done
+}
+
+if [ "$ACTION" = install ] && [ "$NO_START" = 0 ] && [ "${NO_MENU:-0}" != 1 ] && interactive \
+   && [ -f "$INSTALL_DIR/.env" ] && [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1; then
+  manage_menu
+fi
 
 # ---------------------------------------------------------------- self-update
 # The newest installer from GitHub, or a copy of it (jsDelivr, GitHub proxies) when GitHub is blocked.
@@ -499,7 +652,7 @@ compose build --quiet defender < /dev/null
 remove_legacy_grafana
 choose_port PANEL_PORT panel 8080 3000
 PANEL_PORT=$(sed -n "s/^PANEL_PORT='\{0,1\}\([0-9]*\).*/\1/p" "$INSTALL_DIR/.env" | tail -1)
-start_stack || die "The containers did not start (see the error above)."
+start_stack || die "The containers did not start (see the error above). Run this installer again to change the port or other settings from its menu."
 # Config files are bind-mounted, so running containers need a nudge to re-read them.
 # Restart, never `compose kill -s SIGHUP`: Docker records any kill (even a harmless HUP) as a
 # manual stop, and the restart policy then leaves those containers down after the next reboot.
@@ -535,7 +688,8 @@ if docker volume inspect server-monitoring_grafana_data >/dev/null 2>&1; then
   echo "  Old Grafana data is still on disk; remove it with: docker volume rm server-monitoring_grafana_data"
 fi
 echo "  Everything else - websites, ports, servers, Telegram, alert rules, Docker containers - is managed inside the panel."
-echo "  Manage:   docker compose --project-directory $INSTALL_DIR ps | logs | restart"
+echo "  Manage:   run this installer again for the menu (port, login, update, uninstall), or"
+echo "            docker compose --project-directory $INSTALL_DIR ps | logs | restart"
 exit 0
 }
 

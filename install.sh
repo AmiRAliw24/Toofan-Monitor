@@ -7,8 +7,9 @@
 #   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh | sudo bash          # one-liner, interactive
 #   curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh | sudo bash -s -- -y # one-liner, no questions (uses env vars)
 #   # where GitHub is blocked, fetch it from the first source that works:
-#   for u in https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh; do curl -fsSL -m 120 "$u" -o install.sh && break; done; sudo bash install.sh
-#   bash install.sh                 # interactive
+#   for u in https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://ghfast.top/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh https://gh-proxy.com/https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh; do curl -fsSL -m 300 "$u" -o install.sh && bash -n install.sh && tail -1 install.sh | grep -q "^main" && break; done; sudo bash install.sh
+#   bash install.sh                 # interactive; where it is already installed, opens a menu
+#                                   # (update, change port / login / listen address, 2FA off, status, uninstall)
 #   bash install.sh -y              # non-interactive, uses env vars / defaults
 #   bash install.sh --no-start      # write files only, don't start containers
 #   bash install.sh --uninstall     # stop and remove containers (keeps data volumes)
@@ -71,12 +72,13 @@ if [ "$NO_START" = 0 ] || [ "$ACTION" != install ]; then
   [ "$(id -u)" = 0 ] || die "Run as root (e.g. sudo bash $0)."
 fi
 
-if [ "$ACTION" = uninstall ] || [ "$ACTION" = purge ]; then
+# remove_install keep|purge - stop and remove the stack; purge also deletes the data and the install dir.
+remove_install() {
   [ -f "$INSTALL_DIR/docker-compose.yml" ] || die "No installation found in $INSTALL_DIR."
   # The Defender's firewall rules live in the kernel, not in a container: remove them too.
   if command -v nft >/dev/null 2>&1; then nft delete table inet defender 2>/dev/null || true
   else docker run --rm --network host --privileged server-monitoring-defender:1 nft delete table inet defender >/dev/null 2>&1 || true; fi
-  if [ "$ACTION" = purge ]; then
+  if [ "$1" = purge ]; then
     compose down -v --remove-orphans
     rm -rf "$INSTALL_DIR"
     log "Removed containers, data volumes and $INSTALL_DIR."
@@ -84,8 +86,28 @@ if [ "$ACTION" = uninstall ] || [ "$ACTION" = purge ]; then
     compose down --remove-orphans
     log "Containers stopped and removed. Data volumes and $INSTALL_DIR are kept (use --purge to delete)."
   fi
+}
+
+if [ "$ACTION" = uninstall ] || [ "$ACTION" = purge ]; then
+  if [ "$ACTION" = purge ]; then remove_install purge; else remove_install keep; fi
   exit 0
 fi
+
+# True when someone can answer questions (no -y, and a terminal is attached even under curl | bash).
+interactive() { [ "$ASSUME_YES" = 0 ] && { : < /dev/tty; } 2>/dev/null; }
+
+# prompt_port <busy port> <suggested free port> - asks for another panel port, prints the answer.
+prompt_port() {
+  local busy=$1 sug=$2 reply
+  while :; do
+    read -r -p "Port $busy is already in use on this server. Panel port to use instead [$sug]: " reply < /dev/tty || reply=""
+    reply=${reply:-$sug}
+    if ! [[ $reply =~ ^[0-9]{1,5}$ ]] || [ "$reply" -lt 1 ] || [ "$reply" -gt 65535 ]; then echo "  Enter a number from 1 to 65535." > /dev/tty; continue; fi
+    if [ "$reply" != "$sug" ] && port_in_use "$reply"; then echo "  Port $reply is in use too." > /dev/tty; continue; fi
+    echo "$reply"
+    return 0
+  done
+}
 
 # ---------------------------------------------------------------- embedded files
 extract_files() {
@@ -383,7 +405,7 @@ __MONITORING_EOF__
 - ⚡ **آمار زنده، هر ثانیه**: CPU، رم، دیسک، I/O دیسک و ترافیک شبکه بدون رفرش و با حرکت نرم اعداد
 - **گیج‌های حلقه‌ای** CPU، رم و دیسک با رنگ شدت
 - **نمودارهای تعاملی** با خط راهنما، تولتیپ و نمای جدولی؛ بازه‌ی **«زنده (۵ دقیقه‌ی اخیر)»** ثانیه‌به‌ثانیه جلو می‌رود
-- **ترافیک شبکه** کامل: دانلود و آپلود امروز، ۷ و ۳۰ روز
+- **ترافیک شبکه** کامل: دانلود و آپلود امروز، **این ماه میلادی از روز ۱**، **ماه قبل**، ۷ روز و مجموع ماه‌به‌ماه
 - **آی‌پی عمومی** IPv4 و IPv6 سرور (با یک کلیک کپی)
 
 </td>
@@ -484,10 +506,35 @@ ssh root@SERVER 'bash install.sh'
 | `--no-start` | فقط فایل‌ها را بنویس، کانتینری بالا نیاور |
 | `--uninstall` | کانتینرها را حذف کن (داده‌ها می‌مانند) |
 | `--purge` | کانتینرها، داده‌ها و پوشه‌ی نصب را کامل حذف کن |
+| `--update` | نسخه‌ی جدید نصب‌کننده را بگیر و اجرا کن |
 
 </details>
 
-> 💡 **اجرای دوباره‌ی `install.sh` امن است.** کد آپدیت می‌شود و پنل ری‌استارت می‌شود، ولی `.env` و هر چیزی که از پنل تنظیم کرده‌اید (سایت‌ها، سرورها، تلگرام، قوانین، رمز) دست‌نخورده می‌ماند. برای گرفتن نسخه‌ی جدید همین دستور را دوباره بزنید.
+<details>
+<summary><b>🧰 منوی مدیریت (اجرای دوباره‌ی نصب‌کننده)</b></summary>
+
+<br>
+
+اگر روی سروری که قبلاً نصب شده دوباره `bash install.sh` (یا همان دستور یک‌خطی) را بزنید، به‌جای نصب دوباره این منو باز می‌شود:
+
+| گزینه | کار |
+|---|---|
+| 1 | به‌روزرسانی / تعمیر: فایل‌ها دوباره نوشته می‌شوند، تنظیمات و داده‌ها می‌مانند |
+| 2 | گرفتن جدیدترین نسخه از اینترنت و نصب آن |
+| 3 | **تغییر پورت پنل** (قبلش بررسی می‌شود پورت آزاد باشد؛ فایروال پورت جدید را باز نگه می‌دارد) |
+| 4 | **تغییر نام کاربری و رمز** (خالی بگذارید تا رمز قوی ساخته شود؛ بقیه‌ی نشست‌ها خارج می‌شوند) |
+| 5 | پنل از همه‌ی شبکه‌ها باز باشد یا فقط از خود سرور (با تانل SSH) |
+| 6 | خاموش کردن ورود دومرحله‌ای (اگر اپ Authenticator گم شده) |
+| 7 | وضعیت سرویس‌ها و لاگ اخیر پنل |
+| 8 | ری‌استارت همه‌ی سرویس‌ها |
+| 9 | حذف (داده‌ها می‌مانند) |
+| 10 | حذف کامل با همه‌ی داده‌ها (باید `DELETE` تایپ کنید) |
+
+پنل به‌طور پیش‌فرض روی پورت **3000** نصب می‌شود. اگر آن پورت روی سرور گرفته باشد، نصب‌کننده می‌پرسد کدام پورت را می‌خواهید (یک پورت آزاد را پیشنهاد می‌دهد)؛ با `-y` خودش پورت آزاد بعدی را برمی‌دارد. بعداً هم از گزینه‌ی 3 همین منو عوضش کنید. برای رد شدن از منو و اجرای مستقیم نصب: `NO_MENU=1 bash install.sh` یا `bash install.sh -y`.
+
+</details>
+
+> 💡 **اجرای دوباره‌ی `install.sh` امن است.** منوی مدیریت باز می‌شود؛ با گزینه‌ی 1 کد آپدیت می‌شود و پنل ری‌استارت می‌شود، ولی `.env` و هر چیزی که از پنل تنظیم کرده‌اید (سایت‌ها، سرورها، تلگرام، قوانین، رمز) دست‌نخورده می‌ماند. برای گرفتن نسخه‌ی جدید همین دستور را دوباره بزنید.
 
 > ℹ️ `HEAD` در آدرس همیشه به برنچ پیش‌فرض ریپو اشاره می‌کند. گیت‌هاب فایل‌های raw را تا چند دقیقه کش می‌کند، پس بعد از هر آپدیت ممکن است چند دقیقه نسخه‌ی قبلی را بدهد.
 
@@ -515,7 +562,7 @@ ssh root@SERVER 'bash install.sh'
 
 <div align="center">
 <img src="docs/screenshots/network-dark.png" alt="صفحه‌ی شبکه و مصرف ترافیک" width="92%">
-<br><sub>📡 صفحه‌ی شبکه: کارت‌های شبکه، مصرف امروز / ۷ / ۳۰ روز / از زمان بوت و نمودار روزانه</sub>
+<br><sub>📡 صفحه‌ی شبکه: کارت‌های شبکه، مصرف امروز / این ماه / ماه قبل / ۷ روز / از زمان بوت و نمودار روزانه</sub>
 </div>
 
 <br>
@@ -548,12 +595,13 @@ ssh root@SERVER 'bash install.sh'
 
 زیر جدول کارت‌های شبکه، مصرف کامل آپلود و دانلود دیده می‌شود:
 
-- 📅 **امروز** (به وقت مرورگر شما)، **۷ روز اخیر**، **۳۰ روز اخیر** و **از زمان بوت**
-- 🟦🟧 نوار نسبت دانلود به آپلود در هر کارت
-- ⚡ **اوج سرعت** ۲۴ ساعت اخیر
-- 📊 **نمودار میله‌ای روزانه‌ی ۷ روز** با تولتیپ و نمای جدولی
+- 📅 **امروز**، **این ماه** (ماه میلادی، از روز ۱ تا الان)، **ماه قبل** (کل ماه میلادی قبل)، **۷ روز اخیر** و **از زمان بوت**؛ همه به وقت مرورگر شما
+- 🔮 **پیش‌بینی آخر ماه**: با همین روند تا آخر ماه حدوداً چقدر مصرف می‌شود (برای سرورهایی که سقف ترافیک ماهانه دارند)
+- 📊 **نمودار روزانه‌ی کل ماه** (۱ تا آخر ماه) با دکمه‌ی این ماه / ماه قبل، تولتیپ و نمای جدولی با سطر مجموع
+- 🗓️ **مجموع ماهانه**: جدول ماه‌به‌ماه تا ۱۲ ماه اخیر
+- 🟦🟧 نوار نسبت دانلود به آپلود در هر کارت و ⚡ **اوج سرعت** ۲۴ ساعت اخیر
 
-آمار از Prometheus می‌آید و تا `PROMETHEUS_RETENTION` (پیش‌فرض ۳۰ روز) نگه داشته می‌شود. تا وقتی داده‌ی کافی جمع نشده، زیر هر کارت نوشته می‌شود چقدر داده وجود دارد.
+Prometheus داده‌ی خام را فقط تا `PROMETHEUS_RETENTION` (پیش‌فرض ۳۰ روز) نگه می‌دارد. برای همین پنل مجموع **هر روزِ تمام‌شده** را یک بار حساب می‌کند و در `data/panel/traffic.json` نگه می‌دارد (حدود دو سال، چند ده کیلوبایت). پس «ماه قبل» و جدول ماهانه همیشه کامل می‌مانند، حتی بعد از پاک شدن داده‌ی قدیمی Prometheus. اگر برای روزهایی داده‌ای نباشد (مثلاً سرور خاموش بوده یا پنل هنوز نصب نبوده)، آن ماه با «ناقص» علامت می‌خورد.
 
 ### 🌍 آی‌پی عمومی
 
@@ -1084,6 +1132,7 @@ import live
 import monitor
 import security
 import store
+import traffic
 from auth import Auth
 from security import guard, limiter, sessions, totp
 from security import log as seclog
@@ -1177,7 +1226,7 @@ def api_health(_q):
     return health.diagnose()
 
 
-GET_API = {**monitor.READ_API, "/api/checks": api_checks, "/api/rules": api_rules,
+GET_API = {**monitor.READ_API, "/api/traffic": traffic.api_traffic, "/api/checks": api_checks, "/api/rules": api_rules,
            "/api/settings": api_settings, "/api/health": api_health}
 
 
@@ -1637,6 +1686,7 @@ def main():
     except OSError as e:
         print(f"WARNING: cannot prepare configuration files ({e}). {WRITE_HINT}", flush=True)
     threading.Thread(target=store.auto_loop, daemon=True).start()
+    threading.Thread(target=traffic.loop, daemon=True).start()
     defender.start()
     print(f"panel {VERSION} listening on :{PORT}, prometheus at {monitor.PROM}, docker control "
           f"{'on' if dockerapi.ENABLED else 'off'}", flush=True)
@@ -2897,60 +2947,6 @@ def api_network(q):
     return out
 
 
-_traffic_cache = {}
-
-
-def _instant(expr, at=None):
-    params = {"query": expr}
-    if at is not None:
-        params["time"] = at
-    rows = prom_get("/api/v1/query", params)["result"]
-    return num(rows[0]["value"][1]) if rows else None
-
-
-def api_traffic(q):
-    """Upload / download totals: calendar days in the browser's time zone, rolling 7/30 days, since boot."""
-    instance = q.get("instance") or ""
-    try:
-        tz = max(-840, min(840, int(q.get("tz", "0"))))   # minutes, as Date.getTimezoneOffset() reports them
-    except ValueError:
-        tz = 0
-    key = (instance, tz)
-    hit = _traffic_cache.get(key)
-    now = int(time.time())
-    if hit and now - hit[0] < 60:
-        return hit[1]
-    n = node_selector(instance, net=True)
-    rxm = f"node_network_receive_bytes_total{{{n},{VIRTUAL_NICS}}}"
-    txm = f"node_network_transmit_bytes_total{{{n},{VIRTUAL_NICS}}}"
-
-    def total(rng, at=None):
-        return {"rx": _instant(f"sum(increase({rxm}[{rng}s]))", at), "tx": _instant(f"sum(increase({txm}[{rng}s]))", at)}
-
-    local_midnight = (now - tz * 60) // 86400 * 86400 + tz * 60
-    days = []
-    for k in range(7):
-        start = local_midnight - k * 86400
-        end = now if k == 0 else start + 86400
-        span = max(60, end - start)
-        d = total(span, end)
-        days.append({"start": start, "end": end, **d})
-    out = {
-        "days": days,
-        "week": total(7 * 86400),
-        "month": total(30 * 86400),
-        "boot": {"rx": _instant(f"sum({rxm})"), "tx": _instant(f"sum({txm})")},
-        "peak": {"rx": _instant(f"max_over_time(sum(rate({rxm}[2m]))[24h:1m])"),
-                 "tx": _instant(f"max_over_time(sum(rate({txm}[2m]))[24h:1m])")},
-        # how much history exists, so the UI can say "based on 3 days of data" for the longer periods
-        "history": _instant(f"time() - min(min_over_time(timestamp({rxm})[30d:1m]))"),
-    }
-    _traffic_cache[key] = (now, out)
-    if len(_traffic_cache) > 50:
-        _traffic_cache.clear()
-    return out
-
-
 def api_websites(_q):
     def per(expr):
         return {(m.get("job", ""), m.get("instance", "")): v for m, v in vector(expr)}
@@ -3012,7 +3008,7 @@ def api_history(q):
 
 
 READ_API = {"/api/instances": api_instances, "/api/overview": api_overview, "/api/disks": api_disks,
-            "/api/network": api_network, "/api/traffic": api_traffic, "/api/websites": api_websites,
+            "/api/network": api_network, "/api/websites": api_websites,
             "/api/targets": api_targets, "/api/alerts": api_alerts, "/api/history": api_history}
 __MONITORING_EOF__
   write_file panel/icons.py 644 <<'__MONITORING_EOF__'
@@ -3655,6 +3651,266 @@ def sampler(instance, every=INTERVAL):
             s = _samplers[instance] = Sampler(instance)
         s.watched = s.wants[every] = time.time()
         return s
+__MONITORING_EOF__
+  write_file panel/traffic.py 644 <<'__MONITORING_EOF__'
+"""Upload / download totals for calendar days and calendar months, kept for years.
+
+Prometheus keeps the raw counters only for its retention (30 days by default): too short for "last
+month" late in a month, and for a monthly history. So every finished day (in the viewer's time zone)
+is computed once from Prometheus and saved in DATA/traffic.json; a month is the sum of its saved days
+plus today's running total. A background loop saves new days even when nobody opens the panel, and
+missing days are filled in from Prometheus while it still has them.
+"""
+import calendar
+import json
+import os
+import threading
+import time
+from pathlib import Path
+
+from monitor import VIRTUAL_NICS, node_instances, node_selector, num, prom_get
+
+DATA = Path(os.environ.get("DATA_DIR", "/data"))
+FILE = DATA / "traffic.json"
+KEEP_DAYS = 800          # a little over two years of days
+BACKFILL_DAYS = 35       # how far back to look for days that are not saved yet
+SETTLE = 120             # a day is final this long after midnight (the last scrape has landed)
+TZ_FORGET = 45 * 86400   # stop keeping days for a time zone nobody has viewed in this long
+
+_lock = threading.Lock()
+_cache = {}
+_earliest = {}
+
+
+def _load():
+    try:
+        d = json.loads(FILE.read_text(encoding="utf-8"))
+        if isinstance(d, dict) and isinstance(d.get("series"), dict):
+            d.setdefault("tzs", {})
+            return d
+    except (OSError, ValueError):
+        pass
+    return {"version": 1, "series": {}, "tzs": {}}
+
+
+_ledger = _load()
+
+
+def _save():
+    tmp = FILE.with_suffix(".tmp")
+    try:
+        FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps(_ledger, separators=(",", ":")), encoding="utf-8")
+        os.replace(tmp, FILE)
+    except OSError as e:
+        print(f"WARNING: cannot save {FILE}: {e}", flush=True)
+
+
+# ------------------------------------------------------------------ calendar helpers (fixed UTC offset)
+
+def _parts(ts, tz):
+    t = time.gmtime(ts - tz * 60)
+    return t.tm_year, t.tm_mon, t.tm_mday
+
+
+def _midnight(y, m, d, tz):
+    return calendar.timegm((y, m, d, 0, 0, 0)) + tz * 60
+
+
+def _day_key(start, tz):
+    y, m, d = _parts(start, tz)
+    return f"{y:04d}-{m:02d}-{d:02d}"
+
+
+def _prev_month(y, m):
+    return (y - 1, 12) if m == 1 else (y, m - 1)
+
+
+# ------------------------------------------------------------------ prometheus
+
+def _metrics(instance):
+    n = node_selector(instance, net=True)
+    return f"node_network_receive_bytes_total{{{n},{VIRTUAL_NICS}}}", f"node_network_transmit_bytes_total{{{n},{VIRTUAL_NICS}}}"
+
+
+def _instant(expr, at=None):
+    params = {"query": expr}
+    if at is not None:
+        params["time"] = at
+    rows = prom_get("/api/v1/query", params)["result"]
+    return num(rows[0]["value"][1]) if rows else None
+
+
+def _total(rxm, txm, secs, at=None):
+    secs = max(60, int(secs))
+    return {"rx": _instant(f"sum(increase({rxm}[{secs}s]))", at), "tx": _instant(f"sum(increase({txm}[{secs}s]))", at)}
+
+
+def _earliest_sample(instance, rxm):
+    """Time of the oldest network sample Prometheus still has (cached; it only moves slowly)."""
+    hit = _earliest.get(instance)
+    now = time.time()
+    if hit and now - hit[0] < 1800:
+        return hit[1]
+    v = _instant(f"min(min_over_time(timestamp({rxm})[{BACKFILL_DAYS + 1}d:10m]))")
+    _earliest[instance] = (now, v)
+    return v
+
+
+def _daily(expr, first_end, last_end):
+    data = prom_get("/api/v1/query_range", {"query": expr, "start": first_end, "end": last_end, "step": 86400})
+    return {int(float(t)): num(v) for t, v in data["result"][0]["values"]} if data["result"] else {}
+
+
+# ------------------------------------------------------------------ the ledger
+
+def _resolve(instance):
+    if instance:
+        node_selector(instance)          # validates the name
+        return instance
+    found = node_instances()
+    return found[0] if found else ""
+
+
+def _fill(instance, tz, now=None):
+    """Save every finished day of the last BACKFILL_DAYS that is not saved yet. Returns the series."""
+    now = int(now or time.time())
+    key = f"{instance}|{tz}"
+    with _lock:
+        series = _ledger["series"].setdefault(key, {})
+        today = _midnight(*_parts(now, tz), tz)
+        if now - today < SETTLE:          # yesterday's last samples may still be on their way
+            today -= 86400
+        want = [today - k * 86400 for k in range(1, BACKFILL_DAYS + 1)]
+        missing = [s for s in want if _day_key(s, tz) not in series]
+        if not missing:
+            return series
+        rxm, txm = _metrics(instance)
+        earliest = _earliest_sample(instance, rxm)
+        if earliest is None:
+            return series
+        missing = [s for s in missing if s + 86400 > earliest]   # days Prometheus has nothing for stay unknown
+        if not missing:
+            return series
+        first, last = min(missing) + 86400, max(missing) + 86400
+        rx = _daily(f"sum(increase({rxm}[86400s]))", first, last)
+        tx = _daily(f"sum(increase({txm}[86400s]))", first, last)
+        changed = False
+        for s in missing:
+            e = s + 86400
+            if e in rx or e in tx:
+                series[_day_key(s, tz)] = [round(rx.get(e) or 0), round(tx.get(e) or 0), 1 if earliest <= s + 900 else 0]
+                changed = True
+        if changed:
+            cutoff = _day_key(now - KEEP_DAYS * 86400, tz)
+            for k in [k for k in series if k < cutoff]:
+                del series[k]
+            _save()
+        return series
+
+
+def _month(series, y, m, upto_day=None):
+    """Sum of the saved days of a month (up to, not including, upto_day)."""
+    days = calendar.monthrange(y, m)[1]
+    last = (upto_day - 1) if upto_day else days
+    prefix = f"{y:04d}-{m:02d}-"
+    rx = tx = n = full = 0
+    daily = []
+    for d in range(1, last + 1):
+        v = series.get(f"{prefix}{d:02d}")
+        if v:
+            rx += v[0]; tx += v[1]; n += 1; full += v[2]
+            daily.append({"day": d, "rx": v[0], "tx": v[1], "partial": not v[2]})
+        else:
+            daily.append({"day": d, "rx": None, "tx": None, "partial": True})
+    return {"key": f"{y:04d}-{m:02d}", "days": days, "rx": rx if n else None, "tx": tx if n else None,
+            "complete": full == last, "daily": daily}
+
+
+def api_traffic(q):
+    instance = _resolve(q.get("instance") or "")
+    try:
+        tz = max(-840, min(840, int(q.get("tz", "0"))))   # minutes, as Date.getTimezoneOffset() reports them
+    except ValueError:
+        tz = 0
+    now = int(time.time())
+    ck = (instance, tz)
+    hit = _cache.get(ck)
+    if hit and now - hit[0] < 60:
+        return hit[1]
+    with _lock:
+        seen = _ledger["tzs"].get(str(tz))
+        _ledger["tzs"][str(tz)] = now
+        if seen is None or now - seen > 86400:   # remember the time zone for the background loop
+            _save()
+    series = _fill(instance, tz, now)
+    rxm, txm = _metrics(instance)
+
+    y, m, d = _parts(now, tz)
+    today_start = _midnight(y, m, d, tz)
+    month_start = _midnight(y, m, 1, tz)
+    today = {"start": today_start, "end": now, **_total(rxm, txm, now - today_start)}
+    earliest = _earliest_sample(instance, rxm)
+
+    cur = _month(series, y, m, upto_day=d)
+    cur["rx"] = (cur["rx"] or 0) + (today["rx"] or 0) if cur["rx"] is not None or today["rx"] is not None else None
+    cur["tx"] = (cur["tx"] or 0) + (today["tx"] or 0) if cur["tx"] is not None or today["tx"] is not None else None
+    cur["complete"] = cur["complete"] and earliest is not None and earliest <= today_start + 900
+    cur["daily"].append({"day": d, "rx": today["rx"], "tx": today["tx"], "partial": False, "today": True})
+    cur["start"], cur["elapsed"] = month_start, now - month_start
+    cur["seconds"] = cur["days"] * 86400
+    py, pm = _prev_month(y, m)
+    prev = _month(series, py, pm)
+    prev["start"] = _midnight(py, pm, 1, tz)
+
+    # month-by-month history from the saved days (this month and the 11 before it)
+    months, yy, mm = [], y, m
+    for _ in range(12):
+        row = cur if (yy, mm) == (y, m) else prev if (yy, mm) == (py, pm) else _month(series, yy, mm)
+        if row["rx"] is not None or row["tx"] is not None:
+            months.append({"key": row["key"], "rx": row["rx"], "tx": row["tx"], "complete": row["complete"]})
+        yy, mm = _prev_month(yy, mm)
+
+    week = [today]
+    for k in range(1, 7):
+        s = today_start - k * 86400
+        v = series.get(_day_key(s, tz))
+        week.append({"start": s, "end": s + 86400, "rx": v[0] if v else None, "tx": v[1] if v else None})
+
+    out = {
+        "today": today,
+        "days": week,                                   # today first, then the 6 days before it
+        "week": _total(rxm, txm, 7 * 86400),
+        "month": cur,
+        "prev": prev,
+        "months": months,
+        "boot": {"rx": _instant(f"sum({rxm})"), "tx": _instant(f"sum({txm})")},
+        "peak": {"rx": _instant(f"max_over_time(sum(rate({rxm}[2m]))[24h:1m])"),
+                 "tx": _instant(f"max_over_time(sum(rate({txm}[2m]))[24h:1m])")},
+        # how much raw history Prometheus has, so the UI can say "based on 3 days of data"
+        "history": (now - earliest) if earliest else None,
+    }
+    _cache[ck] = (now, out)
+    if len(_cache) > 50:
+        _cache.clear()
+    return out
+
+
+def loop():
+    """Save each finished day shortly after midnight, also when nobody has the panel open."""
+    time.sleep(60)
+    while True:
+        try:
+            now = time.time()
+            with _lock:
+                tzs = [int(t) for t, seen in _ledger["tzs"].items() if now - seen < TZ_FORGET]
+            if tzs:
+                for inst in node_instances():
+                    for tz in tzs:
+                        _fill(inst, tz)
+        except Exception as e:  # Prometheus restarting, etc.: try again next round
+            print(f"traffic: {type(e).__name__}: {e}", flush=True)
+        time.sleep(1800)
 __MONITORING_EOF__
   write_file panel/defender.py 644 <<'__MONITORING_EOF__'
 """Panel side of the Firewall (the "defender" service): talks to its agent (defender/agent.py) over a
@@ -10812,8 +11068,8 @@ __MONITORING_EOF__
       i_alerts: "{n} active alert(s)", i_sites: "{n} website/port check(s) failing", i_targets: "{n} monitoring target(s) not responding",
       i_res: "{what} is high ({v}%)", i_pending: "{n} alert(s) about to fire", i_ssl: "an SSL certificate expires in {n} day(s)",
             net_ifaces: "Network interfaces", tr_title: "Traffic usage", tr_sub: "Everything this server has downloaded and uploaded through its real network cards.",
-      tr_day: "Day", tr_today: "Today", tr_yesterday: "Yesterday", tr_7d: "Last 7 days", tr_30d: "Last 30 days", tr_boot: "Since boot", tr_total: "Total", tr_down: "Download", tr_up: "Upload",
-      tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far",
+      tr_day: "Day", tr_today: "Today", tr_yesterday: "Yesterday", tr_7d: "Last 7 days", tr_month: "This month", tr_prev: "Last month", tr_boot: "Since boot", tr_total: "Total", tr_down: "Download", tr_up: "Upload",
+      tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far", tr_range: "{a} to {b}", tr_proj: "At this pace about {v} by the end of the month", tr_incomplete: "Incomplete: there is no data for some of its days", tr_nodata_month: "No data for this month (the panel was not running yet)", tr_months: "Monthly totals", tr_month_col: "Month", tr_month_sum: "{m}: {v} in total ({d} down, {u} up)",
             diag_btn: "Find out why", dg_title: "Why can't the panel load data?", diag_services: "Services", diag_containers: "Containers of the stack", diag_ok: "Reachable", diag_fail: "Failing",
       diag_dns: "Name not found", diag_http: "No valid answer", diag_detail: "Detail", diag_exit: "Exit code", diag_restarts: "Restarts", diag_logs: "Last log lines of {s}", service: "Service",
       diag_all_ok: "Every service answers now. Close this window and press Refresh.",
@@ -10947,8 +11203,8 @@ __MONITORING_EOF__
       i_alerts: "{n} هشدار فعال", i_sites: "{n} بررسی سایت/پورت ناموفق است", i_targets: "{n} هدف مانیتورینگ پاسخ نمی‌دهد",
       i_res: "{what} بالا است ({v}٪)", i_pending: "{n} هشدار در آستانه‌ی فعال شدن", i_ssl: "گواهی SSL تا {n} روز دیگر منقضی می‌شود",
             net_ifaces: "کارت‌های شبکه", tr_title: "مصرف ترافیک", tr_sub: "کل چیزی که این سرور از طریق کارت‌های شبکه‌ی واقعی‌اش دانلود و آپلود کرده است.",
-      tr_day: "روز", tr_today: "امروز", tr_yesterday: "دیروز", tr_7d: "۷ روز اخیر", tr_30d: "۳۰ روز اخیر", tr_boot: "از زمان بوت", tr_total: "مجموع", tr_down: "دانلود", tr_up: "آپلود",
-      tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است",
+      tr_day: "روز", tr_today: "امروز", tr_yesterday: "دیروز", tr_7d: "۷ روز اخیر", tr_month: "این ماه", tr_prev: "ماه قبل", tr_boot: "از زمان بوت", tr_total: "مجموع", tr_down: "دانلود", tr_up: "آپلود",
+      tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است", tr_range: "از {a} تا {b}", tr_proj: "با همین روند تا آخر ماه حدود {v}", tr_incomplete: "ناقص: برای بعضی روزهایش داده‌ای نیست", tr_nodata_month: "برای این ماه داده‌ای نیست (پنل هنوز نصب نبود)", tr_months: "مجموع ماهانه", tr_month_col: "ماه", tr_month_sum: "{m}: در مجموع {v} (دانلود {d}، آپلود {u})",
             diag_btn: "پیدا کردن دلیل", dg_title: "چرا پنل داده‌ای نمی‌گیرد؟", diag_services: "سرویس‌ها", diag_containers: "کانتینرهای استک", diag_ok: "در دسترس", diag_fail: "خراب",
       diag_dns: "نام پیدا نشد", diag_http: "پاسخ درست نمی‌دهد", diag_detail: "جزئیات", diag_exit: "کد خروج", diag_restarts: "تعداد ری‌استارت", diag_logs: "آخرین خط‌های لاگ {s}", service: "سرویس",
       diag_all_ok: "همه‌ی سرویس‌ها الان جواب می‌دهند. این پنجره را ببندید و «بروزرسانی» را بزنید.",
@@ -12164,56 +12420,98 @@ __MONITORING_EOF__
   // ---------------------------------------------------------------- traffic usage (network page)
   state.traffic = null;
   state.trTable = false;
-  const dayLabel = (d, k) => {
-    if (k === 0) return t("tr_today");
-    if (k === 1) return t("tr_yesterday");
-    const x = new Date(d.start * 1000);
-    return `${x.getMonth() + 1}/${x.getDate()}`;
+  state.trMonth = "cur";
+  // Gregorian month names in the panel's language (Latin digits, like every other number in the panel)
+  const monthName = (key, opts = { month: "long", year: "numeric" }) => {
+    const [y, m] = key.split("-").map(Number);
+    try { return new Intl.DateTimeFormat(state.lang === "fa" ? "fa-IR-u-ca-gregory-nu-latn" : "en-US", { ...opts, timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, 1))); }
+    catch (e) { return key; }
   };
-  function usageCard(label, d, note = "") {
+  const dayName = (key, d, month = "long") => {
+    const [y, m] = key.split("-").map(Number);
+    try { return new Intl.DateTimeFormat(state.lang === "fa" ? "fa-IR-u-ca-gregory-nu-latn" : "en-US", { day: "numeric", month, timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d))); }
+    catch (e) { return `${m}/${d}`; }
+  };
+  const sumOf = (d) => (d && (d.rx != null || d.tx != null) ? (d.rx || 0) + (d.tx || 0) : null);
+  function usageCard(label, d, notes = [], cls = "") {
     const rx = d.rx || 0, tx = d.tx || 0, sum = rx + tx, share = sum ? (rx / sum) * 100 : 0;
     const known = d.rx != null || d.tx != null;
-    return `<div class="usage"><div class="u-label">${esc(label)}</div>
+    notes = (Array.isArray(notes) ? notes : [notes]).filter(Boolean);
+    return `<div class="usage${cls ? " " + cls : ""}"><div class="u-label">${esc(label)}</div>
       <div class="u-total">${known ? num(esc(fmtBytes(sum))) : "–"}</div>
       <div class="u-split" aria-hidden="true"><i class="rx" style="width:${share.toFixed(1)}%"></i><i class="tx" style="width:${sum ? (100 - share).toFixed(1) : 0}%"></i></div>
       <div class="u-rows"><div><span class="k rx"></span>${icon("down")}<span>${esc(t("tr_down"))}</span><b>${num(esc(known ? fmtBytes(rx) : "–"))}</b></div>
       <div><span class="k tx"></span>${icon("up")}<span>${esc(t("tr_up"))}</span><b>${num(esc(known ? fmtBytes(tx) : "–"))}</b></div></div>
-      ${note ? `<div class="u-note">${esc(note)}</div>` : ""}</div>`;
+      ${notes.map((n) => `<div class="u-note">${n}</div>`).join("")}</div>`;
   }
   function trafficSection(tr) {
-    const hist = tr.history, partial = (secs) => (hist != null && hist < secs * 0.95 ? t("tr_partial", { d: fmtDur(hist) }) : "");
+    const hist = tr.history, partial = (secs) => (hist != null && hist < secs * 0.95 ? esc(t("tr_partial", { d: fmtDur(hist) })) : "");
+    const cur = tr.month, prev = tr.prev;
+    const dayNow = cur.daily.length;
+    // at the pace so far, where the month ends up (from the 2nd day on, when there is a pace to speak of)
+    const total = sumOf(cur), proj = total != null && cur.elapsed > 86400 && cur.complete ? (total / cur.elapsed) * cur.seconds : null;
+    const curNotes = [esc(t("tr_range", { a: dayName(cur.key, 1), b: dayName(cur.key, dayNow) })),
+      proj != null ? t("tr_proj", { v: `<b>${num(esc(fmtBytes(proj)))}</b>` }) : "",
+      cur.complete ? "" : esc(t("tr_incomplete"))];
+    const prevNotes = [esc(monthName(prev.key)), prev.rx == null && prev.tx == null ? esc(t("tr_nodata_month")) : prev.complete ? "" : esc(t("tr_incomplete"))];
     const cards = [
-      usageCard(t("tr_today"), tr.days[0], partial(Math.max(60, tr.days[0].end - tr.days[0].start))),
+      usageCard(t("tr_today"), tr.today, partial(Math.max(60, tr.today.end - tr.today.start))),
+      usageCard(`${t("tr_month")} · ${monthName(cur.key, { month: "long" })}`, cur, curNotes, "u-main"),
+      usageCard(t("tr_prev"), prev, prevNotes),
       usageCard(t("tr_7d"), tr.week, partial(7 * 86400)),
-      usageCard(t("tr_30d"), tr.month, partial(30 * 86400)),
       usageCard(t("tr_boot"), tr.boot),
     ].join("");
     const peak = (label, v) => `<span class="chip">${esc(label)} <b>${num(esc(fmtRate(v)))}</b></span>`;
+    const seg = [["cur", monthName(cur.key)], ["prev", monthName(prev.key)]]
+      .map(([k, l]) => `<button type="button" data-trmonth="${k}" aria-pressed="${state.trMonth === k}">${esc(l)}</button>`).join("");
     return `<section class="sec"><div class="sec-head"><h3>${icon("activity")}${esc(t("tr_title"))}</h3><p class="muted">${esc(t("tr_sub"))}</p></div>
       <div class="usage-grid">${cards}</div>
-      <div class="chart tr-chart"><header><h3>${esc(t("tr_daily"))}</h3><button type="button" class="btn small icon ghost view-toggle" data-trtable aria-pressed="${state.trTable}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>
+      <div class="chart tr-chart"><header><h3>${esc(t("tr_daily"))}</h3><div class="seg" role="group" aria-label="${esc(t("tr_daily"))}">${seg}</div><button type="button" class="btn small icon ghost view-toggle" data-trtable aria-pressed="${state.trTable}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>
         <div class="legend"><span><i style="background:var(--c1)"></i>${esc(t("tr_down"))}</span><span><i style="background:var(--c2)"></i>${esc(t("tr_up"))}</span>
           ${tr.peak.rx != null ? peak(t("tr_peak_in"), tr.peak.rx) : ""}${tr.peak.tx != null ? peak(t("tr_peak_out"), tr.peak.tx) : ""}</div>
-        <div class="plot" id="tr-plot"></div></div></section>`;
+        <div class="plot" id="tr-plot"></div><div class="u-note tr-sum" id="tr-sum"></div></div>
+      ${monthsTable(tr.months)}</section>`;
   }
 
-  function barsTable(days) {
-    const rows = days.map((d, k) => `<tr><td>${esc(dayLabel(d, k))}</td><td>${num(esc(fmtBytes(d.rx)))}</td><td>${num(esc(fmtBytes(d.tx)))}</td><td>${num(esc(fmtBytes((d.rx || 0) + (d.tx || 0))))}</td></tr>`).join("");
-    return `<div class="chart-table table-wrap"><table><thead><tr><th>${esc(t("tr_day"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  function monthsTable(months) {
+    if (!months || !months.length) return "";
+    const rows = months.map((m) => `<tr><td class="strong">${esc(monthName(m.key))}${m.complete ? "" : ` <span class="muted" title="${esc(t("tr_incomplete"))}">*</span>`}</td>
+      <td data-label="${esc(t("tr_down"))}">${num(esc(fmtBytes(m.rx)))}</td><td data-label="${esc(t("tr_up"))}">${num(esc(fmtBytes(m.tx)))}</td><td data-label="${esc(t("tr_total"))}"><b>${num(esc(fmtBytes(sumOf(m))))}</b></td></tr>`).join("");
+    const note = months.some((m) => !m.complete) ? `<div class="u-note">* ${esc(t("tr_incomplete"))}</div>` : "";
+    return `<div class="chart tr-months"><header><h3>${esc(t("tr_months"))}</h3></header>
+      <div class="table-wrap"><table><thead><tr><th>${esc(t("tr_month_col"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
+  }
+
+  // the chosen month's days, padded with the days still to come so the month always shows in full
+  function monthDays(tr) {
+    const m = state.trMonth === "prev" ? tr.prev : tr.month;
+    const days = m.daily.map((d) => ({ ...d, label: String(d.day), title: dayName(m.key, d.day), short: dayName(m.key, d.day, "short") }));
+    for (let d = days.length + 1; d <= m.days; d++) days.push({ day: d, rx: null, tx: null, future: true, label: String(d), title: dayName(m.key, d) });
+    return { m, days };
+  }
+
+  function barsTable(m, days) {
+    const rows = days.filter((d) => !d.future).slice().reverse().map((d) => `<tr><td>${esc(d.short || d.title)}${d.today ? ` <span class="muted">(${esc(t("tr_today"))})</span>` : ""}</td><td data-label="${esc(t("tr_down"))}">${num(esc(fmtBytes(d.rx)))}</td><td data-label="${esc(t("tr_up"))}">${num(esc(fmtBytes(d.tx)))}</td><td data-label="${esc(t("tr_total"))}">${num(esc(fmtBytes(sumOf(d))))}</td></tr>`).join("");
+    return `<div class="chart-table table-wrap"><table><thead><tr><th>${esc(t("tr_day"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr><th>${esc(t("tr_total"))}</th><th>${num(esc(fmtBytes(m.rx)))}</th><th>${num(esc(fmtBytes(m.tx)))}</th><th>${num(esc(fmtBytes(sumOf(m))))}</th></tr></tfoot></table></div>`;
   }
 
   function paintBars() {
     const box = $("tr-plot"), tr = state.traffic;
-    if (!box || !tr) return;
-    if (state.trTable) { box.innerHTML = barsTable(tr.days); return; }
-    const days = tr.days.map((d, k) => ({ ...d, label: dayLabel(d, k) })).reverse();   // oldest first
+    if (!box || !tr || !tr.month) return;
+    const { m, days } = monthDays(tr);
+    const sumBox = $("tr-sum");
+    if (sumBox) sumBox.innerHTML = m.rx == null && m.tx == null ? "" : t("tr_month_sum", { m: esc(monthName(m.key)), v: `<b>${num(esc(fmtBytes(sumOf(m))))}</b>`, d: num(esc(fmtBytes(m.rx))), u: num(esc(fmtBytes(m.tx))) });
+    if (state.trTable) { box.innerHTML = barsTable(m, days); return; }
     const vals = days.flatMap((d) => [d.rx || 0, d.tx || 0]);
-    if (!Math.max(...vals)) { box.innerHTML = `<div class="empty">${esc(t("no_data"))}</div>`; return; }
+    if (!Math.max(...vals)) { box.innerHTML = `<div class="empty">${esc(t(state.trMonth === "prev" ? "tr_nodata_month" : "no_data"))}</div>`; return; }
     const bw = Math.round(box.clientWidth) || 600, compact = bw < 420;
     const W = Math.max(260, bw), H = compact ? 190 : 220, L = compact ? 52 : 62, R = 8, TOP = 12, B = 26;
     const unit = 1024 ** Math.max(0, Math.floor(Math.log(Math.max(...vals)) / Math.log(1024))), ymax = niceMax((Math.max(...vals) * 1.08) / unit) * unit, plotW = W - L - R, gw = plotW / days.length;
     const Y = (v) => TOP + (1 - v / ymax) * (H - TOP - B);
-    const barW = Math.max(6, Math.min(30, gw * 0.3));
+    const barW = Math.max(1.5, Math.min(22, gw * 0.36));
+    const every = Math.max(1, Math.ceil(days.length / Math.max(1, Math.floor(plotW / 24))));   // day labels that fit
+    const ti = days.findIndex((d) => d.today);
     let grid = "", bars = "", hits = "";
     for (let i = 0; i <= 4; i++) {
       const v = (ymax * i) / 4, y = Y(v);
@@ -12225,32 +12523,33 @@ __MONITORING_EOF__
     };
     days.forEach((d, i) => {
       const cx = L + gw * i + gw / 2;
-      grid += `<text x="${cx}" y="${H - 7}" text-anchor="middle">${esc(d.label)}</text>`;
+      if (d.today || (i % every === 0 && (ti < 0 || Math.abs(i - ti) * gw >= 22))) grid += `<text x="${cx}" y="${H - 7}" text-anchor="middle"${d.today ? ' class="today"' : ""}>${esc(d.label)}</text>`;
+      if (d.future) return;
       [["rx", "--c1", -1], ["tx", "--c2", 1]].forEach(([k, col, side]) => {
         const v = d[k] || 0;
         if (v <= 0) return;
-        const h = Math.max(2, (H - TOP - B) * (v / ymax)), x = side < 0 ? cx - barW - 1 : cx + 1;
-        bars += `<path d="${topRound(x, Y(0) - h, barW, h, 4)}" fill="var(${col})"/>`;
+        const h = Math.max(2, (H - TOP - B) * (v / ymax)), x = side < 0 ? cx - barW - 0.5 : cx + 0.5;
+        bars += `<path d="${topRound(x, Y(0) - h, barW, h, Math.min(4, barW / 2))}" fill="var(${col})"${d.today ? ' opacity=".7"' : ""}/>`;
       });
       hits += `<rect class="hit" data-i="${i}" x="${L + gw * i}" y="0" width="${gw}" height="${H}" fill="transparent"/>`;
     });
-    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(t("tr_daily"))}"><g class="grid">${grid}</g><rect class="hl" y="${TOP}" height="${H - TOP - B}" width="${gw}" opacity="0"/>${bars}${hits}</svg><div class="tip" hidden></div>`;
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="height:${H}px" role="img" aria-label="${esc(`${t("tr_daily")} · ${monthName(m.key)}`)}"><g class="grid">${grid}</g><rect class="hl" y="${TOP}" height="${H - TOP - B}" width="${gw}" opacity="0"/>${bars}${hits}</svg><div class="tip" hidden></div>`;
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), hl = box.querySelector(".hl");
     const show = (e) => {
       const rect = svg.getBoundingClientRect();
       const px = ((e.clientX - rect.left) / rect.width) * W;
-      const i = Math.max(0, Math.min(days.length - 1, Math.floor((px - L) / gw)));
       if (px < L) return;
+      const i = Math.max(0, Math.min(days.length - 1, Math.floor((px - L) / gw)));
       const d = days[i], cx = L + gw * i;
+      if (d.future) { rest(); return; }
       hl.setAttribute("x", cx); hl.setAttribute("opacity", "1");
-      const when = new Date(d.start * 1000);
-      tip.innerHTML = `<div class="t">${esc(`${d.label} · ${when.getMonth() + 1}/${when.getDate()}`)}</div>
+      tip.innerHTML = `<div class="t">${esc(d.title)}${d.today ? ` · ${esc(t("tr_today"))}` : ""}</div>
         <div class="r"><i style="background:var(--c1)"></i><b>${num(esc(fmtBytes(d.rx)))}</b><span>${esc(t("tr_down"))}</span></div>
         <div class="r"><i style="background:var(--c2)"></i><b>${num(esc(fmtBytes(d.tx)))}</b><span>${esc(t("tr_up"))}</span></div>
-        <div class="r"><i></i><b>${num(esc(fmtBytes((d.rx || 0) + (d.tx || 0))))}</b><span>${esc(t("tr_total"))}</span></div>`;
+        <div class="r"><i></i><b>${num(esc(fmtBytes(sumOf(d))))}</b><span>${esc(t("tr_total"))}</span></div>`;
       tip.hidden = false;
       const mid = ((cx + gw / 2) / W) * rect.width, w = tip.offsetWidth;
-      tip.style.left = `${Math.max(0, Math.min(rect.width - w, mid > rect.width / 2 ? mid - w - gw * 0.35 : mid + gw * 0.35))}px`;
+      tip.style.left = `${Math.max(0, Math.min(rect.width - w, mid > rect.width / 2 ? mid - w - 8 : mid + 8))}px`;
       tip.style.top = "4px";
     };
     const rest = () => { tip.hidden = true; hl.setAttribute("opacity", "0"); };
@@ -12394,6 +12693,13 @@ __MONITORING_EOF__
     const go = e.target.closest("[data-go]");
     if (go) { location.hash = go.dataset.go; return; }
     if (e.target.closest("[data-more]")) { moreSheet(); return; }
+    const trm = e.target.closest("[data-trmonth]");
+    if (trm) {
+      state.trMonth = trm.dataset.trmonth;
+      document.querySelectorAll("[data-trmonth]").forEach((b) => b.setAttribute("aria-pressed", String(b === trm)));
+      paintBars();
+      return;
+    }
     if (e.target.closest("[data-trtable]")) {
       state.trTable = !state.trTable;
       e.target.closest("[data-trtable]").setAttribute("aria-pressed", String(state.trTable));
@@ -13099,7 +13405,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
   .row-actions .btn.small.icon { width: 42px; height: 42px; }
   .btn.small { height: 40px; }
   .tools .btn.small { height: 40px; }
-  .chart-table { max-height: 170px; }
+  .chart-table { max-height: 170px; overflow: auto; }
   .chart-table td, .chart-table th { display: table-cell; }
   .chart-table table { display: table; }
   .chart-table thead { display: table-header-group; }
@@ -13168,6 +13474,20 @@ button.chip:disabled { cursor: default; opacity: .6; }
 .u-note { font-size: 11.5px; color: var(--faint); line-height: 1.4; }
 
 .tr-chart .legend { align-items: center; }
+.tr-chart header { gap: 10px; flex-wrap: wrap; }
+.tr-chart header h3 { margin-inline-end: auto; flex: none; white-space: nowrap; }
+.seg { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+.seg button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 650; padding: 5px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tr-chart .grid text.today { font-weight: 700; fill: var(--ink); }
+.tr-sum { margin-top: 8px; }
+.tr-months { margin-top: 14px; }
+.tr-months table td:not(:first-child), .tr-months table th:not(:first-child) { text-align: end; }
+.chart-table tfoot th { border-top: 1px solid var(--line); border-bottom: 0; top: auto; bottom: 0; background: var(--surface-2); color: var(--ink); }
+.usage.u-main { border-color: color-mix(in srgb, var(--c1) 45%, var(--line)); }
+.u-note b { color: var(--ink); font-weight: 650; }
 .tr-chart .legend .chip { padding: 3px 10px; font-size: 12px; margin-inline-start: auto; }
 .tr-chart .legend .chip + .chip { margin-inline-start: 0; }
 .plot .hl { fill: var(--line); }
@@ -13758,9 +14078,10 @@ start_stack() {
       RESERVED+="$PANEL_PORT "
       local old=$PANEL_PORT p=$((PANEL_PORT + 1))
       while port_in_use "$p" || [[ $RESERVED == *" $p "* ]]; do p=$((p + 1)); done
+      if interactive; then p=$(prompt_port "$old" "$p")
+      else warn "Port $old is already taken by another program - starting the panel on port $p instead."; fi
       PANEL_PORT=$p
       set_env_key PANEL_PORT "$p"
-      warn "Port $old is already taken by another program - starting the panel on port $p instead."
       continue
     fi
     rm -f "$out"
@@ -13783,8 +14104,11 @@ choose_port() {
   if [ "$cur" != "$want" ]; then
     while port_in_use "$p" || [[ $RESERVED == *" $p "* ]]; do p=$((p + 1)); done
   fi
+  if [ "$p" != "$want" ]; then
+    if interactive; then p=$(prompt_port "$want" "$p")
+    else warn "Port $want is already in use by another program - using $p for $svc instead."; fi
+  fi
   RESERVED+="$p "
-  if [ "$p" != "$want" ]; then warn "Port $want is already in use by another program - using $p for $svc instead."; fi
   if grep -q "^$var=" "$INSTALL_DIR/.env"; then sed -i "s/^$var=.*/$var='$p'/" "$INSTALL_DIR/.env"
   else echo "$var='$p'" >> "$INSTALL_DIR/.env"; fi
 }
@@ -13814,11 +14138,138 @@ remove_legacy_grafana() {
   docker rm -f $ids >/dev/null
 }
 
-# set_env_key KEY VALUE - add or update a single-quoted value in .env
+# set_env_key KEY VALUE - add or update a single-quoted value in .env. No sed on the value, so any
+# character but ' and newline is safe; `cat >` keeps the file's mode (0600).
 set_env_key() {
-  if grep -q "^$1=" "$INSTALL_DIR/.env"; then sed -i "s|^$1=.*|$1='$2'|" "$INSTALL_DIR/.env"
-  else echo "$1='$2'" >> "$INSTALL_DIR/.env"; fi
+  local f="$INSTALL_DIR/.env" tmp
+  tmp=$(mktemp)
+  { grep -v "^$1=" "$f" 2>/dev/null || true; printf "%s='%s'\n" "$1" "$2"; } > "$tmp"
+  cat "$tmp" > "$f"
+  rm -f "$tmp"
 }
+
+# ---------------------------------------------------------------- management menu
+# Running the installer again where it is already installed opens this menu (interactive runs only;
+# -y, --update and the other flags skip it).
+env_get() { sed -n "s/^$1=//p" "$INSTALL_DIR/.env" 2>/dev/null | tail -1 | sed "s/^'\(.*\)'\$/\1/"; }
+server_ip() { local ip; ip=$(hostname -I 2>/dev/null | awk '{print $1}'); echo "${ip:-<server-ip>}"; }
+panel_url() {
+  local port; port=$(env_get PANEL_PORT)
+  if [ "$(env_get PANEL_BIND)" = 127.0.0.1 ]; then echo "http://127.0.0.1:${port:-3000}  (this server only: ssh -L ${port:-3000}:127.0.0.1:${port:-3000} root@$(server_ip))"
+  else echo "http://$(server_ip):${port:-3000}"; fi
+}
+wait_panel() {
+  local port; port=$(env_get PANEL_PORT)
+  for _ in $(seq 1 45); do
+    if curl -fsS "http://127.0.0.1:${port:-3000}/healthz" >/dev/null 2>&1; then log "The panel is up: $(panel_url)"; return 0; fi
+    sleep 2
+  done
+  warn "The panel did not answer yet. See: docker compose --project-directory $INSTALL_DIR logs panel"
+}
+apply_env() {   # recreate the containers whose settings changed
+  PANEL_PORT=$(env_get PANEL_PORT)
+  if start_stack; then wait_panel; else warn "The containers did not start (see the error above)."; fi
+}
+bad_value() { case "$1" in *\'*|*$'\n'*) return 0 ;; esac; return 1; }
+
+menu_port() {
+  local cur new
+  cur=$(env_get PANEL_PORT); cur=${cur:-3000}
+  read -r -p "New panel port (now $cur, empty = keep): " new < /dev/tty || return 0
+  if [ -z "$new" ] || [ "$new" = "$cur" ]; then echo "  Unchanged."; return 0; fi
+  if ! [[ $new =~ ^[0-9]{1,5}$ ]] || [ "$new" -lt 1 ] || [ "$new" -gt 65535 ]; then warn "Enter a number from 1 to 65535."; return 0; fi
+  if port_in_use "$new"; then warn "Port $new is already in use on this server - choose another one."; return 0; fi
+  set_env_key PANEL_PORT "$new"
+  log "Moving the panel to port $new (the firewall keeps the new port open)"
+  apply_env
+}
+
+menu_login() {
+  local u p p2 gen=0 cur
+  cur=$(env_get PANEL_USER)
+  read -r -p "Username [${cur:-admin}]: " u < /dev/tty || return 0
+  u=${u:-${cur:-admin}}
+  if bad_value "$u" || [[ $u == *[:\|]* ]] || [ ${#u} -gt 64 ]; then warn "That username is not allowed - nothing changed."; return 0; fi
+  read -r -s -p "New password (empty = generate a strong one): " p < /dev/tty || return 0; echo
+  if [ -z "$p" ]; then
+    p=$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20); gen=1
+  else
+    read -r -s -p "Repeat the password: " p2 < /dev/tty || return 0; echo
+    if [ "$p" != "$p2" ]; then warn "The passwords differ - nothing changed."; return 0; fi
+    if [ ${#p} -lt 8 ] || bad_value "$p"; then warn "Use at least 8 characters and no single quote - nothing changed."; return 0; fi
+  fi
+  set_env_key PANEL_USER "$u"
+  set_env_key PANEL_PASSWORD "$p"
+  # a password changed inside the panel is kept there and would win over .env
+  rm -f "$INSTALL_DIR/data/panel/auth.json"
+  log "Login changed; other sessions are signed out"
+  apply_env
+  echo "  Login:    $u / $([ "$gen" = 1 ] && echo "$p  (saved in $INSTALL_DIR/.env)" || echo "(the password you typed)")"
+}
+
+menu_bind() {
+  local c
+  echo "  1) Any network (0.0.0.0)"
+  echo "  2) This server only (127.0.0.1, open it through an SSH tunnel)"
+  read -r -p "Choose [1-2, empty = keep $(env_get PANEL_BIND)]: " c < /dev/tty || return 0
+  case "$c" in
+    1) set_env_key PANEL_BIND 0.0.0.0 ;;
+    2) set_env_key PANEL_BIND 127.0.0.1 ;;
+    *) echo "  Unchanged."; return 0 ;;
+  esac
+  apply_env
+}
+
+manage_menu() {
+  local c
+  while :; do
+    echo
+    printf '\033[1m Server monitoring is installed in %s\033[0m\n' "$INSTALL_DIR"
+    echo "   Panel:    $(panel_url)"
+    echo "   User:     $(env_get PANEL_USER)"
+    compose ps -a --format '{{.Service}} {{.State}}' 2>/dev/null < /dev/null | awk '
+      { n++; if ($2 == "running") r++; else bad = bad " " $1 " (" $2 ")" }
+      END { if (n) printf "   Services: %d of %d running%s\n", r, n, (bad != "" ? " - not running:" bad : "") }' || true
+    echo
+    echo "   1) Update / repair (write the files again, keep settings and data)"
+    echo "   2) Download the newest version and install it"
+    echo "   3) Change the panel port"
+    echo "   4) Change the panel username and password"
+    echo "   5) Change who can open the panel (any network / this server only)"
+    echo "   6) Turn off two-step login (lost the authenticator app)"
+    echo "   7) Status and the panel's recent log"
+    echo "   8) Restart all services"
+    echo "   9) Uninstall (keep the data)"
+    echo "  10) Uninstall and delete all data"
+    echo "   0) Exit"
+    read -r -p "Choose [0-10]: " c < /dev/tty || exit 0
+    case "$c" in
+      1) return 0 ;;
+      2) ACTION=update; return 0 ;;
+      3) menu_port ;;
+      4) menu_login ;;
+      5) menu_bind ;;
+      6) rm -f "$INSTALL_DIR/data/panel/totp.json"
+         compose restart panel < /dev/null >/dev/null 2>&1 || true
+         log "Two-step login is off; sign in with the password and turn it on again in the panel." ;;
+      7) compose ps -a < /dev/null || true; echo; compose logs --tail 30 panel < /dev/null || true ;;
+      8) log "Restarting all services (the firewall rules stay in place)"
+         compose restart < /dev/null || true; wait_panel ;;
+      9) remove_install keep; exit 0 ;;
+      10) read -r -p "This deletes all monitoring data and $INSTALL_DIR. Type DELETE to confirm: " c < /dev/tty || c=""
+          if [ "$c" = DELETE ]; then remove_install purge; exit 0; fi
+          echo "  Nothing deleted." ;;
+      0|q) exit 0 ;;
+      "") ;;
+      *) warn "Unknown choice: $c" ;;
+    esac
+  done
+}
+
+if [ "$ACTION" = install ] && [ "$NO_START" = 0 ] && [ "${NO_MENU:-0}" != 1 ] && interactive \
+   && [ -f "$INSTALL_DIR/.env" ] && [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1; then
+  manage_menu
+fi
 
 # ---------------------------------------------------------------- self-update
 # The newest installer from GitHub, or a copy of it (jsDelivr, GitHub proxies) when GitHub is blocked.
@@ -13919,7 +14370,7 @@ compose build --quiet defender < /dev/null
 remove_legacy_grafana
 choose_port PANEL_PORT panel 8080 3000
 PANEL_PORT=$(sed -n "s/^PANEL_PORT='\{0,1\}\([0-9]*\).*/\1/p" "$INSTALL_DIR/.env" | tail -1)
-start_stack || die "The containers did not start (see the error above)."
+start_stack || die "The containers did not start (see the error above). Run this installer again to change the port or other settings from its menu."
 # Config files are bind-mounted, so running containers need a nudge to re-read them.
 # Restart, never `compose kill -s SIGHUP`: Docker records any kill (even a harmless HUP) as a
 # manual stop, and the restart policy then leaves those containers down after the next reboot.
@@ -13955,7 +14406,8 @@ if docker volume inspect server-monitoring_grafana_data >/dev/null 2>&1; then
   echo "  Old Grafana data is still on disk; remove it with: docker volume rm server-monitoring_grafana_data"
 fi
 echo "  Everything else - websites, ports, servers, Telegram, alert rules, Docker containers - is managed inside the panel."
-echo "  Manage:   docker compose --project-directory $INSTALL_DIR ps | logs | restart"
+echo "  Manage:   run this installer again for the menu (port, login, update, uninstall), or"
+echo "            docker compose --project-directory $INSTALL_DIR ps | logs | restart"
 exit 0
 }
 

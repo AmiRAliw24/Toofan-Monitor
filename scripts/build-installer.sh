@@ -23,6 +23,7 @@ FILES=(
   panel/cstats.py:644
   panel/health.py:644
   panel/live.py:644
+  panel/traffic.py:644
   panel/defender.py:644
   panel/static/defender.js:644
   panel/static/security.js:644

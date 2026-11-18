@@ -564,7 +564,7 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
   .row-actions .btn.small.icon { width: 42px; height: 42px; }
   .btn.small { height: 40px; }
   .tools .btn.small { height: 40px; }
-  .chart-table { max-height: 170px; }
+  .chart-table { max-height: 170px; overflow: auto; }
   .chart-table td, .chart-table th { display: table-cell; }
   .chart-table table { display: table; }
   .chart-table thead { display: table-header-group; }
@@ -633,6 +633,20 @@ button.chip:disabled { cursor: default; opacity: .6; }
 .u-note { font-size: 11.5px; color: var(--faint); line-height: 1.4; }
 
 .tr-chart .legend { align-items: center; }
+.tr-chart header { gap: 10px; flex-wrap: wrap; }
+.tr-chart header h3 { margin-inline-end: auto; flex: none; white-space: nowrap; }
+.seg { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+.seg button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 650; padding: 5px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tr-chart .grid text.today { font-weight: 700; fill: var(--ink); }
+.tr-sum { margin-top: 8px; }
+.tr-months { margin-top: 14px; }
+.tr-months table td:not(:first-child), .tr-months table th:not(:first-child) { text-align: end; }
+.chart-table tfoot th { border-top: 1px solid var(--line); border-bottom: 0; top: auto; bottom: 0; background: var(--surface-2); color: var(--ink); }
+.usage.u-main { border-color: color-mix(in srgb, var(--c1) 45%, var(--line)); }
+.u-note b { color: var(--ink); font-weight: 650; }
 .tr-chart .legend .chip { padding: 3px 10px; font-size: 12px; margin-inline-start: auto; }
 .tr-chart .legend .chip + .chip { margin-inline-start: 0; }
 .plot .hl { fill: var(--line); }

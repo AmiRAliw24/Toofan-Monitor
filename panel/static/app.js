@@ -38,8 +38,8 @@
       i_alerts: "{n} active alert(s)", i_sites: "{n} website/port check(s) failing", i_targets: "{n} monitoring target(s) not responding",
       i_res: "{what} is high ({v}%)", i_pending: "{n} alert(s) about to fire", i_ssl: "an SSL certificate expires in {n} day(s)",
             net_ifaces: "Network interfaces", tr_title: "Traffic usage", tr_sub: "Everything this server has downloaded and uploaded through its real network cards.",
-      tr_day: "Day", tr_today: "Today", tr_yesterday: "Yesterday", tr_7d: "Last 7 days", tr_30d: "Last 30 days", tr_boot: "Since boot", tr_total: "Total", tr_down: "Download", tr_up: "Upload",
-      tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far",
+      tr_day: "Day", tr_today: "Today", tr_yesterday: "Yesterday", tr_7d: "Last 7 days", tr_month: "This month", tr_prev: "Last month", tr_boot: "Since boot", tr_total: "Total", tr_down: "Download", tr_up: "Upload",
+      tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far", tr_range: "{a} to {b}", tr_proj: "At this pace about {v} by the end of the month", tr_incomplete: "Incomplete: there is no data for some of its days", tr_nodata_month: "No data for this month (the panel was not running yet)", tr_months: "Monthly totals", tr_month_col: "Month", tr_month_sum: "{m}: {v} in total ({d} down, {u} up)",
             diag_btn: "Find out why", dg_title: "Why can't the panel load data?", diag_services: "Services", diag_containers: "Containers of the stack", diag_ok: "Reachable", diag_fail: "Failing",
       diag_dns: "Name not found", diag_http: "No valid answer", diag_detail: "Detail", diag_exit: "Exit code", diag_restarts: "Restarts", diag_logs: "Last log lines of {s}", service: "Service",
       diag_all_ok: "Every service answers now. Close this window and press Refresh.",
@@ -173,8 +173,8 @@
       i_alerts: "{n} هشدار فعال", i_sites: "{n} بررسی سایت/پورت ناموفق است", i_targets: "{n} هدف مانیتورینگ پاسخ نمی‌دهد",
       i_res: "{what} بالا است ({v}٪)", i_pending: "{n} هشدار در آستانه‌ی فعال شدن", i_ssl: "گواهی SSL تا {n} روز دیگر منقضی می‌شود",
             net_ifaces: "کارت‌های شبکه", tr_title: "مصرف ترافیک", tr_sub: "کل چیزی که این سرور از طریق کارت‌های شبکه‌ی واقعی‌اش دانلود و آپلود کرده است.",
-      tr_day: "روز", tr_today: "امروز", tr_yesterday: "دیروز", tr_7d: "۷ روز اخیر", tr_30d: "۳۰ روز اخیر", tr_boot: "از زمان بوت", tr_total: "مجموع", tr_down: "دانلود", tr_up: "آپلود",
-      tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است",
+      tr_day: "روز", tr_today: "امروز", tr_yesterday: "دیروز", tr_7d: "۷ روز اخیر", tr_month: "این ماه", tr_prev: "ماه قبل", tr_boot: "از زمان بوت", tr_total: "مجموع", tr_down: "دانلود", tr_up: "آپلود",
+      tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است", tr_range: "از {a} تا {b}", tr_proj: "با همین روند تا آخر ماه حدود {v}", tr_incomplete: "ناقص: برای بعضی روزهایش داده‌ای نیست", tr_nodata_month: "برای این ماه داده‌ای نیست (پنل هنوز نصب نبود)", tr_months: "مجموع ماهانه", tr_month_col: "ماه", tr_month_sum: "{m}: در مجموع {v} (دانلود {d}، آپلود {u})",
             diag_btn: "پیدا کردن دلیل", dg_title: "چرا پنل داده‌ای نمی‌گیرد؟", diag_services: "سرویس‌ها", diag_containers: "کانتینرهای استک", diag_ok: "در دسترس", diag_fail: "خراب",
       diag_dns: "نام پیدا نشد", diag_http: "پاسخ درست نمی‌دهد", diag_detail: "جزئیات", diag_exit: "کد خروج", diag_restarts: "تعداد ری‌استارت", diag_logs: "آخرین خط‌های لاگ {s}", service: "سرویس",
       diag_all_ok: "همه‌ی سرویس‌ها الان جواب می‌دهند. این پنجره را ببندید و «بروزرسانی» را بزنید.",
@@ -1390,56 +1390,98 @@
   // ---------------------------------------------------------------- traffic usage (network page)
   state.traffic = null;
   state.trTable = false;
-  const dayLabel = (d, k) => {
-    if (k === 0) return t("tr_today");
-    if (k === 1) return t("tr_yesterday");
-    const x = new Date(d.start * 1000);
-    return `${x.getMonth() + 1}/${x.getDate()}`;
+  state.trMonth = "cur";
+  // Gregorian month names in the panel's language (Latin digits, like every other number in the panel)
+  const monthName = (key, opts = { month: "long", year: "numeric" }) => {
+    const [y, m] = key.split("-").map(Number);
+    try { return new Intl.DateTimeFormat(state.lang === "fa" ? "fa-IR-u-ca-gregory-nu-latn" : "en-US", { ...opts, timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, 1))); }
+    catch (e) { return key; }
   };
-  function usageCard(label, d, note = "") {
+  const dayName = (key, d, month = "long") => {
+    const [y, m] = key.split("-").map(Number);
+    try { return new Intl.DateTimeFormat(state.lang === "fa" ? "fa-IR-u-ca-gregory-nu-latn" : "en-US", { day: "numeric", month, timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d))); }
+    catch (e) { return `${m}/${d}`; }
+  };
+  const sumOf = (d) => (d && (d.rx != null || d.tx != null) ? (d.rx || 0) + (d.tx || 0) : null);
+  function usageCard(label, d, notes = [], cls = "") {
     const rx = d.rx || 0, tx = d.tx || 0, sum = rx + tx, share = sum ? (rx / sum) * 100 : 0;
     const known = d.rx != null || d.tx != null;
-    return `<div class="usage"><div class="u-label">${esc(label)}</div>
+    notes = (Array.isArray(notes) ? notes : [notes]).filter(Boolean);
+    return `<div class="usage${cls ? " " + cls : ""}"><div class="u-label">${esc(label)}</div>
       <div class="u-total">${known ? num(esc(fmtBytes(sum))) : "–"}</div>
       <div class="u-split" aria-hidden="true"><i class="rx" style="width:${share.toFixed(1)}%"></i><i class="tx" style="width:${sum ? (100 - share).toFixed(1) : 0}%"></i></div>
       <div class="u-rows"><div><span class="k rx"></span>${icon("down")}<span>${esc(t("tr_down"))}</span><b>${num(esc(known ? fmtBytes(rx) : "–"))}</b></div>
       <div><span class="k tx"></span>${icon("up")}<span>${esc(t("tr_up"))}</span><b>${num(esc(known ? fmtBytes(tx) : "–"))}</b></div></div>
-      ${note ? `<div class="u-note">${esc(note)}</div>` : ""}</div>`;
+      ${notes.map((n) => `<div class="u-note">${n}</div>`).join("")}</div>`;
   }
   function trafficSection(tr) {
-    const hist = tr.history, partial = (secs) => (hist != null && hist < secs * 0.95 ? t("tr_partial", { d: fmtDur(hist) }) : "");
+    const hist = tr.history, partial = (secs) => (hist != null && hist < secs * 0.95 ? esc(t("tr_partial", { d: fmtDur(hist) })) : "");
+    const cur = tr.month, prev = tr.prev;
+    const dayNow = cur.daily.length;
+    // at the pace so far, where the month ends up (from the 2nd day on, when there is a pace to speak of)
+    const total = sumOf(cur), proj = total != null && cur.elapsed > 86400 && cur.complete ? (total / cur.elapsed) * cur.seconds : null;
+    const curNotes = [esc(t("tr_range", { a: dayName(cur.key, 1), b: dayName(cur.key, dayNow) })),
+      proj != null ? t("tr_proj", { v: `<b>${num(esc(fmtBytes(proj)))}</b>` }) : "",
+      cur.complete ? "" : esc(t("tr_incomplete"))];
+    const prevNotes = [esc(monthName(prev.key)), prev.rx == null && prev.tx == null ? esc(t("tr_nodata_month")) : prev.complete ? "" : esc(t("tr_incomplete"))];
     const cards = [
-      usageCard(t("tr_today"), tr.days[0], partial(Math.max(60, tr.days[0].end - tr.days[0].start))),
+      usageCard(t("tr_today"), tr.today, partial(Math.max(60, tr.today.end - tr.today.start))),
+      usageCard(`${t("tr_month")} · ${monthName(cur.key, { month: "long" })}`, cur, curNotes, "u-main"),
+      usageCard(t("tr_prev"), prev, prevNotes),
       usageCard(t("tr_7d"), tr.week, partial(7 * 86400)),
-      usageCard(t("tr_30d"), tr.month, partial(30 * 86400)),
       usageCard(t("tr_boot"), tr.boot),
     ].join("");
     const peak = (label, v) => `<span class="chip">${esc(label)} <b>${num(esc(fmtRate(v)))}</b></span>`;
+    const seg = [["cur", monthName(cur.key)], ["prev", monthName(prev.key)]]
+      .map(([k, l]) => `<button type="button" data-trmonth="${k}" aria-pressed="${state.trMonth === k}">${esc(l)}</button>`).join("");
     return `<section class="sec"><div class="sec-head"><h3>${icon("activity")}${esc(t("tr_title"))}</h3><p class="muted">${esc(t("tr_sub"))}</p></div>
       <div class="usage-grid">${cards}</div>
-      <div class="chart tr-chart"><header><h3>${esc(t("tr_daily"))}</h3><button type="button" class="btn small icon ghost view-toggle" data-trtable aria-pressed="${state.trTable}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>
+      <div class="chart tr-chart"><header><h3>${esc(t("tr_daily"))}</h3><div class="seg" role="group" aria-label="${esc(t("tr_daily"))}">${seg}</div><button type="button" class="btn small icon ghost view-toggle" data-trtable aria-pressed="${state.trTable}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>
         <div class="legend"><span><i style="background:var(--c1)"></i>${esc(t("tr_down"))}</span><span><i style="background:var(--c2)"></i>${esc(t("tr_up"))}</span>
           ${tr.peak.rx != null ? peak(t("tr_peak_in"), tr.peak.rx) : ""}${tr.peak.tx != null ? peak(t("tr_peak_out"), tr.peak.tx) : ""}</div>
-        <div class="plot" id="tr-plot"></div></div></section>`;
+        <div class="plot" id="tr-plot"></div><div class="u-note tr-sum" id="tr-sum"></div></div>
+      ${monthsTable(tr.months)}</section>`;
   }
 
-  function barsTable(days) {
-    const rows = days.map((d, k) => `<tr><td>${esc(dayLabel(d, k))}</td><td>${num(esc(fmtBytes(d.rx)))}</td><td>${num(esc(fmtBytes(d.tx)))}</td><td>${num(esc(fmtBytes((d.rx || 0) + (d.tx || 0))))}</td></tr>`).join("");
-    return `<div class="chart-table table-wrap"><table><thead><tr><th>${esc(t("tr_day"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  function monthsTable(months) {
+    if (!months || !months.length) return "";
+    const rows = months.map((m) => `<tr><td class="strong">${esc(monthName(m.key))}${m.complete ? "" : ` <span class="muted" title="${esc(t("tr_incomplete"))}">*</span>`}</td>
+      <td data-label="${esc(t("tr_down"))}">${num(esc(fmtBytes(m.rx)))}</td><td data-label="${esc(t("tr_up"))}">${num(esc(fmtBytes(m.tx)))}</td><td data-label="${esc(t("tr_total"))}"><b>${num(esc(fmtBytes(sumOf(m))))}</b></td></tr>`).join("");
+    const note = months.some((m) => !m.complete) ? `<div class="u-note">* ${esc(t("tr_incomplete"))}</div>` : "";
+    return `<div class="chart tr-months"><header><h3>${esc(t("tr_months"))}</h3></header>
+      <div class="table-wrap"><table><thead><tr><th>${esc(t("tr_month_col"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
+  }
+
+  // the chosen month's days, padded with the days still to come so the month always shows in full
+  function monthDays(tr) {
+    const m = state.trMonth === "prev" ? tr.prev : tr.month;
+    const days = m.daily.map((d) => ({ ...d, label: String(d.day), title: dayName(m.key, d.day), short: dayName(m.key, d.day, "short") }));
+    for (let d = days.length + 1; d <= m.days; d++) days.push({ day: d, rx: null, tx: null, future: true, label: String(d), title: dayName(m.key, d) });
+    return { m, days };
+  }
+
+  function barsTable(m, days) {
+    const rows = days.filter((d) => !d.future).slice().reverse().map((d) => `<tr><td>${esc(d.short || d.title)}${d.today ? ` <span class="muted">(${esc(t("tr_today"))})</span>` : ""}</td><td data-label="${esc(t("tr_down"))}">${num(esc(fmtBytes(d.rx)))}</td><td data-label="${esc(t("tr_up"))}">${num(esc(fmtBytes(d.tx)))}</td><td data-label="${esc(t("tr_total"))}">${num(esc(fmtBytes(sumOf(d))))}</td></tr>`).join("");
+    return `<div class="chart-table table-wrap"><table><thead><tr><th>${esc(t("tr_day"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr><th>${esc(t("tr_total"))}</th><th>${num(esc(fmtBytes(m.rx)))}</th><th>${num(esc(fmtBytes(m.tx)))}</th><th>${num(esc(fmtBytes(sumOf(m))))}</th></tr></tfoot></table></div>`;
   }
 
   function paintBars() {
     const box = $("tr-plot"), tr = state.traffic;
-    if (!box || !tr) return;
-    if (state.trTable) { box.innerHTML = barsTable(tr.days); return; }
-    const days = tr.days.map((d, k) => ({ ...d, label: dayLabel(d, k) })).reverse();   // oldest first
+    if (!box || !tr || !tr.month) return;
+    const { m, days } = monthDays(tr);
+    const sumBox = $("tr-sum");
+    if (sumBox) sumBox.innerHTML = m.rx == null && m.tx == null ? "" : t("tr_month_sum", { m: esc(monthName(m.key)), v: `<b>${num(esc(fmtBytes(sumOf(m))))}</b>`, d: num(esc(fmtBytes(m.rx))), u: num(esc(fmtBytes(m.tx))) });
+    if (state.trTable) { box.innerHTML = barsTable(m, days); return; }
     const vals = days.flatMap((d) => [d.rx || 0, d.tx || 0]);
-    if (!Math.max(...vals)) { box.innerHTML = `<div class="empty">${esc(t("no_data"))}</div>`; return; }
+    if (!Math.max(...vals)) { box.innerHTML = `<div class="empty">${esc(t(state.trMonth === "prev" ? "tr_nodata_month" : "no_data"))}</div>`; return; }
     const bw = Math.round(box.clientWidth) || 600, compact = bw < 420;
     const W = Math.max(260, bw), H = compact ? 190 : 220, L = compact ? 52 : 62, R = 8, TOP = 12, B = 26;
     const unit = 1024 ** Math.max(0, Math.floor(Math.log(Math.max(...vals)) / Math.log(1024))), ymax = niceMax((Math.max(...vals) * 1.08) / unit) * unit, plotW = W - L - R, gw = plotW / days.length;
     const Y = (v) => TOP + (1 - v / ymax) * (H - TOP - B);
-    const barW = Math.max(6, Math.min(30, gw * 0.3));
+    const barW = Math.max(1.5, Math.min(22, gw * 0.36));
+    const every = Math.max(1, Math.ceil(days.length / Math.max(1, Math.floor(plotW / 24))));   // day labels that fit
+    const ti = days.findIndex((d) => d.today);
     let grid = "", bars = "", hits = "";
     for (let i = 0; i <= 4; i++) {
       const v = (ymax * i) / 4, y = Y(v);
@@ -1451,32 +1493,33 @@
     };
     days.forEach((d, i) => {
       const cx = L + gw * i + gw / 2;
-      grid += `<text x="${cx}" y="${H - 7}" text-anchor="middle">${esc(d.label)}</text>`;
+      if (d.today || (i % every === 0 && (ti < 0 || Math.abs(i - ti) * gw >= 22))) grid += `<text x="${cx}" y="${H - 7}" text-anchor="middle"${d.today ? ' class="today"' : ""}>${esc(d.label)}</text>`;
+      if (d.future) return;
       [["rx", "--c1", -1], ["tx", "--c2", 1]].forEach(([k, col, side]) => {
         const v = d[k] || 0;
         if (v <= 0) return;
-        const h = Math.max(2, (H - TOP - B) * (v / ymax)), x = side < 0 ? cx - barW - 1 : cx + 1;
-        bars += `<path d="${topRound(x, Y(0) - h, barW, h, 4)}" fill="var(${col})"/>`;
+        const h = Math.max(2, (H - TOP - B) * (v / ymax)), x = side < 0 ? cx - barW - 0.5 : cx + 0.5;
+        bars += `<path d="${topRound(x, Y(0) - h, barW, h, Math.min(4, barW / 2))}" fill="var(${col})"${d.today ? ' opacity=".7"' : ""}/>`;
       });
       hits += `<rect class="hit" data-i="${i}" x="${L + gw * i}" y="0" width="${gw}" height="${H}" fill="transparent"/>`;
     });
-    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(t("tr_daily"))}"><g class="grid">${grid}</g><rect class="hl" y="${TOP}" height="${H - TOP - B}" width="${gw}" opacity="0"/>${bars}${hits}</svg><div class="tip" hidden></div>`;
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="height:${H}px" role="img" aria-label="${esc(`${t("tr_daily")} · ${monthName(m.key)}`)}"><g class="grid">${grid}</g><rect class="hl" y="${TOP}" height="${H - TOP - B}" width="${gw}" opacity="0"/>${bars}${hits}</svg><div class="tip" hidden></div>`;
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), hl = box.querySelector(".hl");
     const show = (e) => {
       const rect = svg.getBoundingClientRect();
       const px = ((e.clientX - rect.left) / rect.width) * W;
-      const i = Math.max(0, Math.min(days.length - 1, Math.floor((px - L) / gw)));
       if (px < L) return;
+      const i = Math.max(0, Math.min(days.length - 1, Math.floor((px - L) / gw)));
       const d = days[i], cx = L + gw * i;
+      if (d.future) { rest(); return; }
       hl.setAttribute("x", cx); hl.setAttribute("opacity", "1");
-      const when = new Date(d.start * 1000);
-      tip.innerHTML = `<div class="t">${esc(`${d.label} · ${when.getMonth() + 1}/${when.getDate()}`)}</div>
+      tip.innerHTML = `<div class="t">${esc(d.title)}${d.today ? ` · ${esc(t("tr_today"))}` : ""}</div>
         <div class="r"><i style="background:var(--c1)"></i><b>${num(esc(fmtBytes(d.rx)))}</b><span>${esc(t("tr_down"))}</span></div>
         <div class="r"><i style="background:var(--c2)"></i><b>${num(esc(fmtBytes(d.tx)))}</b><span>${esc(t("tr_up"))}</span></div>
-        <div class="r"><i></i><b>${num(esc(fmtBytes((d.rx || 0) + (d.tx || 0))))}</b><span>${esc(t("tr_total"))}</span></div>`;
+        <div class="r"><i></i><b>${num(esc(fmtBytes(sumOf(d))))}</b><span>${esc(t("tr_total"))}</span></div>`;
       tip.hidden = false;
       const mid = ((cx + gw / 2) / W) * rect.width, w = tip.offsetWidth;
-      tip.style.left = `${Math.max(0, Math.min(rect.width - w, mid > rect.width / 2 ? mid - w - gw * 0.35 : mid + gw * 0.35))}px`;
+      tip.style.left = `${Math.max(0, Math.min(rect.width - w, mid > rect.width / 2 ? mid - w - 8 : mid + 8))}px`;
       tip.style.top = "4px";
     };
     const rest = () => { tip.hidden = true; hl.setAttribute("opacity", "0"); };
@@ -1620,6 +1663,13 @@
     const go = e.target.closest("[data-go]");
     if (go) { location.hash = go.dataset.go; return; }
     if (e.target.closest("[data-more]")) { moreSheet(); return; }
+    const trm = e.target.closest("[data-trmonth]");
+    if (trm) {
+      state.trMonth = trm.dataset.trmonth;
+      document.querySelectorAll("[data-trmonth]").forEach((b) => b.setAttribute("aria-pressed", String(b === trm)));
+      paintBars();
+      return;
+    }
     if (e.target.closest("[data-trtable]")) {
       state.trTable = !state.trTable;
       e.target.closest("[data-trtable]").setAttribute("aria-pressed", String(state.trTable));

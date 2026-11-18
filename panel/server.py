@@ -27,6 +27,7 @@ import live
 import monitor
 import security
 import store
+import traffic
 from auth import Auth
 from security import guard, limiter, sessions, totp
 from security import log as seclog
@@ -120,7 +121,7 @@ def api_health(_q):
     return health.diagnose()
 
 
-GET_API = {**monitor.READ_API, "/api/checks": api_checks, "/api/rules": api_rules,
+GET_API = {**monitor.READ_API, "/api/traffic": traffic.api_traffic, "/api/checks": api_checks, "/api/rules": api_rules,
            "/api/settings": api_settings, "/api/health": api_health}
 
 
@@ -580,6 +581,7 @@ def main():
     except OSError as e:
         print(f"WARNING: cannot prepare configuration files ({e}). {WRITE_HINT}", flush=True)
     threading.Thread(target=store.auto_loop, daemon=True).start()
+    threading.Thread(target=traffic.loop, daemon=True).start()
     defender.start()
     print(f"panel {VERSION} listening on :{PORT}, prometheus at {monitor.PROM}, docker control "
           f"{'on' if dockerapi.ENABLED else 'off'}", flush=True)
