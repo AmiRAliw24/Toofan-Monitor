@@ -73,10 +73,29 @@
 
 > **نیازمندی:** یک سرور لینوکسی و دسترسی root (یا sudo). اگر Docker نباشد، نصب‌کننده خودش نصبش می‌کند.
 
+<details>
+<summary><b>🖥️ روی چه سیستم‌عامل و پردازنده‌ای کار می‌کند؟</b></summary>
+
+<br>
+
+| | پشتیبانی |
+|---|---|
+| **توزیع لینوکس** | Ubuntu، Debian، Raspberry Pi OS، Fedora، RHEL، Rocky، AlmaLinux، Oracle Linux، CentOS Stream، Amazon Linux، openSUSE / SLES، Arch / Manjaro، Alpine (و هر توزیعی که Docker رویش نصب باشد) |
+| **پردازنده** | `amd64` (x86-64)، `arm64` (ARMv8)، `arm/v7`، `arm/v6` (Raspberry Pi Zero/1)، `386` (x86 سی‌ودوبیتی)، `ppc64le`، `s390x`، `riscv64` |
+| **init** | systemd، OpenRC (Alpine)، SysV |
+| **SELinux** | روشن یا خاموش، هر دو (RHEL/Fedora) |
+
+- اگر Docker نصب نباشد، نصب‌کننده اول اسکریپت رسمی Docker را امتحان می‌کند، بعد بسته‌های خود توزیع (برای خانواده‌ی Red Hat مخزن Docker CE از یکی از آینه‌ها)؛ ابزارهای لازم (`curl`، `tar`) هم اگر نباشند خودکار نصب می‌شوند.
+- روی پردازنده‌هایی که Prometheus برایشان ایمیج Docker منتشر نمی‌کند (`386`، `arm/v6`، `riscv64` و برای Blackbox `s390x`)، نصب‌کننده ایمیج را **از باینری رسمی همان نسخه** (با بررسی SHA-256) روی همین سرور می‌سازد؛ نتیجه همان برنامه است.
+- با `sh install.sh` هم اجرا می‌شود: اگر bash نباشد (Alpine) نصبش می‌کند و خودش را با bash اجرا می‌کند.
+- macOS و ویندوز سرور نیستند؛ روی ویندوز داخل **WSL 2** کار می‌کند. Podman جای Docker را نمی‌گیرد (نصب‌کننده این را تشخیص می‌دهد و می‌گوید چه کنید).
+
+</details>
+
 ### ⚡ نصب یک‌خطی
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/desktop-tutorial/HEAD/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh | sudo bash
 ```
 
 چند سؤال ساده می‌پرسد (نام کاربری و رمز پنل، آدرس listen، توکن تلگرام و سایت‌ها، همه اختیاری)، بعد پنل روی `http://IP-SERVER:3000` بالا می‌آید. 🎉
@@ -89,7 +108,7 @@ curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/desktop-tutorial/HEAD/in
 به `env` دقت کنید تا متغیرها به sudo برسند:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/desktop-tutorial/HEAD/install.sh \
+curl -fsSL https://raw.githubusercontent.com/AmiRAliw24/Toofan-Monitor/HEAD/install.sh \
   | sudo env PANEL_PASSWORD='...' SITES='https://a.com' bash -s -- -y
 ```
 

@@ -5,6 +5,9 @@ name: server-monitoring
 # and unless-stopped then leaves it down on the next boot; prometheus going missing that way
 # shows up in the panel as a DNS error ("Try again") for the name prometheus.
 # Container logs are capped (3 x 10 MB per service): left alone for years they would fill the disk.
+# SELinux (RHEL, Rocky, Alma, Fedora): the project's own folders are mounted with ":z" so confined
+# containers may read them; containers that read host paths run with label=disable. Both are ignored
+# where SELinux is off.
 x-logging: &logging
   driver: json-file
   options:
@@ -24,9 +27,9 @@ services:
       - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-5GB}
       - --web.enable-lifecycle
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/rules:/etc/prometheus/rules:ro
-      - ./prometheus/targets:/etc/prometheus/targets:ro
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
+      - ./prometheus/rules:/etc/prometheus/rules:ro,z
+      - ./prometheus/targets:/etc/prometheus/targets:ro,z
       - prometheus_data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
@@ -41,7 +44,7 @@ services:
       - --storage.path=/alertmanager
     volumes:
       # The whole directory is mounted (not one file) so the panel can replace alertmanager.yml.
-      - ./alertmanager:/etc/alertmanager:ro
+      - ./alertmanager:/etc/alertmanager:ro,z
       - alertmanager_data:/alertmanager
     ports:
       - "127.0.0.1:9093:9093"
@@ -52,6 +55,7 @@ services:
     restart: always
     logging: *logging
     pid: host
+    security_opt: ["label=disable"]   # SELinux (RHEL, Fedora): reading the host's / needs it
     command:
       - --path.rootfs=/host
       # Only what the panel and its alerts use (about 40 collectors run by default). Network stats come
@@ -108,7 +112,7 @@ services:
     command: ["python", "-u", "/app/cstats.py"]
     read_only: true
     cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+    security_opt: ["no-new-privileges:true", "label=disable"]   # label: SELinux, for the host's cgroups
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
     volumes:
@@ -123,7 +127,7 @@ services:
     logging: *logging
     command: --config.file=/etc/blackbox/blackbox.yml
     volumes:
-      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro,z
     networks: [monitoring]
 
   # Finds the server's public IPv4/IPv6 (shown on the overview page). Host networking so the
@@ -143,8 +147,8 @@ services:
       PUBLIC_IP_LOOKUP: ${PUBLIC_IP_LOOKUP:-1}
       OUT: /data/public-ip.json
     volumes:
-      - ./panel:/app:ro
-      - ./data/panel:/data
+      - ./panel:/app:ro,z
+      - ./data/panel:/data:z
 
   # Defender: firewall, anti-DDoS, SSH brute-force guard and kernel hardening, controlled from the panel.
   # It needs the host's network (nftables) and PIDs (open ports, logged-in users) and root, so it is the
@@ -181,7 +185,7 @@ services:
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+    security_opt: ["no-new-privileges:true", "label=disable"]   # label: SELinux, for the Docker socket
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       PROMETHEUS_URL: http://prometheus:9090

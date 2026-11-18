@@ -478,7 +478,7 @@
       { h: "df_port", cls: "strong", cell: (p) => num(esc(portLabel(p))) },
       { h: "df_from", cell: (p) => (p.from ? num(esc(p.from)) : esc(t("df_any"))) },
       { h: "df_note", cell: (p) => esc(p.note || "") },
-      { h: "actions", cell: (p, i) => btnIcon("trash", t("df_remove"), `data-a="fw-del" data-i="${D.fw.ports.indexOf(p)}"`, "danger") },
+      { h: "actions", cell: (p) => btnIcon("trash", t("df_remove"), `data-a="fw-del" data-i="${D.fw.ports.indexOf(p)}"`, "danger") },
     ], fw.ports);
     const ifaces = fw.trusted_ifaces.map((n, i) => `<span class="chip">${num(esc(n))}<button type="button" class="chip-x" data-a="if-del" data-i="${i}" aria-label="${esc(t("df_remove"))} ${esc(n)}">${icon("x")}</button></span>`).join("");
     const known = (st.interfaces || []).map((n) => `<option value="${esc(n)}">`).join("");

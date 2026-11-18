@@ -1,0 +1,6 @@
+# Everything is checked out with LF line endings, also on Windows: the installer and the
+# configuration files run on Linux, where a carriage return breaks shell scripts.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

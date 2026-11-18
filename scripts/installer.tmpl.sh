@@ -25,6 +25,14 @@
 # Everything downloaded has several sources (official, GitHub proxies, ArvanCloud and other mirrors);
 # when one fails (blocked, 403, timeout, bad checksum) the next is tried. So it also installs on
 # servers where Docker's or GitHub's sites are blocked (Iran: get.docker.com and Docker Hub answer 403).
+if [ -z "${BASH_VERSION:-}" ]; then
+  # Started by another shell (sh on Alpine, dash, ...): this script needs bash. Get it where it is
+  # missing, then run this same file with it.
+  if ! command -v bash >/dev/null 2>&1 && command -v apk >/dev/null 2>&1; then apk add -q --no-cache bash >/dev/null 2>&1 || true; fi
+  if command -v bash >/dev/null 2>&1 && [ -f "$0" ]; then exec bash "$0" "$@"; fi
+  echo "This installer needs bash. Install it (Alpine: apk add bash), save the script as install.sh and run: bash install.sh" >&2
+  exit 1
+fi
 set -euo pipefail
 
 # Everything lives in main() so bash parses the whole script before running anything.
@@ -40,7 +48,7 @@ for arg in "$@"; do
     --uninstall) ACTION=uninstall ;;
     --purge) ACTION=purge ;;
     --update) ACTION=update ;;
-    -h|--help) awk 'NR > 1 && /^set -euo/ { exit } NR > 1' "$0" 2>/dev/null || echo 'See the header of install.sh for usage.'; exit 0 ;;
+    -h|--help) awk 'NR > 1 && !/^#/ { exit } NR > 1' "$0" 2>/dev/null || echo 'See the header of install.sh for usage.'; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -67,10 +75,118 @@ write_file() {  # write_file <relative path> [mode]  (content on stdin)
 
 compose() { docker compose --project-directory "$INSTALL_DIR" "$@"; }
 
-[ "$(uname -s)" = Linux ] || die "This installer supports Linux only."
+# ---------------------------------------------------------------- the system
+# A value from /etc/os-release (ID, ID_LIKE, VERSION_ID, ...), lower case.
+os_field() { sed -n "s/^$1=//p" /etc/os-release 2>/dev/null | head -1 | tr -d '"' | tr '[:upper:]' '[:lower:]'; }
+
+# The distribution's package manager.
+pkg_manager() {
+  local m
+  for m in apt-get dnf yum zypper apk pacman; do
+    if command -v "$m" >/dev/null 2>&1; then echo "$m"; return 0; fi
+  done
+  echo none
+}
+
+# pkg_install <package>... - quietly, with the distribution's own package manager.
+APT_UPDATED=0
+pkg_install() {
+  case "$(pkg_manager)" in
+    apt-get)
+      export DEBIAN_FRONTEND=noninteractive
+      if [ "$APT_UPDATED" = 0 ]; then apt-get update -qq >/dev/null 2>&1 || true; APT_UPDATED=1; fi
+      apt-get install -y -qq --no-install-recommends "$@" >/dev/null 2>&1 ;;
+    dnf) dnf install -y -q "$@" >/dev/null 2>&1 ;;
+    yum) yum install -y -q "$@" >/dev/null 2>&1 ;;
+    zypper) zypper -n -q install --no-recommends "$@" >/dev/null 2>&1 ;;
+    apk) apk add -q --no-cache "$@" >/dev/null 2>&1 ;;
+    pacman) pacman -Sy --noconfirm --needed "$@" >/dev/null 2>&1 ;;
+    *) return 1 ;;
+  esac
+}
+
+# The tools this script uses that minimal systems (containers, Alpine, cloud images) may lack.
+ensure_tools() {
+  local t missing=() pkgs=()
+  for t in curl tar gzip sha256sum awk; do command -v "$t" >/dev/null 2>&1 || missing+=("$t"); done
+  [ ${#missing[@]} = 0 ] && return 0
+  for t in "${missing[@]}"; do
+    case "$t" in
+      curl) pkgs+=(curl ca-certificates) ;;
+      sha256sum) pkgs+=(coreutils) ;;
+      awk) pkgs+=(gawk) ;;
+      *) pkgs+=("$t") ;;
+    esac
+  done
+  log "Installing tools this installer needs: ${missing[*]}"
+  pkg_install "${pkgs[@]}" || true
+  for t in "${missing[@]}"; do
+    command -v "$t" >/dev/null 2>&1 || die "'$t' is missing and could not be installed with $(pkg_manager); install it and run again."
+  done
+}
+
+# This server's main IP address (hostname -I is missing on Alpine, Arch and busybox systems).
+server_ip() {
+  local ip
+  ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  [ -n "$ip" ] || ip=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit }}')
+  echo "${ip:-<server-ip>}"
+}
+
+# Start Docker now and at every boot, whatever the init system (systemd, OpenRC, SysV); waits for it.
+start_docker() {
+  if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+    systemctl enable docker >/dev/null 2>&1 || true
+    systemctl start docker >/dev/null 2>&1 || true
+  elif command -v rc-update >/dev/null 2>&1; then
+    rc-update add docker default >/dev/null 2>&1 || true
+    rc-service docker start >/dev/null 2>&1 || true
+  elif command -v service >/dev/null 2>&1; then
+    command -v chkconfig >/dev/null 2>&1 && chkconfig docker on >/dev/null 2>&1 || true
+    command -v update-rc.d >/dev/null 2>&1 && update-rc.d docker defaults >/dev/null 2>&1 || true
+    service docker start >/dev/null 2>&1 || true
+  fi
+  local i
+  for i in $(seq 1 20); do docker info >/dev/null 2>&1 && return 0; sleep 2; done
+  return 1
+}
+restart_docker() {
+  if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then systemctl restart docker >/dev/null 2>&1 || true
+  elif command -v rc-service >/dev/null 2>&1; then rc-service docker restart >/dev/null 2>&1 || true
+  else service docker restart >/dev/null 2>&1 || true; fi
+}
+
+# The CPU, as Docker names platforms. Everything here runs on these 8; the official Prometheus images
+# cover the first ones and the rest get their images built here from the official release binaries.
+SUPPORTED_CPUS="amd64 arm64 arm/v7 ppc64le s390x arm/v6 386 riscv64"
+cpu_platform() {
+  local a=""
+  command -v docker >/dev/null 2>&1 && a=$(docker version --format '{{.Server.Arch}}' 2>/dev/null || true)
+  [ -n "$a" ] || a=$(uname -m)
+  case "$a" in
+    x86_64|amd64) echo amd64 ;;
+    aarch64|arm64|armv8b) echo arm64 ;;
+    arm|armhf|armv7*|armv8l) case "$(uname -m)" in armv6*) echo arm/v6 ;; *) echo arm/v7 ;; esac ;;
+    armv6*|armel) echo arm/v6 ;;
+    i386|i486|i586|i686|386|x86) echo 386 ;;
+    ppc64le|s390x|riscv64) echo "$a" ;;
+    *) echo "unknown ($a)" ;;
+  esac
+}
+
+case "$(uname -s)" in
+  Linux) ;;
+  Darwin) die "This is macOS. The monitoring stack runs on a Linux server (any distribution, any CPU); run this installer there." ;;
+  *) die "This is $(uname -s). The monitoring stack runs on a Linux server (any distribution, any CPU) - or in WSL 2 on Windows." ;;
+esac
+case " $SUPPORTED_CPUS " in
+  *" $(cpu_platform) "*) ;;
+  *) die "Unsupported CPU: $(cpu_platform). Supported: $SUPPORTED_CPUS." ;;
+esac
 if [ "$NO_START" = 0 ] || [ "$ACTION" != install ]; then
   [ "$(id -u)" = 0 ] || die "Run as root (e.g. sudo bash $0)."
 fi
+if [ "$NO_START" = 0 ] && [ "$ACTION" != uninstall ] && [ "$ACTION" != purge ]; then ensure_tools; fi
 
 # remove_install keep|purge - stop and remove the stack; purge also deletes the data and the install dir.
 remove_install() {
@@ -128,6 +244,11 @@ ALPINE_MIRRORS=${ALPINE_MIRRORS:-"https://dl-cdn.alpinelinux.org/alpine,https://
 COMPOSE_VERSION=v2.29.7
 COMPOSE_SHA256_x86_64=383ce6698cd5d5bbf958d2c8489ed75094e34a77d340404d9f32c4ae9e12baf0
 COMPOSE_SHA256_aarch64=6e9fbd5daa20dca5d7d89145081ae8155d68ef2928b497d9f85b54fe0f9dbb2c
+COMPOSE_SHA256_armv7=2aadddeee7cc43ff9f9bac4a096c1310b65d1a4543a0ae2f1bfdc725534f9725
+COMPOSE_SHA256_armv6=10ee0856a65f5b5aa0e2d5711ffd61b20f7dddc5c1b5eafe81bb7e9699898c9f
+COMPOSE_SHA256_ppc64le=ad83e20755fcf6ff53da61fd42602ec3224588172f4345bc926bc3521f36d513
+COMPOSE_SHA256_s390x=4d5481de21f929a9403a8186de85184bb4bea3ff8e825c92329f4e98a5b07f72
+COMPOSE_SHA256_riscv64=6230041e4805a28d1f7e16a9c3f6ccee4f880ecdd7eec7abbbd97f14a2ad4718
 
 # one item per line, ending with a newline (without it `read` would drop the last item)
 split_list() { printf '%s\n' "$1" | tr ',' '\n' | sed 's/[[:space:]]//g'; }
@@ -175,30 +296,60 @@ install_docker_script() {
 # Docker from the distribution's own packages: they come from the distro mirrors, which stay
 # reachable where download.docker.com is blocked.
 install_docker_distro() {
-  if command -v apt-get >/dev/null 2>&1; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq || true
-    apt-get install -y -qq docker.io || return 1
-    # Compose v2 is packaged as docker-compose-v2 (Ubuntu) or docker-compose-plugin (Docker's repo, mirrors)
-    apt-get install -y -qq docker-compose-v2 >/dev/null 2>&1 || apt-get install -y -qq docker-compose-plugin >/dev/null 2>&1 || true
-  elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y -q moby-engine >/dev/null 2>&1 || dnf install -y -q docker >/dev/null 2>&1 || return 1
-    dnf install -y -q docker-compose-plugin >/dev/null 2>&1 || dnf install -y -q docker-compose >/dev/null 2>&1 || true
-  elif command -v yum >/dev/null 2>&1; then
-    yum install -y -q docker >/dev/null 2>&1 || return 1
-  else
-    return 1
-  fi
+  local id
+  id=$(os_field ID)
+  case "$(pkg_manager)" in
+    apt-get)
+      pkg_install docker.io || return 1
+      # Compose v2 is packaged as docker-compose-v2 (Ubuntu) or docker-compose-plugin (Docker's repo, mirrors)
+      pkg_install docker-compose-v2 || pkg_install docker-compose-plugin || true ;;
+    dnf|yum)
+      # by ID, not ID_LIKE: Rocky, Alma and others list "fedora" there too, but use the EL packages
+      case "$id" in
+        amzn) pkg_install docker || return 1 ;;              # Amazon Linux packages Docker itself
+        fedora) install_docker_ce_repo fedora || pkg_install moby-engine || return 1 ;;
+        *) install_docker_ce_repo centos || return 1 ;;      # RHEL, CentOS, Rocky, Alma, Oracle, ...
+      esac
+      pkg_install docker-compose-plugin || true ;;
+    zypper) pkg_install docker docker-compose || pkg_install docker || return 1 ;;   # openSUSE / SLES
+    apk) pkg_install docker docker-cli-compose || pkg_install docker || return 1 ;;   # Alpine
+    pacman) pkg_install docker docker-compose || return 1 ;;                         # Arch, Manjaro
+    *) return 1 ;;
+  esac
+}
+
+# Docker CE for the Red Hat family from Docker's repository or a mirror of it (the distributions
+# themselves only offer Podman). install_docker_ce_repo centos|fedora
+install_docker_ce_repo() {
+  local m repo=/etc/yum.repos.d/docker-ce.repo
+  while read -r m; do
+    [ -n "$m" ] || continue
+    if ! curl -fsSL --connect-timeout 10 -m 60 "${m%/}/linux/$1/docker-ce.repo" -o "$repo.part" 2>/dev/null; then
+      warn "  Docker packages: ${m%/} not reachable - trying the next mirror"; continue
+    fi
+    sed "s#https://download.docker.com#${m%/}#g" "$repo.part" > "$repo"
+    rm -f "$repo.part"
+    log "  installing Docker packages from ${m%/}"
+    if pkg_install docker-ce docker-ce-cli containerd.io docker-compose-plugin; then return 0; fi
+    warn "  installing from ${m%/} failed - trying the next mirror (if Podman is installed, it conflicts with Docker: remove it first)"
+    rm -f "$repo"
+  done < <(split_list "$DOCKER_CE_MIRRORS")
+  return 1
 }
 
 # The Compose v2 plugin binary from its GitHub release, directly or through a GitHub proxy; every
 # copy is checked against the release's SHA-256, so a proxy cannot hand out a modified binary.
 install_compose_plugin() {
   local arch sum dir=/usr/local/lib/docker/cli-plugins p urls=()
-  case "$(uname -m)" in
-    x86_64|amd64) arch=x86_64; sum=$COMPOSE_SHA256_x86_64 ;;
-    aarch64|arm64) arch=aarch64; sum=$COMPOSE_SHA256_aarch64 ;;
-    *) return 1 ;;
+  case "$(cpu_platform)" in
+    amd64) arch=x86_64; sum=$COMPOSE_SHA256_x86_64 ;;
+    arm64) arch=aarch64; sum=$COMPOSE_SHA256_aarch64 ;;
+    arm/v7) arch=armv7; sum=$COMPOSE_SHA256_armv7 ;;
+    arm/v6) arch=armv6; sum=$COMPOSE_SHA256_armv6 ;;
+    ppc64le) arch=ppc64le; sum=$COMPOSE_SHA256_ppc64le ;;
+    s390x) arch=s390x; sum=$COMPOSE_SHA256_s390x ;;
+    riscv64) arch=riscv64; sum=$COMPOSE_SHA256_riscv64 ;;
+    *) return 1 ;;   # Docker publishes no Compose for 32-bit x86: it comes from the distribution's packages
   esac
   while IFS= read -r p; do
     urls+=("${p}https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-linux-$arch")
@@ -209,8 +360,10 @@ install_compose_plugin() {
 }
 
 ensure_docker() {
+  if command -v docker >/dev/null 2>&1 && docker --version 2>/dev/null | grep -qi podman; then
+    die "'docker' on this server is Podman's Docker emulation, which cannot run this stack. Remove podman-docker and run this installer again: it installs Docker Engine."
+  fi
   if ! command -v docker >/dev/null 2>&1; then
-    command -v curl >/dev/null 2>&1 || die "curl is required to install Docker."
     log "Docker not found - installing it (trying each source until one works)"
     if install_docker_script; then :
     else
@@ -218,16 +371,19 @@ ensure_docker() {
       install_docker_distro || die "Could not install Docker from any source. Install it by hand (e.g. apt-get install docker.io docker-compose-v2) and run this installer again."
     fi
   fi
-  command -v systemctl >/dev/null 2>&1 && systemctl enable --now docker >/dev/null 2>&1 || true
+  start_docker || true
   if ! docker compose version >/dev/null 2>&1; then
     log "Docker Compose plugin missing - installing it"
-    if command -v apt-get >/dev/null 2>&1; then
-      apt-get install -y -qq docker-compose-v2 >/dev/null 2>&1 || apt-get install -y -qq docker-compose-plugin >/dev/null 2>&1 || true
-    fi
+    case "$(pkg_manager)" in
+      apt-get) pkg_install docker-compose-v2 || pkg_install docker-compose-plugin || true ;;
+      dnf|yum) pkg_install docker-compose-plugin || true ;;
+      apk) pkg_install docker-cli-compose || true ;;
+      zypper|pacman) pkg_install docker-compose || true ;;
+    esac
     docker compose version >/dev/null 2>&1 || install_compose_plugin || true
     docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing and could not be downloaded from any source. Install 'docker-compose-v2' or 'docker-compose-plugin' and re-run."
   fi
-  docker info >/dev/null 2>&1 || die "Docker daemon is not running."
+  docker info >/dev/null 2>&1 || die "The Docker service is not running and did not start. Check: systemctl status docker (or rc-service docker status)."
   ensure_registry
 }
 
@@ -266,9 +422,8 @@ PY
   else
     die "Add \"registry-mirrors\": [\"${1%%,*}\"] to /etc/docker/daemon.json by hand (python3 is missing to merge it) and run again."
   fi
-  systemctl restart docker 2>/dev/null || service docker restart 2>/dev/null || true
-  local i
-  for i in 1 2 3 4 5 6 7 8 9 10; do docker info >/dev/null 2>&1 && return 0; sleep 2; done
+  restart_docker
+  for _ in 1 2 3 4 5 6 7 8 9 10; do docker info >/dev/null 2>&1 && return 0; sleep 2; done
   die "Docker did not come back after setting the registry mirrors; check /etc/docker/daemon.json."
 }
 
@@ -331,6 +486,81 @@ choose_alpine_mirror() {
     warn "  Alpine mirror ${m%/} not reachable - trying the next one"
   done < <(split_list "$ALPINE_MIRRORS")
   warn "No Alpine package mirror answered; building the firewall image may fail (set ALPINE_MIRROR=https://... and run again)."
+}
+
+# ---------------------------------------------------------------- images for every CPU
+# The official Prometheus images exist for amd64, arm64, arm/v7, ppc64le and s390x (blackbox: not
+# s390x). On other CPUs (32-bit x86, ARMv6 such as the Raspberry Pi Zero, RISC-V) each one is built
+# here from the project's official release binary, checked against its SHA-256, on top of the
+# python:alpine image the panel uses anyway. The build goes into docker-compose.override.yml, which
+# Docker Compose reads next to docker-compose.yml.
+# name version services... (the release's binary has the same name as the project)
+RELEASES="prometheus 2.55.1 prometheus
+alertmanager 0.27.0 alertmanager
+node_exporter 1.8.2 node-exporter node-net
+blackbox_exporter 0.25.0 blackbox"
+NATIVE_CPUS="amd64 arm64 arm/v7 ppc64le s390x"
+NATIVE_CPUS_blackbox_exporter="amd64 arm64 arm/v7 ppc64le"
+RELEASE_SHA256="prometheus 386 af17767356b11f70c1b7649f16e5f4b1b0cc549d03b5bc530286a099652dcda6
+prometheus armv6 65bc2d81f10dbed571031c685a1a4199fa54023bb38c167fb6288b1a3e646d23
+prometheus riscv64 4527e6b7a4f950d696e22e9546bae608b5316405a4ca2e53c4c46a6e6dc78811
+prometheus s390x 62b404b92d5ff7c866d70dad00fbe362ec6ed48371452e079ca1723ea483db1c
+alertmanager 386 53ed44ee699df18f41a3fb4461673ad3ed70df808e16d58dd8ed6040815a0313
+alertmanager armv6 d1ce28268853e2e316645b5610756088485c38ef7accbc2a6959ad337f0169fc
+alertmanager riscv64 12348dc14eecbbeb9990cf4cc99d81f2afe3e750815ffdb783efea7b217928b5
+alertmanager s390x 107f5786e4f976e8c211dbbcf0b2175112159a3f59ef5110e747004c41518267
+node_exporter 386 293ab667ef78eb38915ff5ef019093fb15c7887f072ea70656083d1a17d61858
+node_exporter armv6 995a0c14766baec620e58f0c222186f722cc000c8fc3c9d8e1b6e7bed3e91744
+node_exporter riscv64 2cca99fb908e24f33b4395f5cdcd21cbe5d438d2b193d92a9161283e4ede6d55
+node_exporter s390x 971481f06a985e9fcaee9bcd8da99a830d5b9e5f21e5225694de7e23401327c4
+blackbox_exporter 386 f1109e6c7c5f990ee18459bfece9092470eb4002c3ccdfaadc9b6201681f327c
+blackbox_exporter armv6 dfa00330a4d1bce28bc04f26316f0636dfb628cef719fa0737e0b6cc51c53ab2
+blackbox_exporter riscv64 588670381a768b064ed99e10e54c081efa97fb6f8bbb8e59767195d7cbe524f2
+blackbox_exporter s390x c22e7f17e3deab3affa8cc1ea2e475008ccf448bafc8e5808da48be174796cc7"
+OVERRIDE_MARK="# Written by the installer: images built for this CPU"
+
+prepare_cpu_images() {
+  local plat rel name ver svcs native sum url dir tmp p svc body="" urls=() out="$INSTALL_DIR/docker-compose.override.yml"
+  plat=$(cpu_platform)
+  case "$plat" in arm/v7) rel=armv7 ;; arm/v6) rel=armv6 ;; *) rel=$plat ;; esac
+  while read -r name ver svcs; do
+    native=NATIVE_CPUS_$name
+    native=${!native:-$NATIVE_CPUS}
+    case " $native " in *" $plat "*) continue ;; esac
+    sum=$(printf '%s\n' "$RELEASE_SHA256" | awk -v n="$name" -v a="$rel" '$1 == n && $2 == a { print $3 }')
+    [ -n "$sum" ] || die "No $name release for $plat."
+    dir="$INSTALL_DIR/build/$name"
+    if [ ! -x "$dir/app" ] || [ "$(cat "$dir/.version" 2>/dev/null)" != "$ver-$rel" ]; then
+      log "No official $name image for $plat - building it from the official release"
+      url="https://github.com/prometheus/$name/releases/download/v$ver/$name-$ver.linux-$rel.tar.gz"
+      urls=()
+      while IFS= read -r p; do urls+=("$p$url"); done < <(printf '%s\n' "$GITHUB_PROXIES" | tr ',' '\n')
+      tmp=$(mktemp -d)
+      fetch_first "$tmp/r.tar.gz" "$sum" "${urls[@]}" || { rm -rf "$tmp"; die "Could not download $name for $plat from GitHub or its proxies."; }
+      tar -xzf "$tmp/r.tar.gz" -C "$tmp"
+      mkdir -p "$dir"
+      install -m 755 "$tmp/$name-$ver.linux-$rel/$name" "$dir/app"
+      rm -rf "$tmp"
+      echo "$ver-$rel" > "$dir/.version"
+    fi
+    cat > "$dir/Dockerfile" <<'DOCKERFILE'
+# The official release binary of a Prometheus project, for a CPU it publishes no image for.
+FROM python:3.12-alpine
+COPY app /bin/app
+RUN mkdir -p /prometheus /alertmanager && chown 65534:65534 /prometheus /alertmanager
+USER 65534:65534
+WORKDIR /prometheus
+ENTRYPOINT ["/bin/app"]
+DOCKERFILE
+    for svc in $svcs; do
+      body+="  $svc:"$'\n'"    image: server-monitoring-$name:$ver"$'\n'"    build: ./build/$name"$'\n'
+    done
+  done <<< "$RELEASES"
+  if [ -n "$body" ]; then
+    printf '%s (%s). Remove it only together with the build directory.\nservices:\n%s' "$OVERRIDE_MARK" "$plat" "$body" > "$out"
+  elif [ -f "$out" ] && head -1 "$out" | grep -qF "$OVERRIDE_MARK"; then
+    rm -f "$out"
+  fi
 }
 
 # True if TCP port $1 is taken: something listens on it, a socket holds it without listening
@@ -434,7 +664,6 @@ set_env_key() {
 # Running the installer again where it is already installed opens this menu (interactive runs only;
 # -y, --update and the other flags skip it).
 env_get() { sed -n "s/^$1=//p" "$INSTALL_DIR/.env" 2>/dev/null | tail -1 | sed "s/^'\(.*\)'\$/\1/"; }
-server_ip() { local ip; ip=$(hostname -I 2>/dev/null | awk '{print $1}'); echo "${ip:-<server-ip>}"; }
 panel_url() {
   local port; port=$(env_get PANEL_PORT)
   if [ "$(env_get PANEL_BIND)" = 127.0.0.1 ]; then echo "http://127.0.0.1:${port:-3000}  (this server only: ssh -L ${port:-3000}:127.0.0.1:${port:-3000} root@$(server_ip))"
@@ -646,9 +875,10 @@ docker_gid=$(stat -c %g /var/run/docker.sock 2>/dev/null || true)
 [ -n "$docker_gid" ] && set_env_key DOCKER_GID "$docker_gid"
 log "Pulling images and starting the stack"
 # The defender image is built here (it only adds nftables to python:alpine), not pulled.
+prepare_cpu_images
 pull_images || die "Could not download the images from Docker Hub or any mirror. Set DOCKER_MIRROR=https://your.mirror and run again."
 choose_alpine_mirror
-compose build --quiet defender < /dev/null
+compose build --quiet < /dev/null    # the firewall image, and the images made for this CPU
 remove_legacy_grafana
 choose_port PANEL_PORT panel 8080 3000
 PANEL_PORT=$(sed -n "s/^PANEL_PORT='\{0,1\}\([0-9]*\).*/\1/p" "$INSTALL_DIR/.env" | tail -1)
@@ -672,7 +902,7 @@ for _ in $(seq 1 60); do
 done
 [ "$healthy" = 1 ] || warn "The panel did not respond in 2 minutes. Check: docker compose --project-directory $INSTALL_DIR logs panel"
 
-ip=$(hostname -I 2>/dev/null | awk '{print $1}'); ip=${ip:-<server-ip>}
+ip=$(server_ip)
 echo
 log "Done."
 PANEL_PORT=${PANEL_PORT:-3000}

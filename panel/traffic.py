@@ -20,7 +20,6 @@ FILE = DATA / "traffic.json"
 KEEP_DAYS = 800          # a little over two years of days
 BACKFILL_DAYS = 35       # how far back to look for days that are not saved yet
 SETTLE = 120             # a day is final this long after midnight (the last scrape has landed)
-TZ_FORGET = 45 * 86400   # stop keeping days for a time zone nobody has viewed in this long
 
 _lock = threading.Lock()
 _cache = {}
@@ -28,14 +27,21 @@ _earliest = {}
 
 
 def _load():
+    """Days are kept per server, by local date. The viewer's time zone only decides where a day starts,
+    so a daylight-saving change (or a viewer in another zone) does not split the history."""
     try:
         d = json.loads(FILE.read_text(encoding="utf-8"))
         if isinstance(d, dict) and isinstance(d.get("series"), dict):
-            d.setdefault("tzs", {})
-            return d
-    except (OSError, ValueError):
+            series = {}
+            for key, days in d["series"].items():      # version 1 kept one series per "server|zone"
+                series.setdefault(key.split("|")[0], {}).update(days if isinstance(days, dict) else {})
+            tz = d.get("tz")
+            if tz is None and d.get("tzs"):
+                tz = int(max(d["tzs"], key=lambda k: d["tzs"][k]))
+            return {"version": 2, "series": series, "tz": tz}
+    except (OSError, ValueError, TypeError):
         pass
-    return {"version": 1, "series": {}, "tzs": {}}
+    return {"version": 2, "series": {}, "tz": None}
 
 
 _ledger = _load()
@@ -120,9 +126,8 @@ def _resolve(instance):
 def _fill(instance, tz, now=None):
     """Save every finished day of the last BACKFILL_DAYS that is not saved yet. Returns the series."""
     now = int(now or time.time())
-    key = f"{instance}|{tz}"
     with _lock:
-        series = _ledger["series"].setdefault(key, {})
+        series = _ledger["series"].setdefault(instance, {})
         today = _midnight(*_parts(now, tz), tz)
         if now - today < SETTLE:          # yesterday's last samples may still be on their way
             today -= 86400
@@ -145,7 +150,11 @@ def _fill(instance, tz, now=None):
             e = s + 86400
             if e in rx or e in tx:
                 series[_day_key(s, tz)] = [round(rx.get(e) or 0), round(tx.get(e) or 0), 1 if earliest <= s + 900 else 0]
-                changed = True
+            else:
+                # Prometheus answered but has nothing for this day (server or stack was down): remember
+                # that, so the day is not asked for again on every visit for the next five weeks
+                series[_day_key(s, tz)] = None
+            changed = True
         if changed:
             cutoff = _day_key(now - KEEP_DAYS * 86400, tz)
             for k in [k for k in series if k < cutoff]:
@@ -184,9 +193,8 @@ def api_traffic(q):
     if hit and now - hit[0] < 60:
         return hit[1]
     with _lock:
-        seen = _ledger["tzs"].get(str(tz))
-        _ledger["tzs"][str(tz)] = now
-        if seen is None or now - seen > 86400:   # remember the time zone for the background loop
+        if _ledger.get("tz") != tz:              # the background loop saves days in the viewer's zone
+            _ledger["tz"] = tz
             _save()
     series = _fill(instance, tz, now)
     rxm, txm = _metrics(instance)
@@ -247,12 +255,10 @@ def loop():
     while True:
         try:
             now = time.time()
-            with _lock:
-                tzs = [int(t) for t, seen in _ledger["tzs"].items() if now - seen < TZ_FORGET]
-            if tzs:
+            tz = _ledger.get("tz")
+            if tz is not None:                       # nobody has opened the page yet: zone unknown
                 for inst in node_instances():
-                    for tz in tzs:
-                        _fill(inst, tz)
+                    _fill(inst, tz, now)
         except Exception as e:  # Prometheus restarting, etc.: try again next round
             print(f"traffic: {type(e).__name__}: {e}", flush=True)
         time.sleep(1800)
