@@ -525,7 +525,7 @@ __MONITORING_EOF__
 - ⚡ **آمار زنده، هر ثانیه**: CPU، رم، دیسک، I/O دیسک و ترافیک شبکه بدون رفرش و با حرکت نرم اعداد
 - **گیج‌های حلقه‌ای** CPU، رم و دیسک با رنگ شدت
 - **نمودارهای تعاملی** با خط راهنما، تولتیپ و نمای جدولی؛ بازه‌ی **«زنده (۵ دقیقه‌ی اخیر)»** ثانیه‌به‌ثانیه جلو می‌رود
-- **ترافیک شبکه** کامل: دانلود و آپلود امروز، **این ماه میلادی از روز ۱**، **ماه قبل**، ۷ روز و مجموع ماه‌به‌ماه
+- **ترافیک شبکه** دقیق و ماندگار (با ریبوت صفر نمی‌شود): امروز، **این ماه میلادی از روز ۱**، **ماه قبل**، ۲۴ ساعت ساعت‌به‌ساعت و مجموع ماه‌به‌ماه
 - **آی‌پی عمومی** IPv4 و IPv6 سرور (با یک کلیک کپی)
 
 </td>
@@ -732,15 +732,23 @@ ssh root@SERVER 'bash install.sh'
 
 ### 📡 ترافیک شبکه
 
-زیر جدول کارت‌های شبکه، مصرف کامل آپلود و دانلود دیده می‌شود:
+زیر جدول کارت‌های شبکه، مصرف کامل آپلود و دانلود دیده می‌شود، **دقیق و ماندگار** مثل آمار ترافیک دیتاسنتر:
 
-- 📅 **امروز**، **این ماه** (ماه میلادی، از روز ۱ تا الان)، **ماه قبل** (کل ماه میلادی قبل)، **۷ روز اخیر** و **از زمان بوت**؛ همه به وقت مرورگر شما
+- 📅 **امروز**، **این ماه** (ماه میلادی، از روز ۱ تا الان)، **ماه قبل**، **۷ روز اخیر**، **کل** (از شروع شمارش) و **از زمان بوت**؛ همه به وقت مرورگر شما
 - 🔮 **پیش‌بینی آخر ماه**: با همین روند تا آخر ماه حدوداً چقدر مصرف می‌شود (برای سرورهایی که سقف ترافیک ماهانه دارند)
-- 📊 **نمودار روزانه‌ی کل ماه** (۱ تا آخر ماه) با دکمه‌ی این ماه / ماه قبل، تولتیپ و نمای جدولی با سطر مجموع
-- 🗓️ **مجموع ماهانه**: جدول ماه‌به‌ماه تا ۱۲ ماه اخیر
-- 🟦🟧 نوار نسبت دانلود به آپلود در هر کارت و ⚡ **اوج سرعت** ۲۴ ساعت اخیر
+- 📊 نمودار **۲۴ ساعت اخیر ساعت‌به‌ساعت**، **روزانه‌ی این ماه** و **ماه قبل**، با تولتیپ و نمای جدولی
+- 🗓️ **مجموع ماهانه**: جدول ماه‌به‌ماه تا ۲ سال
+- 🔌 **انتخاب کارت‌ها**: به‌طور پیش‌فرض فقط کارت‌های **فیزیکی** شمرده می‌شوند
 
-Prometheus داده‌ی خام را فقط تا `PROMETHEUS_RETENTION` (پیش‌فرض ۳۰ روز) نگه می‌دارد. برای همین پنل مجموع **هر روزِ تمام‌شده** را یک بار حساب می‌کند و در `data/panel/traffic.json` نگه می‌دارد (حدود دو سال، چند ده کیلوبایت). پس «ماه قبل» و جدول ماهانه همیشه کامل می‌مانند، حتی بعد از پاک شدن داده‌ی قدیمی Prometheus. اگر برای روزهایی داده‌ای نباشد (مثلاً سرور خاموش بوده یا پنل هنوز نصب نبوده)، آن ماه با «ناقص» علامت می‌خورد.
+**چطور دقیق می‌ماند:**
+
+- 🎯 عدد از **شمارنده‌های خود کارت شبکه** (بایت‌های کرنل) می‌آید و هیچ تخمین یا درون‌یابی‌ای در کار نیست: هر بار (هر ۳۰ ثانیه) دقیقاً همان مقداری اضافه می‌شود که شمارنده جلو رفته.
+- 🔁 **با ریبوت صفر نمی‌شود**: ریبوت (از روی زمان بوت) و صفر شدن شمارنده تشخیص داده می‌شود و شمارش از همان‌جا ادامه پیدا می‌کند. فقط ترافیکِ بین آخرین خواندن و لحظه‌ی خاموش شدن (حداکثر ۳۰ ثانیه) قابل دانستن نیست.
+- 🕳️ اگر پنل یا Prometheus مدتی خاموش بوده ولی سرور روشن مانده، شمارنده‌ی کارت جلو رفته و چیزی از دست نمی‌رود: ترافیک آن مدت در اولین خواندن بعدی شمرده می‌شود.
+- 🚇 **تانل‌ها دو بار شمرده نمی‌شوند**: ترافیک وایرگارد، GRE و VPN از کارت فیزیکی هم رد می‌شود؛ به‌طور خودکار فقط کارت فیزیکی (از روی نوع کارت در کرنل) شمرده می‌شود و از دکمه‌ی «انتخاب کارت‌ها» قابل تغییر است (آمار گذشته هم دوباره حساب می‌شود).
+- 💾 جمع‌ها در `data/panel/traffic.json` نگه داشته می‌شوند (۷۰ روز به‌صورت ۱۵ دقیقه‌ای و بعد روزانه، تا سال‌ها) و به نگه‌داری Prometheus وابسته نیستند. بار اول، تاریخچه‌ی موجود در Prometheus (تا ۳۵ روز) خوانده می‌شود.
+
+تفاوت کوچک با عدد دیتاسنتر عادی است: بعضی دیتاسنترها فقط آپلود را حساب می‌کنند، روز و ماه را با منطقه‌ی زمانی خودشان می‌بندند یا سربار لایه‌ی فیزیکی را هم می‌شمارند.
 
 ### 🌍 آی‌پی عمومی
 
@@ -1523,6 +1531,7 @@ POST_API = {
     "/api/security/unlock": post_unlock, "/api/security/2fa/setup": post_2fa_setup,
     "/api/security/2fa/enable": post_2fa_enable, "/api/security/2fa/disable": post_2fa_disable,
     "/api/security/settings": post_security_settings,
+    "/api/traffic/devices": traffic.post_devices,
 }
 
 
@@ -3792,17 +3801,25 @@ def sampler(instance, every=INTERVAL):
         return s
 __MONITORING_EOF__
   write_file panel/traffic.py 644 <<'__MONITORING_EOF__'
-"""Upload / download totals for calendar days and calendar months, kept for years.
+"""Exact upload / download accounting per network card, kept across reboots (like vnStat).
 
-Prometheus keeps the raw counters only for its retention (30 days by default): too short for "last
-month" late in a month, and for a monthly history. So every finished day (in the viewer's time zone)
-is computed once from Prometheus and saved in DATA/traffic.json; a month is the sum of its saved days
-plus today's running total. A background loop saves new days even when nobody opens the panel, and
-missing days are filled in from Prometheus while it still has them.
+Source: the kernel's byte counters of each network card (node_network_*_bytes_total, read every 30 s
+from the host by node-net). Every new reading adds exactly what the counter moved since the previous
+one, so nothing is estimated or extrapolated. A reboot (seen as a new boot time) or a counter that went
+back starts counting again from zero: the totals keep growing, they are never reset. Only the traffic
+between the last reading before a reboot and the reboot itself (at most one scrape interval) cannot be
+known. Readings are summed into 15-minute buckets, so days and months follow the viewer's own time zone
+(including zones like +03:30), and kept in DATA/traffic.json: 70 days in buckets, then per day for years.
+
+Only physical cards are counted by default: tunnels (WireGuard, GRE, ...) and VLANs carry traffic that
+also passes through the physical card, and adding them would count it twice. The choice can be changed
+per server in the panel.
 """
+import bisect
 import calendar
 import json
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -3811,44 +3828,239 @@ from monitor import VIRTUAL_NICS, node_instances, node_selector, num, prom_get
 
 DATA = Path(os.environ.get("DATA_DIR", "/data"))
 FILE = DATA / "traffic.json"
-KEEP_DAYS = 800          # a little over two years of days
-BACKFILL_DAYS = 35       # how far back to look for days that are not saved yet
-SETTLE = 120             # a day is final this long after midnight (the last scrape has landed)
+BUCKET = 900                  # seconds per bucket
+KEEP_BUCKETS = 70 * 86400     # buckets this recent stay; older ones become days
+KEEP_DAYS = 3660              # about ten years of days
+CHUNK = 6 * 3600              # readings fetched per query while catching up
+BACKFILL = 35 * 86400         # how far back a new server is read from Prometheus' history
+FRESH = 45                    # the page triggers a catch-up when the last one is older than this
+REBOOT_SLACK = 60             # boot time changes smaller than this are clock noise, not a reboot
+LAG = 120                     # how much later node-exporter's boot time may be scraped than a card's counter
+SETTLE_BOOT = 600             # after a counter reset, the boot time is taken as settled after this long
+# names of interfaces that never are the physical card, when the kernel's own type is not known
+NOT_PHYSICAL = re.compile(r"^(wg|tun|tap|gre|gretap|erspan|ip6gre|ip6tnl|ip_vti|ip6_vti|vti|sit|ipip|tunl|ppp|tailscale|zt|nebula|vxlan|geneve|kube|flannel|cali|cni|lxc|vnet|virbr|docker|br-|veth|ifb|dummy|bond.*\.|.*\.\d+$)")
 
-_lock = threading.Lock()
-_cache = {}
-_earliest = {}
+_lock = threading.RLock()
+_state_lock = threading.Lock()
+_meta = {}                    # instance -> (time, {device: info})
+_saved_at = 0.0
+_syncing = set()
 
 
 def _load():
-    """Days are kept per server, by local date. The viewer's time zone only decides where a day starts,
-    so a daylight-saving change (or a viewer in another zone) does not split the history."""
     try:
         d = json.loads(FILE.read_text(encoding="utf-8"))
-        if isinstance(d, dict) and isinstance(d.get("series"), dict):
-            series = {}
-            for key, days in d["series"].items():      # version 1 kept one series per "server|zone"
-                series.setdefault(key.split("|")[0], {}).update(days if isinstance(days, dict) else {})
-            tz = d.get("tz")
-            if tz is None and d.get("tzs"):
-                tz = int(max(d["tzs"], key=lambda k: d["tzs"][k]))
-            return {"version": 2, "series": series, "tz": tz}
-    except (OSError, ValueError, TypeError):
+        if isinstance(d, dict) and d.get("version") == 4 and isinstance(d.get("servers"), dict):
+            return d
+    except (OSError, ValueError):
         pass
-    return {"version": 2, "series": {}, "tz": None}
+    # earlier versions kept estimated day totals that included tunnels: start over from the raw readings
+    return {"version": 4, "tz": 0, "servers": {}}
 
 
 _ledger = _load()
 
 
-def _save():
+def _save(force=False):
+    global _saved_at
+    now = time.time()
+    if not force and now - _saved_at < 60:
+        return
     tmp = FILE.with_suffix(".tmp")
     try:
         FILE.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(json.dumps(_ledger, separators=(",", ":")), encoding="utf-8")
         os.replace(tmp, FILE)
+        _saved_at = now
     except OSError as e:
         print(f"WARNING: cannot save {FILE}: {e}", flush=True)
+
+
+# ------------------------------------------------------------------ prometheus
+
+def _selectors(instance):
+    n = node_selector(instance, net=True)
+    return (f"node_network_receive_bytes_total{{{n},{VIRTUAL_NICS}}}",
+            f"node_network_transmit_bytes_total{{{n},{VIRTUAL_NICS}}}",
+            f"node_boot_time_seconds{{{node_selector(instance)}}}")
+
+
+def _matrix(expr, span, at):
+    """Raw readings of `expr` in (at - span, at]: {(job, device): [(t, v), ...]}."""
+    data = prom_get("/api/v1/query", {"query": f"{expr}[{int(span)}s]", "time": at})
+    out = {}
+    for r in data["result"]:
+        key = (r["metric"].get("job", ""), r["metric"].get("device", ""))
+        out[key] = [(float(t), float(v)) for t, v in r["values"]]
+    return out
+
+
+def _instant(expr, at=None):
+    params = {"query": expr}
+    if at is not None:
+        params["time"] = at
+    rows = prom_get("/api/v1/query", params)["result"]
+    return num(rows[0]["value"][1]) if rows else None
+
+
+def _devices_info(instance):
+    """{device: {"physical": bool}} from the kernel's interface type (cached for 10 minutes)."""
+    hit = _meta.get(instance)
+    now = time.time()
+    if hit and now - hit[0] < 600:
+        return hit[1]
+    n = f"{node_selector(instance, net=True)},{VIRTUAL_NICS}"
+    info = {}
+
+    def by_dev(expr):
+        return {r["metric"].get("device", ""): num(r["value"][1]) for r in prom_get("/api/v1/query", {"query": expr})["result"]}
+    kind, ifid, link = by_dev(f"node_network_protocol_type{{{n}}}"), by_dev(f"node_network_iface_id{{{n}}}"), by_dev(f"node_network_iface_link{{{n}}}")
+    for d in set(by_dev(f"node_network_receive_bytes_total{{{n}}}")) | set(kind):
+        if d in kind and d in ifid and d in link:
+            # Ethernet (type 1) that is its own link: a real card. VLANs, macvlans and the kernel's
+            # tunnel placeholders point at another interface; WireGuard, GRE, ... are not type 1.
+            phys = kind[d] == 1 and ifid[d] == link[d] and bool(ifid[d]) and not NOT_PHYSICAL.match(d)
+        else:
+            phys = not NOT_PHYSICAL.match(d)
+        info[d] = {"physical": phys}
+    _meta[instance] = (now, info)
+    return info
+
+
+# ------------------------------------------------------------------ counting
+
+def _resolve(instance):
+    if instance:
+        node_selector(instance)          # validates the name
+        return instance
+    found = node_instances()
+    return found[0] if found else ""
+
+
+def _add(srv, device, k, amount, t0, t1):
+    """Add `amount` bytes, moved between t0 and t1, to the buckets of that period (k: 0 rx, 1 tx)."""
+    if amount <= 0:
+        return
+    b = srv["b"].setdefault(device, {})
+    t0 = min(t0, t1)
+    first, last = int(t0 // BUCKET), int((t1 - 1e-6) // BUCKET) if t1 > t0 else int(t1 // BUCKET)
+    if first >= last:
+        b.setdefault(str(last), [0, 0])[k] += int(amount)
+        return
+    # spread over the buckets it spans, in proportion to the time in each (long gaps without readings)
+    span, left = t1 - t0, int(amount)
+    for i in range(first, last + 1):
+        lo, hi = max(t0, i * BUCKET), min(t1, (i + 1) * BUCKET)
+        part = left if i == last else int(amount * (hi - lo) / span)
+        left -= part
+        if part:
+            b.setdefault(str(i), [0, 0])[k] += part
+
+
+def _boot_at(boots, t):
+    """Boot time in force at time t, from sorted [(t, boot)]."""
+    i = bisect.bisect_right(boots, (t, float("inf"))) - 1
+    return boots[i][1] if i >= 0 else None
+
+
+def _advance(instance, until):
+    """Count the next CHUNK of readings after the server's cursor (up to `until`).
+    Returns True when there may be more to do."""
+    rxm, txm, bootm = _selectors(instance)
+    servers = _ledger["servers"]
+    srv = servers.get(instance)
+    if srv is None:
+        earliest = _instant(f"min(min_over_time(timestamp({rxm})[{BACKFILL // 86400}d:5m]))")
+        if earliest is None:
+            return False
+        start = max(earliest - 300, until - BACKFILL)
+        srv = servers[instance] = {"start": start, "cursor": start, "job": None, "last": {}, "boot": None, "b": {}, "d": {}, "count": None}
+    if srv["cursor"] >= until - 1:
+        return False
+    end = min(until, srv["cursor"] + CHUNK)
+    span = end - srv["cursor"]
+    series = {0: _matrix(rxm, span, end), 1: _matrix(txm, span, end)}
+    boots = [p for pts in _matrix(bootm, span + 600, end).values() for p in pts]
+    if srv["boot"]:
+        boots.append(tuple(srv["boot"]))
+    boots.sort()
+    # One reader per server. node-net reads the host's own cards; the plain node job may also report
+    # interfaces, but on the local server those were its container's own (another, smaller counter
+    # under the same name). Once a server has node-net, only node-net counts, for good.
+    if any(job == "node-net" for rows in series.values() for job, _d in rows):
+        srv["job"] = "node-net"
+    use = srv.get("job") or "node"
+    for k, rows in series.items():
+        for (job, dev), pts in rows.items():
+            if job != use:
+                continue
+            key = f"{job}|{dev}|{k}"
+            prev = srv["last"].get(key)      # [time, counter, boot time it belongs to (None: settling), reset at]
+            for t, v in pts:
+                if t <= srv["cursor"]:
+                    continue
+                # node-exporter's boot time may be scraped a little after this reading: look slightly ahead
+                boot = _boot_at(boots, t + LAG)
+                if prev is None:
+                    # a card seen for the first time: its counter only belongs to us when it started
+                    # (boot) after counting began; otherwise it is the starting point
+                    if boot and boot >= srv["start"]:
+                        _add(srv, dev, k, v, boot, t)
+                    prev = [t, v, boot, 0]
+                    continue
+                pt, pv, pb, reset_at = prev
+                if v < pv:
+                    # the counter went back: a reboot or a re-created card. All of it is new traffic,
+                    # moved since the boot if that is known and later, else since the last reading.
+                    _add(srv, dev, k, v, boot if boot and pt < boot < t else pt, t)
+                    prev = [t, v, None, t]       # the boot time belonging to the new counter settles first
+                    continue
+                if pb is None:
+                    pb = boot if t - reset_at > SETTLE_BOOT else None
+                    _add(srv, dev, k, v - pv, pt, t)
+                elif boot and boot - pb > REBOOT_SLACK:
+                    # rebooted and the counter already passed its old value (long downtime): all new
+                    _add(srv, dev, k, v, max(pt, boot), t)
+                    pb = boot
+                else:
+                    _add(srv, dev, k, v - pv, pt, t)
+                prev = [t, v, pb, reset_at]
+            if prev is not None:
+                srv["last"][key] = prev
+    if boots:
+        srv["boot"] = list(boots[-1])
+    srv["cursor"] = end
+    _roll_up(srv)
+    return srv["cursor"] < until - 1
+
+
+def _roll_up(srv):
+    """Buckets older than KEEP_BUCKETS become day totals (in the time zone last used to view them)."""
+    tz = _ledger.get("tz") or 0
+    cut = int((time.time() - KEEP_BUCKETS) // BUCKET)
+    oldest_day = _day_key(time.time() - KEEP_DAYS * 86400, tz)
+    for dev, b in srv["b"].items():
+        old = [i for i in b if int(i) < cut]
+        if not old:
+            continue
+        days = srv["d"].setdefault(dev, {})
+        for i in old:
+            v = b.pop(i)
+            row = days.setdefault(_day_key(int(i) * BUCKET, tz), [0, 0])
+            row[0] += v[0]; row[1] += v[1]
+        for k in [k for k in days if k < oldest_day]:
+            del days[k]
+
+
+def sync(instance, until=None):
+    """Bring a server's counts up to date (also catches up after downtime). The lock is taken per
+    chunk, so the page stays responsive while weeks of history are read for a new server."""
+    until = int(until or time.time())
+    more = True
+    while more:
+        with _lock:
+            more = _advance(instance, until)
+            _save(force=not more)
 
 
 # ------------------------------------------------------------------ calendar helpers (fixed UTC offset)
@@ -3862,8 +4074,8 @@ def _midnight(y, m, d, tz):
     return calendar.timegm((y, m, d, 0, 0, 0)) + tz * 60
 
 
-def _day_key(start, tz):
-    y, m, d = _parts(start, tz)
+def _day_key(ts, tz):
+    y, m, d = _parts(ts, tz)
     return f"{y:04d}-{m:02d}-{d:02d}"
 
 
@@ -3871,108 +4083,37 @@ def _prev_month(y, m):
     return (y - 1, 12) if m == 1 else (y, m - 1)
 
 
-# ------------------------------------------------------------------ prometheus
+# ------------------------------------------------------------------ reading
 
-def _metrics(instance):
-    n = node_selector(instance, net=True)
-    return f"node_network_receive_bytes_total{{{n},{VIRTUAL_NICS}}}", f"node_network_transmit_bytes_total{{{n},{VIRTUAL_NICS}}}"
-
-
-def _instant(expr, at=None):
-    params = {"query": expr}
-    if at is not None:
-        params["time"] = at
-    rows = prom_get("/api/v1/query", params)["result"]
-    return num(rows[0]["value"][1]) if rows else None
+def _counted(srv, info):
+    chosen = srv.get("count")
+    if chosen:
+        return [d for d in chosen if d in info or d in srv["b"] or d in srv["d"]]
+    return sorted(d for d, i in info.items() if i["physical"])
 
 
-def _total(rxm, txm, secs, at=None):
-    secs = max(60, int(secs))
-    return {"rx": _instant(f"sum(increase({rxm}[{secs}s]))", at), "tx": _instant(f"sum(increase({txm}[{secs}s]))", at)}
+def _totals(srv, devices, tz):
+    """{day key: [rx, tx]} and {(day key, hour): [rx, tx]} for the chosen cards, in time zone tz."""
+    days, hours = {}, {}
+    for dev in devices:
+        for i, (rx, tx) in srv["b"].get(dev, {}).items():
+            ts = int(i) * BUCKET
+            key = _day_key(ts, tz)
+            row = days.setdefault(key, [0, 0]); row[0] += rx; row[1] += tx
+            hk = int((ts - tz * 60) // 3600)
+            row = hours.setdefault(hk, [0, 0]); row[0] += rx; row[1] += tx
+        for key, (rx, tx) in srv["d"].get(dev, {}).items():
+            row = days.setdefault(key, [0, 0]); row[0] += rx; row[1] += tx
+    return days, hours
 
 
-def _earliest_sample(instance, rxm):
-    """Time of the oldest network sample Prometheus still has (cached; it only moves slowly)."""
-    hit = _earliest.get(instance)
-    now = time.time()
-    if hit and now - hit[0] < 1800:
-        return hit[1]
-    v = _instant(f"min(min_over_time(timestamp({rxm})[{BACKFILL_DAYS + 1}d:10m]))")
-    _earliest[instance] = (now, v)
-    return v
-
-
-def _daily(expr, first_end, last_end):
-    data = prom_get("/api/v1/query_range", {"query": expr, "start": first_end, "end": last_end, "step": 86400})
-    return {int(float(t)): num(v) for t, v in data["result"][0]["values"]} if data["result"] else {}
-
-
-# ------------------------------------------------------------------ the ledger
-
-def _resolve(instance):
-    if instance:
-        node_selector(instance)          # validates the name
-        return instance
-    found = node_instances()
-    return found[0] if found else ""
-
-
-def _fill(instance, tz, now=None):
-    """Save every finished day of the last BACKFILL_DAYS that is not saved yet. Returns the series."""
-    now = int(now or time.time())
-    with _lock:
-        series = _ledger["series"].setdefault(instance, {})
-        today = _midnight(*_parts(now, tz), tz)
-        if now - today < SETTLE:          # yesterday's last samples may still be on their way
-            today -= 86400
-        want = [today - k * 86400 for k in range(1, BACKFILL_DAYS + 1)]
-        missing = [s for s in want if _day_key(s, tz) not in series]
-        if not missing:
-            return series
-        rxm, txm = _metrics(instance)
-        earliest = _earliest_sample(instance, rxm)
-        if earliest is None:
-            return series
-        missing = [s for s in missing if s + 86400 > earliest]   # days Prometheus has nothing for stay unknown
-        if not missing:
-            return series
-        first, last = min(missing) + 86400, max(missing) + 86400
-        rx = _daily(f"sum(increase({rxm}[86400s]))", first, last)
-        tx = _daily(f"sum(increase({txm}[86400s]))", first, last)
-        changed = False
-        for s in missing:
-            e = s + 86400
-            if e in rx or e in tx:
-                series[_day_key(s, tz)] = [round(rx.get(e) or 0), round(tx.get(e) or 0), 1 if earliest <= s + 900 else 0]
-            else:
-                # Prometheus answered but has nothing for this day (server or stack was down): remember
-                # that, so the day is not asked for again on every visit for the next five weeks
-                series[_day_key(s, tz)] = None
-            changed = True
-        if changed:
-            cutoff = _day_key(now - KEEP_DAYS * 86400, tz)
-            for k in [k for k in series if k < cutoff]:
-                del series[k]
-            _save()
-        return series
-
-
-def _month(series, y, m, upto_day=None):
-    """Sum of the saved days of a month (up to, not including, upto_day)."""
-    days = calendar.monthrange(y, m)[1]
-    last = (upto_day - 1) if upto_day else days
-    prefix = f"{y:04d}-{m:02d}-"
-    rx = tx = n = full = 0
-    daily = []
-    for d in range(1, last + 1):
-        v = series.get(f"{prefix}{d:02d}")
-        if v:
-            rx += v[0]; tx += v[1]; n += 1; full += v[2]
-            daily.append({"day": d, "rx": v[0], "tx": v[1], "partial": not v[2]})
-        else:
-            daily.append({"day": d, "rx": None, "tx": None, "partial": True})
-    return {"key": f"{y:04d}-{m:02d}", "days": days, "rx": rx if n else None, "tx": tx if n else None,
-            "complete": full == last, "daily": daily}
+def _sum(rows):
+    rx = tx = 0
+    seen = False
+    for r in rows:
+        if r:
+            rx += r[0]; tx += r[1]; seen = True
+    return {"rx": rx, "tx": tx} if seen else {"rx": None, "tx": None}
 
 
 def api_traffic(q):
@@ -3982,80 +4123,138 @@ def api_traffic(q):
     except ValueError:
         tz = 0
     now = int(time.time())
-    ck = (instance, tz)
-    hit = _cache.get(ck)
-    if hit and now - hit[0] < 60:
-        return hit[1]
-    with _lock:
-        if _ledger.get("tz") != tz:              # the background loop saves days in the viewer's zone
+    with _state_lock:
+        if _ledger.get("tz") != tz:
             _ledger["tz"] = tz
-            _save()
-    series = _fill(instance, tz, now)
-    rxm, txm = _metrics(instance)
+    srv = _ledger["servers"].get(instance)
+    if srv is not None and now - 2 * CHUNK < srv["cursor"] < now - FRESH:
+        sync(instance, now)                         # the last minute or so: quick
+    elif (srv is None or srv["cursor"] <= now - 2 * CHUNK) and instance not in _syncing:
+        _catch_up_later(instance)                   # a new server, or days of catching up: in the background
+    srv = _ledger["servers"].get(instance)
+    if srv is None:
+        return {"preparing": True}
 
-    y, m, d = _parts(now, tz)
+    info = _devices_info(instance)
+    devices = _counted(srv, info)
+    with _lock:
+        days, hours = _totals(srv, devices, tz)
+        per_dev_month = {}
+        y, m, d = _parts(now, tz)
+        py, pm = _prev_month(y, m)
+        for dev in sorted(set(info) | set(srv["b"]) | set(srv["d"])):
+            dd, _h = _totals(srv, [dev], tz)
+            cur = _sum(v for k, v in dd.items() if k.startswith(f"{y:04d}-{m:02d}-"))
+            prv = _sum(v for k, v in dd.items() if k.startswith(f"{py:04d}-{pm:02d}-"))
+            per_dev_month[dev] = {"month": cur, "prev": prv}
+        start, cursor = srv["start"], srv["cursor"]
+
     today_start = _midnight(y, m, d, tz)
     month_start = _midnight(y, m, 1, tz)
-    today = {"start": today_start, "end": now, **_total(rxm, txm, now - today_start)}
-    earliest = _earliest_sample(instance, rxm)
 
-    cur = _month(series, y, m, upto_day=d)
-    cur["rx"] = (cur["rx"] or 0) + (today["rx"] or 0) if cur["rx"] is not None or today["rx"] is not None else None
-    cur["tx"] = (cur["tx"] or 0) + (today["tx"] or 0) if cur["tx"] is not None or today["tx"] is not None else None
-    cur["complete"] = cur["complete"] and earliest is not None and earliest <= today_start + 900
-    cur["daily"].append({"day": d, "rx": today["rx"], "tx": today["tx"], "partial": False, "today": True})
-    cur["start"], cur["elapsed"] = month_start, now - month_start
-    cur["seconds"] = cur["days"] * 86400
-    py, pm = _prev_month(y, m)
-    prev = _month(series, py, pm)
-    prev["start"] = _midnight(py, pm, 1, tz)
+    def month(yy, mm, upto=None):
+        n = calendar.monthrange(yy, mm)[1]
+        last = upto or n
+        daily = []
+        for dd in range(1, last + 1):
+            v = days.get(f"{yy:04d}-{mm:02d}-{dd:02d}")
+            ds = _midnight(yy, mm, dd, tz)
+            known = ds + 86400 > start
+            daily.append({"day": dd, "rx": v[0] if v else (0 if known else None), "tx": v[1] if v else (0 if known else None),
+                          "partial": ds < start < ds + 86400 or not known})
+        tot = _sum([r["rx"], r["tx"]] if r["rx"] is not None else None for r in daily)
+        ms = _midnight(yy, mm, 1, tz)
+        return {"key": f"{yy:04d}-{mm:02d}", "days": n, **tot, "daily": daily, "start": ms,
+                "complete": start <= ms + 300}
 
-    # month-by-month history from the saved days (this month and the 11 before it)
+    cur = month(y, m, d)
+    cur["daily"][-1]["today"] = True
+    cur["elapsed"], cur["seconds"] = now - month_start, cur["days"] * 86400
+    prev = month(py, pm)
+
     months, yy, mm = [], y, m
-    for _ in range(12):
-        row = cur if (yy, mm) == (y, m) else prev if (yy, mm) == (py, pm) else _month(series, yy, mm)
-        if row["rx"] is not None or row["tx"] is not None:
+    for _ in range(24):
+        row = cur if (yy, mm) == (y, m) else prev if (yy, mm) == (py, pm) else month(yy, mm)
+        if row["rx"] is not None:
             months.append({"key": row["key"], "rx": row["rx"], "tx": row["tx"], "complete": row["complete"]})
         yy, mm = _prev_month(yy, mm)
 
-    week = [today]
-    for k in range(1, 7):
-        s = today_start - k * 86400
-        v = series.get(_day_key(s, tz))
-        week.append({"start": s, "end": s + 86400, "rx": v[0] if v else None, "tx": v[1] if v else None})
+    today = {"start": today_start, "end": now, **_sum([days.get(_day_key(today_start, tz))])}
+    if today["rx"] is None and today_start + 86400 > start:
+        today.update(rx=0, tx=0)
+    yest = _sum([days.get(_day_key(today_start - 86400, tz))])
+    first_hour = int((now - tz * 60) // 3600) - 23
+    hourly = [{"start": (h * 3600) + tz * 60, "rx": (hours.get(h) or [0, 0])[0], "tx": (hours.get(h) or [0, 0])[1]}
+              for h in range(first_hour, first_hour + 24)]
+    week = _sum(v for k, v in days.items() if k >= _day_key(today_start - 6 * 86400, tz))
+    alltime = _sum(days.values())
 
-    out = {
-        "today": today,
-        "days": week,                                   # today first, then the 6 days before it
-        "week": _total(rxm, txm, 7 * 86400),
-        "month": cur,
-        "prev": prev,
-        "months": months,
-        "boot": {"rx": _instant(f"sum({rxm})"), "tx": _instant(f"sum({txm})")},
-        "peak": {"rx": _instant(f"max_over_time(sum(rate({rxm}[2m]))[24h:1m])"),
-                 "tx": _instant(f"max_over_time(sum(rate({txm}[2m]))[24h:1m])")},
-        # how much raw history Prometheus has, so the UI can say "based on 3 days of data"
-        "history": (now - earliest) if earliest else None,
+    # since boot: the counters themselves (they start at zero when the server boots)
+    boot = {"rx": 0, "tx": 0}
+    for key, last in srv["last"].items():
+        job, dev, k = key.split("|")
+        v = last[1]
+        if dev in devices and job == (srv.get("job") or "node"):
+            boot["rx" if k == "0" else "tx"] += v
+    alt = "|".join(re.escape(x).replace("\\", "\\\\") for x in devices) or "none"    # a PromQL string: backslashes doubled
+    n = f'{node_selector(instance, net=True)},device=~"{alt}"'
+    peak = {"rx": _instant(f"max_over_time(sum(rate(node_network_receive_bytes_total{{{n}}}[2m]))[24h:1m])"),
+            "tx": _instant(f"max_over_time(sum(rate(node_network_transmit_bytes_total{{{n}}}[2m]))[24h:1m])")}
+    boot_time = _instant(f"node_boot_time_seconds{{{node_selector(instance)}}}")
+
+    return {
+        "today": today, "yesterday": yest, "week": week, "month": cur, "prev": prev, "months": months,
+        "alltime": {**alltime, "since": start}, "boot": {**boot, "since": boot_time},
+        "hourly": hourly, "peak": peak,
+        "devices": [{"name": dv, "physical": info.get(dv, {}).get("physical", False), "counted": dv in devices,
+                     **per_dev_month.get(dv, {})} for dv in sorted(set(info) | set(per_dev_month))],
+        "auto": not srv.get("count"),
+        "updated": cursor, "syncing": cursor < now - 2 * CHUNK,
+        "history": now - start,
     }
-    _cache[ck] = (now, out)
-    if len(_cache) > 50:
-        _cache.clear()
-    return out
+
+
+def post_devices(b, _h=None):
+    """Choose which cards are counted: {"instance": ..., "devices": [...]} or "devices": null for automatic."""
+    instance = _resolve(str(b.get("instance") or ""))
+    devices = b.get("devices")
+    if devices is not None:
+        if not isinstance(devices, list) or len(devices) > 64 or not all(isinstance(d, str) and re.match(r"^[\w.@:-]{1,32}$", d) for d in devices):
+            raise ValueError("invalid interface list")
+        devices = sorted(set(devices)) or None
+    with _lock:
+        srv = _ledger["servers"].get(instance)
+        if srv is None:
+            raise ValueError("no traffic data for this server yet")
+        srv["count"] = devices
+        _save(force=True)
+    return {"ok": True}
+
+
+def _catch_up_later(instance):
+    def run():
+        try:
+            sync(instance)
+        except Exception as e:
+            print(f"traffic: {type(e).__name__}: {e}", flush=True)
+        finally:
+            _syncing.discard(instance)
+    _syncing.add(instance)
+    threading.Thread(target=run, daemon=True).start()
 
 
 def loop():
-    """Save each finished day shortly after midnight, also when nobody has the panel open."""
-    time.sleep(60)
+    """Count new readings every few minutes, also when nobody has the panel open."""
+    time.sleep(20)
     while True:
         try:
-            now = time.time()
-            tz = _ledger.get("tz")
-            if tz is not None:                       # nobody has opened the page yet: zone unknown
-                for inst in node_instances():
-                    _fill(inst, tz, now)
+            for inst in node_instances():
+                sync(inst)
+            with _lock:
+                _save(force=True)
         except Exception as e:  # Prometheus restarting, etc.: try again next round
             print(f"traffic: {type(e).__name__}: {e}", flush=True)
-        time.sleep(1800)
+        time.sleep(300)
 __MONITORING_EOF__
   write_file panel/defender.py 644 <<'__MONITORING_EOF__'
 """Panel side of the Firewall (the "defender" service): talks to its agent (defender/agent.py) over a
@@ -11212,9 +11411,9 @@ __MONITORING_EOF__
       h_ok: "Everything is healthy", h_ok_sub: "The server and all of your checks are working normally.", h_warn: "Needs your attention", h_bad: "Problems detected",
       i_alerts: "{n} active alert(s)", i_sites: "{n} website/port check(s) failing", i_targets: "{n} monitoring target(s) not responding",
       i_res: "{what} is high ({v}%)", i_pending: "{n} alert(s) about to fire", i_ssl: "an SSL certificate expires in {n} day(s)",
-            net_ifaces: "Network interfaces", tr_title: "Traffic usage", tr_sub: "Everything this server has downloaded and uploaded through its real network cards.",
+            net_ifaces: "Network interfaces", tr_title: "Traffic usage", tr_sub: "Downloads and uploads of this server's physical network cards, counted exactly from the cards' own byte counters and kept across reboots.",
       tr_day: "Day", tr_today: "Today", tr_yesterday: "Yesterday", tr_7d: "Last 7 days", tr_month: "This month", tr_prev: "Last month", tr_boot: "Since boot", tr_total: "Total", tr_down: "Download", tr_up: "Upload",
-      tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far", tr_range: "{a} to {b}", tr_proj: "At this pace about {v} by the end of the month", tr_incomplete: "Incomplete: there is no data for some of its days", tr_nodata_month: "No data for this month (the panel was not running yet)", tr_months: "Monthly totals", tr_month_col: "Month", tr_month_sum: "{m}: {v} in total ({d} down, {u} up)",
+      tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far", tr_range: "{a} to {b}", tr_proj: "At this pace about {v} by the end of the month", tr_incomplete: "Incomplete: there is no data for some of its days", tr_nodata_month: "No data for this month (the panel was not running yet)", tr_months: "Monthly totals", tr_alltime: "All time", tr_alltime_since: "Since {d}, when counting started", tr_boot_since: "Last boot: {d}", tr_24h: "24 hours", tr_hour: "Hour", tr_24h_sum: "Last 24 hours: {v} in total ({d} down, {u} up)", tr_counted: "Counted cards", tr_auto: "automatic: physical cards only", tr_manual: "chosen by you", tr_choose: "Choose cards", tr_dev_title: "Which network cards are counted?", tr_dev_help: "Count only the card(s) your provider meters. Tunnels and VPN interfaces (WireGuard, GRE, ...) carry traffic that also passes through the physical card: counting both would count it twice. Changing this also recalculates the history.", tr_dev_auto: "Automatic: physical cards only (recommended)", tr_dev_manual: "Choose by hand", tr_physical: "physical", tr_virtual: "tunnel / virtual", tr_dev_month: "this month", tr_dev_none: "Choose at least one card.", tr_updated: "Exact count from the network cards' counters · updated {ago}", tr_preparing: "Reading this server's traffic history for the first time. It is ready in a few seconds.", tr_syncing: "Catching up on the traffic since the panel was last running...", tr_month_col: "Month", tr_month_sum: "{m}: {v} in total ({d} down, {u} up)",
             diag_btn: "Find out why", dg_title: "Why can't the panel load data?", diag_services: "Services", diag_containers: "Containers of the stack", diag_ok: "Reachable", diag_fail: "Failing",
       diag_dns: "Name not found", diag_http: "No valid answer", diag_detail: "Detail", diag_exit: "Exit code", diag_restarts: "Restarts", diag_logs: "Last log lines of {s}", service: "Service",
       diag_all_ok: "Every service answers now. Close this window and press Refresh.",
@@ -11347,9 +11546,9 @@ __MONITORING_EOF__
       h_ok: "همه چیز سالم است", h_ok_sub: "سرور و تمام بررسی‌های شما عادی کار می‌کنند.", h_warn: "نیاز به توجه دارد", h_bad: "مشکل شناسایی شد",
       i_alerts: "{n} هشدار فعال", i_sites: "{n} بررسی سایت/پورت ناموفق است", i_targets: "{n} هدف مانیتورینگ پاسخ نمی‌دهد",
       i_res: "{what} بالا است ({v}٪)", i_pending: "{n} هشدار در آستانه‌ی فعال شدن", i_ssl: "گواهی SSL تا {n} روز دیگر منقضی می‌شود",
-            net_ifaces: "کارت‌های شبکه", tr_title: "مصرف ترافیک", tr_sub: "کل چیزی که این سرور از طریق کارت‌های شبکه‌ی واقعی‌اش دانلود و آپلود کرده است.",
+            net_ifaces: "کارت‌های شبکه", tr_title: "مصرف ترافیک", tr_sub: "دانلود و آپلود کارت‌های شبکه‌ی فیزیکی این سرور؛ دقیق از شمارنده‌های خود کارت شبکه و ماندگار (با ریبوت صفر نمی‌شود).",
       tr_day: "روز", tr_today: "امروز", tr_yesterday: "دیروز", tr_7d: "۷ روز اخیر", tr_month: "این ماه", tr_prev: "ماه قبل", tr_boot: "از زمان بوت", tr_total: "مجموع", tr_down: "دانلود", tr_up: "آپلود",
-      tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است", tr_range: "از {a} تا {b}", tr_proj: "با همین روند تا آخر ماه حدود {v}", tr_incomplete: "ناقص: برای بعضی روزهایش داده‌ای نیست", tr_nodata_month: "برای این ماه داده‌ای نیست (پنل هنوز نصب نبود)", tr_months: "مجموع ماهانه", tr_month_col: "ماه", tr_month_sum: "{m}: در مجموع {v} (دانلود {d}، آپلود {u})",
+      tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است", tr_range: "از {a} تا {b}", tr_proj: "با همین روند تا آخر ماه حدود {v}", tr_incomplete: "ناقص: برای بعضی روزهایش داده‌ای نیست", tr_nodata_month: "برای این ماه داده‌ای نیست (پنل هنوز نصب نبود)", tr_months: "مجموع ماهانه", tr_alltime: "کل", tr_alltime_since: "از {d}، شروع شمارش", tr_boot_since: "آخرین بوت: {d}", tr_24h: "۲۴ ساعت", tr_hour: "ساعت", tr_24h_sum: "۲۴ ساعت اخیر: در مجموع {v} (دانلود {d}، آپلود {u})", tr_counted: "کارت‌های شمارش‌شده", tr_auto: "خودکار: فقط کارت‌های فیزیکی", tr_manual: "انتخاب خودتان", tr_choose: "انتخاب کارت‌ها", tr_dev_title: "کدام کارت‌های شبکه شمرده شوند؟", tr_dev_help: "فقط کارتی را بشمارید که دیتاسنتر ترافیکش را حساب می‌کند. تانل‌ها و VPN (وایرگارد، GRE و ...) ترافیکی دارند که از کارت فیزیکی هم رد می‌شود؛ شمردن هر دو، آن را دو بار حساب می‌کند. با تغییر این انتخاب، آمار گذشته هم دوباره حساب می‌شود.", tr_dev_auto: "خودکار: فقط کارت‌های فیزیکی (پیشنهادی)", tr_dev_manual: "انتخاب دستی", tr_physical: "فیزیکی", tr_virtual: "تانل / مجازی", tr_dev_month: "این ماه", tr_dev_none: "حداقل یک کارت را انتخاب کنید.", tr_updated: "شمارش دقیق از شمارنده‌های کارت شبکه · به‌روزرسانی {ago}", tr_preparing: "تاریخچه‌ی ترافیک این سرور برای اولین بار خوانده می‌شود؛ چند ثانیه‌ی دیگر آماده است.", tr_syncing: "در حال رسیدن به ترافیکِ زمانی که پنل خاموش بوده...", tr_month_col: "ماه", tr_month_sum: "{m}: در مجموع {v} (دانلود {d}، آپلود {u})",
             diag_btn: "پیدا کردن دلیل", dg_title: "چرا پنل داده‌ای نمی‌گیرد؟", diag_services: "سرویس‌ها", diag_containers: "کانتینرهای استک", diag_ok: "در دسترس", diag_fail: "خراب",
       diag_dns: "نام پیدا نشد", diag_http: "پاسخ درست نمی‌دهد", diag_detail: "جزئیات", diag_exit: "کد خروج", diag_restarts: "تعداد ری‌استارت", diag_logs: "آخرین خط‌های لاگ {s}", service: "سرویس",
       diag_all_ok: "همه‌ی سرویس‌ها الان جواب می‌دهند. این پنجره را ببندید و «بروزرسانی» را بزنید.",
@@ -11487,7 +11686,7 @@ __MONITORING_EOF__
     const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
     if (d) return `${d}d ${h}h`;
     if (h) return `${h}h ${m}m`;
-    return `${m}m ${s % 60}s`;
+    return m ? `${m}m ${s % 60}s` : `${s % 60}s`;
   }
   const fmtMs = (s) => (s == null ? "–" : s < 1 ? `${nf(s * 1000, 0)} ms` : `${nf(s, 2)} s`);
   const level = (pct) => (pct >= 90 ? "bad" : pct >= 75 ? "warn" : "");
@@ -12589,8 +12788,13 @@ __MONITORING_EOF__
       <div><span class="k tx"></span>${icon("up")}<span>${esc(t("tr_up"))}</span><b>${num(esc(known ? fmtBytes(tx) : "–"))}</b></div></div>
       ${notes.map((n) => `<div class="u-note">${n}</div>`).join("")}</div>`;
   }
+  const fullDate = (ts) => {
+    try { return new Intl.DateTimeFormat(state.lang === "fa" ? "fa-IR-u-ca-gregory-nu-latn" : "en-US", { day: "numeric", month: "long", year: "numeric" }).format(new Date(ts * 1000)); }
+    catch (e) { return new Date(ts * 1000).toLocaleDateString(); }
+  };
   function trafficSection(tr) {
-    const hist = tr.history, partial = (secs) => (hist != null && hist < secs * 0.95 ? esc(t("tr_partial", { d: fmtDur(hist) })) : "");
+    const head = `<div class="sec-head"><h3>${icon("activity")}${esc(t("tr_title"))}</h3><p class="muted">${esc(t("tr_sub"))}</p></div>`;
+    if (tr.preparing || tr.empty) return `<section class="sec">${head}<div class="notice">${icon("refresh")}<span>${esc(t("tr_preparing"))}</span></div></section>`;
     const cur = tr.month, prev = tr.prev;
     const dayNow = cur.daily.length;
     // at the pace so far, where the month ends up (from the 2nd day on, when there is a pace to speak of)
@@ -12600,22 +12804,58 @@ __MONITORING_EOF__
       cur.complete ? "" : esc(t("tr_incomplete"))];
     const prevNotes = [esc(monthName(prev.key)), prev.rx == null && prev.tx == null ? esc(t("tr_nodata_month")) : prev.complete ? "" : esc(t("tr_incomplete"))];
     const cards = [
-      usageCard(t("tr_today"), tr.today, partial(Math.max(60, tr.today.end - tr.today.start))),
+      usageCard(t("tr_today"), tr.today),
       usageCard(`${t("tr_month")} · ${monthName(cur.key, { month: "long" })}`, cur, curNotes, "u-main"),
       usageCard(t("tr_prev"), prev, prevNotes),
-      usageCard(t("tr_7d"), tr.week, partial(7 * 86400)),
-      usageCard(t("tr_boot"), tr.boot),
+      usageCard(t("tr_7d"), tr.week),
+      usageCard(t("tr_alltime"), tr.alltime, esc(t("tr_alltime_since", { d: fullDate(tr.alltime.since) }))),
+      usageCard(t("tr_boot"), tr.boot, tr.boot.since ? esc(t("tr_boot_since", { d: fullDate(tr.boot.since) })) : ""),
     ].join("");
     const peak = (label, v) => `<span class="chip">${esc(label)} <b>${num(esc(fmtRate(v)))}</b></span>`;
-    const seg = [["cur", monthName(cur.key)], ["prev", monthName(prev.key)]]
+    if (!["cur", "prev", "24h"].includes(state.trMonth)) state.trMonth = "cur";
+    const seg = [["24h", t("tr_24h")], ["cur", monthName(cur.key)], ["prev", monthName(prev.key)]]
       .map(([k, l]) => `<button type="button" data-trmonth="${k}" aria-pressed="${state.trMonth === k}">${esc(l)}</button>`).join("");
-    return `<section class="sec"><div class="sec-head"><h3>${icon("activity")}${esc(t("tr_title"))}</h3><p class="muted">${esc(t("tr_sub"))}</p></div>
+    const counted = tr.devices.filter((d) => d.counted).map((d) => `<span class="chip">${num(esc(d.name))}</span>`).join("") || "–";
+    const status = tr.syncing ? `<div class="notice">${icon("refresh")}<span>${esc(t("tr_syncing"))}</span></div>` : "";
+    return `<section class="sec">${head}${status}
+      <div class="tr-devs"><span class="muted">${esc(t("tr_counted"))}:</span>${counted}<span class="muted small">(${esc(t(tr.auto ? "tr_auto" : "tr_manual"))})</span>
+        <button type="button" class="btn small ghost" data-trdev>${icon("gear")}${esc(t("tr_choose"))}</button>
+        <span class="muted small tr-upd">${esc(t("tr_updated", { ago: ago(tr.updated) }))}</span></div>
       <div class="usage-grid">${cards}</div>
       <div class="chart tr-chart"><header><h3>${esc(t("tr_daily"))}</h3><div class="seg" role="group" aria-label="${esc(t("tr_daily"))}">${seg}</div><button type="button" class="btn small icon ghost view-toggle" data-trtable aria-pressed="${state.trTable}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>
         <div class="legend"><span><i style="background:var(--c1)"></i>${esc(t("tr_down"))}</span><span><i style="background:var(--c2)"></i>${esc(t("tr_up"))}</span>
           ${tr.peak.rx != null ? peak(t("tr_peak_in"), tr.peak.rx) : ""}${tr.peak.tx != null ? peak(t("tr_peak_out"), tr.peak.tx) : ""}</div>
         <div class="plot" id="tr-plot"></div><div class="u-note tr-sum" id="tr-sum"></div></div>
       ${monthsTable(tr.months)}</section>`;
+  }
+
+  // which network cards are counted
+  function trafficDevices() {
+    const tr = state.traffic;
+    if (!tr || !tr.devices) return;
+    const row = (d) => `<label class="tr-dev"><input type="checkbox" name="dev" value="${esc(d.name)}" ${d.counted ? "checked" : ""}>
+      <b>${num(esc(d.name))}</b><span class="pill ${d.physical ? "ok" : ""}">${esc(t(d.physical ? "tr_physical" : "tr_virtual"))}</span>
+      <span class="muted">${esc(t("tr_dev_month"))}: ${num(esc(fmtBytes(sumOf(d.month) || 0)))}</span></label>`;
+    const body = `<p class="muted">${esc(t("tr_dev_help"))}</p>
+      <label class="tr-mode"><input type="radio" name="mode" value="auto" ${tr.auto ? "checked" : ""}> ${esc(t("tr_dev_auto"))}</label>
+      <label class="tr-mode"><input type="radio" name="mode" value="manual" ${tr.auto ? "" : "checked"}> ${esc(t("tr_dev_manual"))}</label>
+      <div class="tr-dev-list">${tr.devices.filter((d) => d.counted || d.physical || sumOf(d.month) || sumOf(d.prev)).map(row).join("")}</div>`;
+    openDialog({
+      title: t("tr_dev_title"), body,
+      onOpen: (dlg, form) => {
+        const sync = () => { const manual = form.mode.value === "manual"; form.querySelectorAll('[name="dev"]').forEach((c) => { c.disabled = !manual; }); };
+        form.querySelectorAll('[name="mode"]').forEach((r) => r.addEventListener("change", sync));
+        sync();
+      },
+      onSubmit: async (form) => {
+        const manual = form.mode.value === "manual";
+        const devices = [...form.querySelectorAll('[name="dev"]:checked')].map((c) => c.value);
+        if (manual && !devices.length) throw new Error(t("tr_dev_none"));
+        await post("/api/traffic/devices", withInstance({ devices: manual ? devices : null }));
+        state.traffic = await api("/api/traffic", withInstance({ tz: new Date().getTimezoneOffset() }));
+        route();
+      },
+    });
   }
 
   function monthsTable(months) {
@@ -12629,6 +12869,14 @@ __MONITORING_EOF__
 
   // the chosen month's days, padded with the days still to come so the month always shows in full
   function monthDays(tr) {
+    if (state.trMonth === "24h") {
+      const hours = tr.hourly.map((h, i) => {
+        const d = new Date(h.start * 1000), hh = String(d.getHours()).padStart(2, "0"), nx = String((d.getHours() + 1) % 24).padStart(2, "0");
+        return { ...h, day: i, label: hh, title: `${hh}:00 – ${nx}:00`, short: `${hh}:00`, today: i === tr.hourly.length - 1 };
+      });
+      const sum = hours.reduce((a, h) => ({ rx: a.rx + (h.rx || 0), tx: a.tx + (h.tx || 0) }), { rx: 0, tx: 0 });
+      return { m: { ...sum, hourly: true }, days: hours };
+    }
     const m = state.trMonth === "prev" ? tr.prev : tr.month;
     const days = m.daily.map((d) => ({ ...d, label: String(d.day), title: dayName(m.key, d.day), short: dayName(m.key, d.day, "short") }));
     for (let d = days.length + 1; d <= m.days; d++) days.push({ day: d, rx: null, tx: null, future: true, label: String(d), title: dayName(m.key, d) });
@@ -12636,17 +12884,18 @@ __MONITORING_EOF__
   }
 
   function barsTable(m, days) {
-    const rows = days.filter((d) => !d.future).slice().reverse().map((d) => `<tr><td>${esc(d.short || d.title)}${d.today ? ` <span class="muted">(${esc(t("tr_today"))})</span>` : ""}</td><td data-label="${esc(t("tr_down"))}">${num(esc(fmtBytes(d.rx)))}</td><td data-label="${esc(t("tr_up"))}">${num(esc(fmtBytes(d.tx)))}</td><td data-label="${esc(t("tr_total"))}">${num(esc(fmtBytes(sumOf(d))))}</td></tr>`).join("");
-    return `<div class="chart-table table-wrap"><table><thead><tr><th>${esc(t("tr_day"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody>
+    const rows = days.filter((d) => !d.future).slice().reverse().map((d) => `<tr><td>${esc(d.short || d.title)}${d.today && !m.hourly ? ` <span class="muted">(${esc(t("tr_today"))})</span>` : ""}</td><td data-label="${esc(t("tr_down"))}">${num(esc(fmtBytes(d.rx)))}</td><td data-label="${esc(t("tr_up"))}">${num(esc(fmtBytes(d.tx)))}</td><td data-label="${esc(t("tr_total"))}">${num(esc(fmtBytes(sumOf(d))))}</td></tr>`).join("");
+    return `<div class="chart-table table-wrap"><table><thead><tr><th>${esc(t(m.hourly ? "tr_hour" : "tr_day"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody>
       <tfoot><tr><th>${esc(t("tr_total"))}</th><th>${num(esc(fmtBytes(m.rx)))}</th><th>${num(esc(fmtBytes(m.tx)))}</th><th>${num(esc(fmtBytes(sumOf(m))))}</th></tr></tfoot></table></div>`;
   }
 
   function paintBars() {
     const box = $("tr-plot"), tr = state.traffic;
-    if (!box || !tr || !tr.month) return;
+    if (!box || !tr || !tr.month || !tr.hourly) return;
     const { m, days } = monthDays(tr);
     const sumBox = $("tr-sum");
-    if (sumBox) sumBox.innerHTML = m.rx == null && m.tx == null ? "" : t("tr_month_sum", { m: esc(monthName(m.key)), v: `<b>${num(esc(fmtBytes(sumOf(m))))}</b>`, d: num(esc(fmtBytes(m.rx))), u: num(esc(fmtBytes(m.tx))) });
+    const parts = { v: `<b>${num(esc(fmtBytes(sumOf(m))))}</b>`, d: num(esc(fmtBytes(m.rx))), u: num(esc(fmtBytes(m.tx))) };
+    if (sumBox) sumBox.innerHTML = m.rx == null && m.tx == null ? "" : m.hourly ? t("tr_24h_sum", parts) : t("tr_month_sum", { m: esc(monthName(m.key)), ...parts });
     if (state.trTable) { box.innerHTML = barsTable(m, days); return; }
     const vals = days.flatMap((d) => [d.rx || 0, d.tx || 0]);
     if (!Math.max(...vals)) { box.innerHTML = `<div class="empty">${esc(t(state.trMonth === "prev" ? "tr_nodata_month" : "no_data"))}</div>`; return; }
@@ -12678,7 +12927,7 @@ __MONITORING_EOF__
       });
       hits += `<rect class="hit" data-i="${i}" x="${L + gw * i}" y="0" width="${gw}" height="${H}" fill="transparent"/>`;
     });
-    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="height:${H}px" role="img" aria-label="${esc(`${t("tr_daily")} · ${monthName(m.key)}`)}"><g class="grid">${grid}</g><rect class="hl" y="${TOP}" height="${H - TOP - B}" width="${gw}" opacity="0"/>${bars}${hits}</svg><div class="tip" hidden></div>`;
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="height:${H}px" role="img" aria-label="${esc(`${t("tr_daily")} · ${m.hourly ? t("tr_24h") : monthName(m.key)}`)}"><g class="grid">${grid}</g><rect class="hl" y="${TOP}" height="${H - TOP - B}" width="${gw}" opacity="0"/>${bars}${hits}</svg><div class="tip" hidden></div>`;
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), hl = box.querySelector(".hl");
     const show = (e) => {
       const rect = svg.getBoundingClientRect();
@@ -12688,7 +12937,7 @@ __MONITORING_EOF__
       const d = days[i], cx = L + gw * i;
       if (d.future) { rest(); return; }
       hl.setAttribute("x", cx); hl.setAttribute("opacity", "1");
-      tip.innerHTML = `<div class="t">${esc(d.title)}${d.today ? ` · ${esc(t("tr_today"))}` : ""}</div>
+      tip.innerHTML = `<div class="t">${esc(d.title)}${d.today && !m.hourly ? ` · ${esc(t("tr_today"))}` : ""}</div>
         <div class="r"><i style="background:var(--c1)"></i><b>${num(esc(fmtBytes(d.rx)))}</b><span>${esc(t("tr_down"))}</span></div>
         <div class="r"><i style="background:var(--c2)"></i><b>${num(esc(fmtBytes(d.tx)))}</b><span>${esc(t("tr_up"))}</span></div>
         <div class="r"><i></i><b>${num(esc(fmtBytes(sumOf(d))))}</b><span>${esc(t("tr_total"))}</span></div>`;
@@ -12838,6 +13087,7 @@ __MONITORING_EOF__
     const go = e.target.closest("[data-go]");
     if (go) { location.hash = go.dataset.go; return; }
     if (e.target.closest("[data-more]")) { moreSheet(); return; }
+    if (e.target.closest("[data-trdev]")) { trafficDevices(); return; }
     const trm = e.target.closest("[data-trmonth]");
     if (trm) {
       state.trMonth = trm.dataset.trmonth;
@@ -13628,6 +13878,14 @@ button.chip:disabled { cursor: default; opacity: .6; }
 .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .tr-chart .grid text.today { font-weight: 700; fill: var(--ink); }
 .tr-sum { margin-top: 8px; }
+.tr-devs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: -4px 0 14px; font-size: 13px; }
+.tr-devs .btn { margin-inline-start: 4px; }
+.tr-devs .tr-upd { margin-inline-start: auto; }
+.tr-dev-list { display: grid; gap: 8px; margin-top: 12px; }
+.tr-dev { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); cursor: pointer; flex-wrap: wrap; }
+.tr-dev .muted { margin-inline-start: auto; font-size: 12.5px; }
+.tr-dev:has(input:disabled) { opacity: .6; cursor: default; }
+.tr-mode { display: flex; align-items: center; gap: 8px; margin-top: 8px; cursor: pointer; font-weight: 600; }
 .tr-months { margin-top: 14px; }
 .tr-months table td:not(:first-child), .tr-months table th:not(:first-child) { text-align: end; }
 .chart-table tfoot th { border-top: 1px solid var(--line); border-bottom: 0; top: auto; bottom: 0; background: var(--surface-2); color: var(--ink); }

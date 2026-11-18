@@ -642,6 +642,14 @@ button.chip:disabled { cursor: default; opacity: .6; }
 .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .tr-chart .grid text.today { font-weight: 700; fill: var(--ink); }
 .tr-sum { margin-top: 8px; }
+.tr-devs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: -4px 0 14px; font-size: 13px; }
+.tr-devs .btn { margin-inline-start: 4px; }
+.tr-devs .tr-upd { margin-inline-start: auto; }
+.tr-dev-list { display: grid; gap: 8px; margin-top: 12px; }
+.tr-dev { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); cursor: pointer; flex-wrap: wrap; }
+.tr-dev .muted { margin-inline-start: auto; font-size: 12.5px; }
+.tr-dev:has(input:disabled) { opacity: .6; cursor: default; }
+.tr-mode { display: flex; align-items: center; gap: 8px; margin-top: 8px; cursor: pointer; font-weight: 600; }
 .tr-months { margin-top: 14px; }
 .tr-months table td:not(:first-child), .tr-months table th:not(:first-child) { text-align: end; }
 .chart-table tfoot th { border-top: 1px solid var(--line); border-bottom: 0; top: auto; bottom: 0; background: var(--surface-2); color: var(--ink); }

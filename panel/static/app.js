@@ -37,9 +37,9 @@
       h_ok: "Everything is healthy", h_ok_sub: "The server and all of your checks are working normally.", h_warn: "Needs your attention", h_bad: "Problems detected",
       i_alerts: "{n} active alert(s)", i_sites: "{n} website/port check(s) failing", i_targets: "{n} monitoring target(s) not responding",
       i_res: "{what} is high ({v}%)", i_pending: "{n} alert(s) about to fire", i_ssl: "an SSL certificate expires in {n} day(s)",
-            net_ifaces: "Network interfaces", tr_title: "Traffic usage", tr_sub: "Everything this server has downloaded and uploaded through its real network cards.",
+            net_ifaces: "Network interfaces", tr_title: "Traffic usage", tr_sub: "Downloads and uploads of this server's physical network cards, counted exactly from the cards' own byte counters and kept across reboots.",
       tr_day: "Day", tr_today: "Today", tr_yesterday: "Yesterday", tr_7d: "Last 7 days", tr_month: "This month", tr_prev: "Last month", tr_boot: "Since boot", tr_total: "Total", tr_down: "Download", tr_up: "Upload",
-      tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far", tr_range: "{a} to {b}", tr_proj: "At this pace about {v} by the end of the month", tr_incomplete: "Incomplete: there is no data for some of its days", tr_nodata_month: "No data for this month (the panel was not running yet)", tr_months: "Monthly totals", tr_month_col: "Month", tr_month_sum: "{m}: {v} in total ({d} down, {u} up)",
+      tr_daily: "Daily traffic", tr_peak_in: "Peak download (24h)", tr_peak_out: "Peak upload (24h)", tr_partial: "Only {d} of data collected so far", tr_range: "{a} to {b}", tr_proj: "At this pace about {v} by the end of the month", tr_incomplete: "Incomplete: there is no data for some of its days", tr_nodata_month: "No data for this month (the panel was not running yet)", tr_months: "Monthly totals", tr_alltime: "All time", tr_alltime_since: "Since {d}, when counting started", tr_boot_since: "Last boot: {d}", tr_24h: "24 hours", tr_hour: "Hour", tr_24h_sum: "Last 24 hours: {v} in total ({d} down, {u} up)", tr_counted: "Counted cards", tr_auto: "automatic: physical cards only", tr_manual: "chosen by you", tr_choose: "Choose cards", tr_dev_title: "Which network cards are counted?", tr_dev_help: "Count only the card(s) your provider meters. Tunnels and VPN interfaces (WireGuard, GRE, ...) carry traffic that also passes through the physical card: counting both would count it twice. Changing this also recalculates the history.", tr_dev_auto: "Automatic: physical cards only (recommended)", tr_dev_manual: "Choose by hand", tr_physical: "physical", tr_virtual: "tunnel / virtual", tr_dev_month: "this month", tr_dev_none: "Choose at least one card.", tr_updated: "Exact count from the network cards' counters · updated {ago}", tr_preparing: "Reading this server's traffic history for the first time. It is ready in a few seconds.", tr_syncing: "Catching up on the traffic since the panel was last running...", tr_month_col: "Month", tr_month_sum: "{m}: {v} in total ({d} down, {u} up)",
             diag_btn: "Find out why", dg_title: "Why can't the panel load data?", diag_services: "Services", diag_containers: "Containers of the stack", diag_ok: "Reachable", diag_fail: "Failing",
       diag_dns: "Name not found", diag_http: "No valid answer", diag_detail: "Detail", diag_exit: "Exit code", diag_restarts: "Restarts", diag_logs: "Last log lines of {s}", service: "Service",
       diag_all_ok: "Every service answers now. Close this window and press Refresh.",
@@ -172,9 +172,9 @@
       h_ok: "همه چیز سالم است", h_ok_sub: "سرور و تمام بررسی‌های شما عادی کار می‌کنند.", h_warn: "نیاز به توجه دارد", h_bad: "مشکل شناسایی شد",
       i_alerts: "{n} هشدار فعال", i_sites: "{n} بررسی سایت/پورت ناموفق است", i_targets: "{n} هدف مانیتورینگ پاسخ نمی‌دهد",
       i_res: "{what} بالا است ({v}٪)", i_pending: "{n} هشدار در آستانه‌ی فعال شدن", i_ssl: "گواهی SSL تا {n} روز دیگر منقضی می‌شود",
-            net_ifaces: "کارت‌های شبکه", tr_title: "مصرف ترافیک", tr_sub: "کل چیزی که این سرور از طریق کارت‌های شبکه‌ی واقعی‌اش دانلود و آپلود کرده است.",
+            net_ifaces: "کارت‌های شبکه", tr_title: "مصرف ترافیک", tr_sub: "دانلود و آپلود کارت‌های شبکه‌ی فیزیکی این سرور؛ دقیق از شمارنده‌های خود کارت شبکه و ماندگار (با ریبوت صفر نمی‌شود).",
       tr_day: "روز", tr_today: "امروز", tr_yesterday: "دیروز", tr_7d: "۷ روز اخیر", tr_month: "این ماه", tr_prev: "ماه قبل", tr_boot: "از زمان بوت", tr_total: "مجموع", tr_down: "دانلود", tr_up: "آپلود",
-      tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است", tr_range: "از {a} تا {b}", tr_proj: "با همین روند تا آخر ماه حدود {v}", tr_incomplete: "ناقص: برای بعضی روزهایش داده‌ای نیست", tr_nodata_month: "برای این ماه داده‌ای نیست (پنل هنوز نصب نبود)", tr_months: "مجموع ماهانه", tr_month_col: "ماه", tr_month_sum: "{m}: در مجموع {v} (دانلود {d}، آپلود {u})",
+      tr_daily: "ترافیک روزانه", tr_peak_in: "اوج دانلود (۲۴ ساعت)", tr_peak_out: "اوج آپلود (۲۴ ساعت)", tr_partial: "فقط {d} داده جمع‌آوری شده است", tr_range: "از {a} تا {b}", tr_proj: "با همین روند تا آخر ماه حدود {v}", tr_incomplete: "ناقص: برای بعضی روزهایش داده‌ای نیست", tr_nodata_month: "برای این ماه داده‌ای نیست (پنل هنوز نصب نبود)", tr_months: "مجموع ماهانه", tr_alltime: "کل", tr_alltime_since: "از {d}، شروع شمارش", tr_boot_since: "آخرین بوت: {d}", tr_24h: "۲۴ ساعت", tr_hour: "ساعت", tr_24h_sum: "۲۴ ساعت اخیر: در مجموع {v} (دانلود {d}، آپلود {u})", tr_counted: "کارت‌های شمارش‌شده", tr_auto: "خودکار: فقط کارت‌های فیزیکی", tr_manual: "انتخاب خودتان", tr_choose: "انتخاب کارت‌ها", tr_dev_title: "کدام کارت‌های شبکه شمرده شوند؟", tr_dev_help: "فقط کارتی را بشمارید که دیتاسنتر ترافیکش را حساب می‌کند. تانل‌ها و VPN (وایرگارد، GRE و ...) ترافیکی دارند که از کارت فیزیکی هم رد می‌شود؛ شمردن هر دو، آن را دو بار حساب می‌کند. با تغییر این انتخاب، آمار گذشته هم دوباره حساب می‌شود.", tr_dev_auto: "خودکار: فقط کارت‌های فیزیکی (پیشنهادی)", tr_dev_manual: "انتخاب دستی", tr_physical: "فیزیکی", tr_virtual: "تانل / مجازی", tr_dev_month: "این ماه", tr_dev_none: "حداقل یک کارت را انتخاب کنید.", tr_updated: "شمارش دقیق از شمارنده‌های کارت شبکه · به‌روزرسانی {ago}", tr_preparing: "تاریخچه‌ی ترافیک این سرور برای اولین بار خوانده می‌شود؛ چند ثانیه‌ی دیگر آماده است.", tr_syncing: "در حال رسیدن به ترافیکِ زمانی که پنل خاموش بوده...", tr_month_col: "ماه", tr_month_sum: "{m}: در مجموع {v} (دانلود {d}، آپلود {u})",
             diag_btn: "پیدا کردن دلیل", dg_title: "چرا پنل داده‌ای نمی‌گیرد؟", diag_services: "سرویس‌ها", diag_containers: "کانتینرهای استک", diag_ok: "در دسترس", diag_fail: "خراب",
       diag_dns: "نام پیدا نشد", diag_http: "پاسخ درست نمی‌دهد", diag_detail: "جزئیات", diag_exit: "کد خروج", diag_restarts: "تعداد ری‌استارت", diag_logs: "آخرین خط‌های لاگ {s}", service: "سرویس",
       diag_all_ok: "همه‌ی سرویس‌ها الان جواب می‌دهند. این پنجره را ببندید و «بروزرسانی» را بزنید.",
@@ -312,7 +312,7 @@
     const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
     if (d) return `${d}d ${h}h`;
     if (h) return `${h}h ${m}m`;
-    return `${m}m ${s % 60}s`;
+    return m ? `${m}m ${s % 60}s` : `${s % 60}s`;
   }
   const fmtMs = (s) => (s == null ? "–" : s < 1 ? `${nf(s * 1000, 0)} ms` : `${nf(s, 2)} s`);
   const level = (pct) => (pct >= 90 ? "bad" : pct >= 75 ? "warn" : "");
@@ -1414,8 +1414,13 @@
       <div><span class="k tx"></span>${icon("up")}<span>${esc(t("tr_up"))}</span><b>${num(esc(known ? fmtBytes(tx) : "–"))}</b></div></div>
       ${notes.map((n) => `<div class="u-note">${n}</div>`).join("")}</div>`;
   }
+  const fullDate = (ts) => {
+    try { return new Intl.DateTimeFormat(state.lang === "fa" ? "fa-IR-u-ca-gregory-nu-latn" : "en-US", { day: "numeric", month: "long", year: "numeric" }).format(new Date(ts * 1000)); }
+    catch (e) { return new Date(ts * 1000).toLocaleDateString(); }
+  };
   function trafficSection(tr) {
-    const hist = tr.history, partial = (secs) => (hist != null && hist < secs * 0.95 ? esc(t("tr_partial", { d: fmtDur(hist) })) : "");
+    const head = `<div class="sec-head"><h3>${icon("activity")}${esc(t("tr_title"))}</h3><p class="muted">${esc(t("tr_sub"))}</p></div>`;
+    if (tr.preparing || tr.empty) return `<section class="sec">${head}<div class="notice">${icon("refresh")}<span>${esc(t("tr_preparing"))}</span></div></section>`;
     const cur = tr.month, prev = tr.prev;
     const dayNow = cur.daily.length;
     // at the pace so far, where the month ends up (from the 2nd day on, when there is a pace to speak of)
@@ -1425,22 +1430,58 @@
       cur.complete ? "" : esc(t("tr_incomplete"))];
     const prevNotes = [esc(monthName(prev.key)), prev.rx == null && prev.tx == null ? esc(t("tr_nodata_month")) : prev.complete ? "" : esc(t("tr_incomplete"))];
     const cards = [
-      usageCard(t("tr_today"), tr.today, partial(Math.max(60, tr.today.end - tr.today.start))),
+      usageCard(t("tr_today"), tr.today),
       usageCard(`${t("tr_month")} · ${monthName(cur.key, { month: "long" })}`, cur, curNotes, "u-main"),
       usageCard(t("tr_prev"), prev, prevNotes),
-      usageCard(t("tr_7d"), tr.week, partial(7 * 86400)),
-      usageCard(t("tr_boot"), tr.boot),
+      usageCard(t("tr_7d"), tr.week),
+      usageCard(t("tr_alltime"), tr.alltime, esc(t("tr_alltime_since", { d: fullDate(tr.alltime.since) }))),
+      usageCard(t("tr_boot"), tr.boot, tr.boot.since ? esc(t("tr_boot_since", { d: fullDate(tr.boot.since) })) : ""),
     ].join("");
     const peak = (label, v) => `<span class="chip">${esc(label)} <b>${num(esc(fmtRate(v)))}</b></span>`;
-    const seg = [["cur", monthName(cur.key)], ["prev", monthName(prev.key)]]
+    if (!["cur", "prev", "24h"].includes(state.trMonth)) state.trMonth = "cur";
+    const seg = [["24h", t("tr_24h")], ["cur", monthName(cur.key)], ["prev", monthName(prev.key)]]
       .map(([k, l]) => `<button type="button" data-trmonth="${k}" aria-pressed="${state.trMonth === k}">${esc(l)}</button>`).join("");
-    return `<section class="sec"><div class="sec-head"><h3>${icon("activity")}${esc(t("tr_title"))}</h3><p class="muted">${esc(t("tr_sub"))}</p></div>
+    const counted = tr.devices.filter((d) => d.counted).map((d) => `<span class="chip">${num(esc(d.name))}</span>`).join("") || "–";
+    const status = tr.syncing ? `<div class="notice">${icon("refresh")}<span>${esc(t("tr_syncing"))}</span></div>` : "";
+    return `<section class="sec">${head}${status}
+      <div class="tr-devs"><span class="muted">${esc(t("tr_counted"))}:</span>${counted}<span class="muted small">(${esc(t(tr.auto ? "tr_auto" : "tr_manual"))})</span>
+        <button type="button" class="btn small ghost" data-trdev>${icon("gear")}${esc(t("tr_choose"))}</button>
+        <span class="muted small tr-upd">${esc(t("tr_updated", { ago: ago(tr.updated) }))}</span></div>
       <div class="usage-grid">${cards}</div>
       <div class="chart tr-chart"><header><h3>${esc(t("tr_daily"))}</h3><div class="seg" role="group" aria-label="${esc(t("tr_daily"))}">${seg}</div><button type="button" class="btn small icon ghost view-toggle" data-trtable aria-pressed="${state.trTable}" title="${esc(t("tbl_view"))}" aria-label="${esc(t("tbl_view"))}">${icon("table")}</button></header>
         <div class="legend"><span><i style="background:var(--c1)"></i>${esc(t("tr_down"))}</span><span><i style="background:var(--c2)"></i>${esc(t("tr_up"))}</span>
           ${tr.peak.rx != null ? peak(t("tr_peak_in"), tr.peak.rx) : ""}${tr.peak.tx != null ? peak(t("tr_peak_out"), tr.peak.tx) : ""}</div>
         <div class="plot" id="tr-plot"></div><div class="u-note tr-sum" id="tr-sum"></div></div>
       ${monthsTable(tr.months)}</section>`;
+  }
+
+  // which network cards are counted
+  function trafficDevices() {
+    const tr = state.traffic;
+    if (!tr || !tr.devices) return;
+    const row = (d) => `<label class="tr-dev"><input type="checkbox" name="dev" value="${esc(d.name)}" ${d.counted ? "checked" : ""}>
+      <b>${num(esc(d.name))}</b><span class="pill ${d.physical ? "ok" : ""}">${esc(t(d.physical ? "tr_physical" : "tr_virtual"))}</span>
+      <span class="muted">${esc(t("tr_dev_month"))}: ${num(esc(fmtBytes(sumOf(d.month) || 0)))}</span></label>`;
+    const body = `<p class="muted">${esc(t("tr_dev_help"))}</p>
+      <label class="tr-mode"><input type="radio" name="mode" value="auto" ${tr.auto ? "checked" : ""}> ${esc(t("tr_dev_auto"))}</label>
+      <label class="tr-mode"><input type="radio" name="mode" value="manual" ${tr.auto ? "" : "checked"}> ${esc(t("tr_dev_manual"))}</label>
+      <div class="tr-dev-list">${tr.devices.filter((d) => d.counted || d.physical || sumOf(d.month) || sumOf(d.prev)).map(row).join("")}</div>`;
+    openDialog({
+      title: t("tr_dev_title"), body,
+      onOpen: (dlg, form) => {
+        const sync = () => { const manual = form.mode.value === "manual"; form.querySelectorAll('[name="dev"]').forEach((c) => { c.disabled = !manual; }); };
+        form.querySelectorAll('[name="mode"]').forEach((r) => r.addEventListener("change", sync));
+        sync();
+      },
+      onSubmit: async (form) => {
+        const manual = form.mode.value === "manual";
+        const devices = [...form.querySelectorAll('[name="dev"]:checked')].map((c) => c.value);
+        if (manual && !devices.length) throw new Error(t("tr_dev_none"));
+        await post("/api/traffic/devices", withInstance({ devices: manual ? devices : null }));
+        state.traffic = await api("/api/traffic", withInstance({ tz: new Date().getTimezoneOffset() }));
+        route();
+      },
+    });
   }
 
   function monthsTable(months) {
@@ -1454,6 +1495,14 @@
 
   // the chosen month's days, padded with the days still to come so the month always shows in full
   function monthDays(tr) {
+    if (state.trMonth === "24h") {
+      const hours = tr.hourly.map((h, i) => {
+        const d = new Date(h.start * 1000), hh = String(d.getHours()).padStart(2, "0"), nx = String((d.getHours() + 1) % 24).padStart(2, "0");
+        return { ...h, day: i, label: hh, title: `${hh}:00 – ${nx}:00`, short: `${hh}:00`, today: i === tr.hourly.length - 1 };
+      });
+      const sum = hours.reduce((a, h) => ({ rx: a.rx + (h.rx || 0), tx: a.tx + (h.tx || 0) }), { rx: 0, tx: 0 });
+      return { m: { ...sum, hourly: true }, days: hours };
+    }
     const m = state.trMonth === "prev" ? tr.prev : tr.month;
     const days = m.daily.map((d) => ({ ...d, label: String(d.day), title: dayName(m.key, d.day), short: dayName(m.key, d.day, "short") }));
     for (let d = days.length + 1; d <= m.days; d++) days.push({ day: d, rx: null, tx: null, future: true, label: String(d), title: dayName(m.key, d) });
@@ -1461,17 +1510,18 @@
   }
 
   function barsTable(m, days) {
-    const rows = days.filter((d) => !d.future).slice().reverse().map((d) => `<tr><td>${esc(d.short || d.title)}${d.today ? ` <span class="muted">(${esc(t("tr_today"))})</span>` : ""}</td><td data-label="${esc(t("tr_down"))}">${num(esc(fmtBytes(d.rx)))}</td><td data-label="${esc(t("tr_up"))}">${num(esc(fmtBytes(d.tx)))}</td><td data-label="${esc(t("tr_total"))}">${num(esc(fmtBytes(sumOf(d))))}</td></tr>`).join("");
-    return `<div class="chart-table table-wrap"><table><thead><tr><th>${esc(t("tr_day"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody>
+    const rows = days.filter((d) => !d.future).slice().reverse().map((d) => `<tr><td>${esc(d.short || d.title)}${d.today && !m.hourly ? ` <span class="muted">(${esc(t("tr_today"))})</span>` : ""}</td><td data-label="${esc(t("tr_down"))}">${num(esc(fmtBytes(d.rx)))}</td><td data-label="${esc(t("tr_up"))}">${num(esc(fmtBytes(d.tx)))}</td><td data-label="${esc(t("tr_total"))}">${num(esc(fmtBytes(sumOf(d))))}</td></tr>`).join("");
+    return `<div class="chart-table table-wrap"><table><thead><tr><th>${esc(t(m.hourly ? "tr_hour" : "tr_day"))}</th><th>${esc(t("tr_down"))}</th><th>${esc(t("tr_up"))}</th><th>${esc(t("tr_total"))}</th></tr></thead><tbody>${rows}</tbody>
       <tfoot><tr><th>${esc(t("tr_total"))}</th><th>${num(esc(fmtBytes(m.rx)))}</th><th>${num(esc(fmtBytes(m.tx)))}</th><th>${num(esc(fmtBytes(sumOf(m))))}</th></tr></tfoot></table></div>`;
   }
 
   function paintBars() {
     const box = $("tr-plot"), tr = state.traffic;
-    if (!box || !tr || !tr.month) return;
+    if (!box || !tr || !tr.month || !tr.hourly) return;
     const { m, days } = monthDays(tr);
     const sumBox = $("tr-sum");
-    if (sumBox) sumBox.innerHTML = m.rx == null && m.tx == null ? "" : t("tr_month_sum", { m: esc(monthName(m.key)), v: `<b>${num(esc(fmtBytes(sumOf(m))))}</b>`, d: num(esc(fmtBytes(m.rx))), u: num(esc(fmtBytes(m.tx))) });
+    const parts = { v: `<b>${num(esc(fmtBytes(sumOf(m))))}</b>`, d: num(esc(fmtBytes(m.rx))), u: num(esc(fmtBytes(m.tx))) };
+    if (sumBox) sumBox.innerHTML = m.rx == null && m.tx == null ? "" : m.hourly ? t("tr_24h_sum", parts) : t("tr_month_sum", { m: esc(monthName(m.key)), ...parts });
     if (state.trTable) { box.innerHTML = barsTable(m, days); return; }
     const vals = days.flatMap((d) => [d.rx || 0, d.tx || 0]);
     if (!Math.max(...vals)) { box.innerHTML = `<div class="empty">${esc(t(state.trMonth === "prev" ? "tr_nodata_month" : "no_data"))}</div>`; return; }
@@ -1503,7 +1553,7 @@
       });
       hits += `<rect class="hit" data-i="${i}" x="${L + gw * i}" y="0" width="${gw}" height="${H}" fill="transparent"/>`;
     });
-    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="height:${H}px" role="img" aria-label="${esc(`${t("tr_daily")} · ${monthName(m.key)}`)}"><g class="grid">${grid}</g><rect class="hl" y="${TOP}" height="${H - TOP - B}" width="${gw}" opacity="0"/>${bars}${hits}</svg><div class="tip" hidden></div>`;
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="height:${H}px" role="img" aria-label="${esc(`${t("tr_daily")} · ${m.hourly ? t("tr_24h") : monthName(m.key)}`)}"><g class="grid">${grid}</g><rect class="hl" y="${TOP}" height="${H - TOP - B}" width="${gw}" opacity="0"/>${bars}${hits}</svg><div class="tip" hidden></div>`;
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), hl = box.querySelector(".hl");
     const show = (e) => {
       const rect = svg.getBoundingClientRect();
@@ -1513,7 +1563,7 @@
       const d = days[i], cx = L + gw * i;
       if (d.future) { rest(); return; }
       hl.setAttribute("x", cx); hl.setAttribute("opacity", "1");
-      tip.innerHTML = `<div class="t">${esc(d.title)}${d.today ? ` · ${esc(t("tr_today"))}` : ""}</div>
+      tip.innerHTML = `<div class="t">${esc(d.title)}${d.today && !m.hourly ? ` · ${esc(t("tr_today"))}` : ""}</div>
         <div class="r"><i style="background:var(--c1)"></i><b>${num(esc(fmtBytes(d.rx)))}</b><span>${esc(t("tr_down"))}</span></div>
         <div class="r"><i style="background:var(--c2)"></i><b>${num(esc(fmtBytes(d.tx)))}</b><span>${esc(t("tr_up"))}</span></div>
         <div class="r"><i></i><b>${num(esc(fmtBytes(sumOf(d))))}</b><span>${esc(t("tr_total"))}</span></div>`;
@@ -1663,6 +1713,7 @@
     const go = e.target.closest("[data-go]");
     if (go) { location.hash = go.dataset.go; return; }
     if (e.target.closest("[data-more]")) { moreSheet(); return; }
+    if (e.target.closest("[data-trdev]")) { trafficDevices(); return; }
     const trm = e.target.closest("[data-trmonth]");
     if (trm) {
       state.trMonth = trm.dataset.trmonth;

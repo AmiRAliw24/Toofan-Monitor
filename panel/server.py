@@ -279,6 +279,7 @@ POST_API = {
     "/api/security/unlock": post_unlock, "/api/security/2fa/setup": post_2fa_setup,
     "/api/security/2fa/enable": post_2fa_enable, "/api/security/2fa/disable": post_2fa_disable,
     "/api/security/settings": post_security_settings,
+    "/api/traffic/devices": traffic.post_devices,
 }
 
 
