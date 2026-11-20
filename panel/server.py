@@ -77,6 +77,8 @@ PRIVATE_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/defender.js": ("defender.js", "text/javascript; charset=utf-8"),
+    "/conns.js": ("conns.js", "text/javascript; charset=utf-8"),
+    "/world.json": ("world.json", "application/json"),   # the map of the connections page (svg-maps, CC BY 4.0)
     "/security.js": ("security.js", "text/javascript; charset=utf-8"),
 }
 # Generated icons, served without a login so a browser tab can always show them.

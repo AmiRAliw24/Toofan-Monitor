@@ -26,6 +26,8 @@ FILES=(
   panel/traffic.py:644
   panel/defender.py:644
   panel/static/defender.js:644
+  panel/static/world.json:644
+  panel/static/conns.js:644
   panel/static/security.js:644
   panel/static/boot.js:644
   panel/security.py:644
@@ -40,6 +42,8 @@ FILES=(
   defender/nftlib.py:644
   defender/sysfw.py:644
   defender/sources.py:644
+  defender/ipdb.py:644
+  defender/conns.py:644
   panel/static/index.html:644
   panel/static/login.html:644
   panel/static/app.js:644

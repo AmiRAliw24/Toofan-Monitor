@@ -31,9 +31,11 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import unquote
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import conns  # noqa: E402
 import f2b  # noqa: E402
 import geo  # noqa: E402
 import hostinfo  # noqa: E402
+import ipdb  # noqa: E402
 import nftlib  # noqa: E402
 import nftrules  # noqa: E402
 import sources  # noqa: E402
@@ -565,6 +567,60 @@ def unban(ip):
     event("unban", ip=addr)
 
 
+_conn_status = {"at": 0, "bans": {}, "block": [], "allow": []}
+
+
+def conn_ip_status(ip):
+    """Is this address banned, blocklisted, allowlisted, on a threat list? (for the connections page)"""
+    c = _conn_status
+    if time.time() - c["at"] > 5:
+        nets = lambda lst: [n for n in (_try_net(e["ip"]) for e in lst) if n is not None]   # noqa: E731
+        c.update(at=time.time(), bans={r["ip"]: r["reason"] for r in ban_list()}, block=nets(CFG["block"]), allow=nets(CFG["allow"]))
+    try:
+        a = ipaddress.ip_address(ip)
+    except ValueError:
+        return {}
+    out = {}
+    if ip in c["bans"]:
+        out["banned"] = c["bans"][ip]
+    if any(a.version == n.version and a in n for n in c["block"]):
+        out["blocked"] = True
+    if any(a.version == n.version and a in n for n in c["allow"]) or ip in admin_ips():
+        out["allowed"] = True
+    feeds = CFG["threat"].get("feeds") or []
+    if feeds:
+        try:
+            hits = threat.member(DATA, feeds, ip)
+        except Exception:
+            hits = []
+        if hits:
+            out["threat"] = hits
+    return out
+
+
+def _try_net(v):
+    try:
+        return ipaddress.ip_network(v, strict=False)
+    except ValueError:
+        return None
+
+
+ACCT_FILE = "conn_acct"
+
+
+def api_conn_acct(b):
+    """Count the bytes of each connection (the kernel's conntrack accounting; costs a little CPU)."""
+    on = bool(b.get("on"))
+    conns.set_acct(on)
+    path = os.path.join(DATA, ACCT_FILE)
+    if on:
+        open(path, "w").close()
+    elif os.path.exists(path):
+        os.unlink(path)
+    event("conn_acct", on=on)
+    return {"acct": conns.acct_on()}
+
+
 def ban_list():
     now = time.time()
     rows = []
@@ -766,6 +822,8 @@ def stats_loop():
                     att.update(active=True, since=t0, peak={k: s.get(k) or 0 for k in ("pps", "drop", "conns", "cookies")}, reason=",".join(signals))
                     event("attack_start", reason=att["reason"], pps=round(pps), drop=round(s["drop"]),
                           top=[r["ip"] for r in hostinfo.top_sources(5, 0)])
+                    # where it comes from: countries, networks, ports, kept as a report for the connections page
+                    conns.record_attack(lambda: STATE["attack"]["active"], t0, att["reason"])
                     if CFG["auto_escalate"] and CFG["enabled"] and CFG["profile"] != "attack" and not STATE["escalated"]:
                         STATE.update(escalated=True, escalated_at=t0)
                         try:
@@ -1745,6 +1803,9 @@ GET = {
     "/sshd": api_sshd,
     "/threat": api_threat,
     "/export": api_export,
+    "/conns": conns.view,
+    "/conns/ip": conns.detail,
+    "/conns/report": lambda q: conns.report(int(q.get("id", 0) or 0)),
 }
 POST = {
     "/config": lambda b: change(_cfg_patch(b), rollback=bool(b.get("_rollback", True)), what=str(b.get("_what", "config"))[:40]),
@@ -1779,6 +1840,8 @@ POST = {
     "/threat/custom/add": api_threat_custom_add,
     "/threat/custom/remove": api_threat_custom_remove,
     "/test": api_test,
+    "/conns/acct": api_conn_acct,
+    "/conns/geo": lambda b: (ipdb.ensure(DATA, force=True), ipdb.status(DATA))[1],
 }
 
 
@@ -1848,6 +1911,12 @@ def main():
     os.chown(SOCK, 0, PANEL_GID)
     os.chmod(SOCK, 0o660)
     reapply_sysctl()
+    if os.path.exists(os.path.join(DATA, ACCT_FILE)):
+        try:
+            conns.set_acct(True)        # per-connection byte counting, as it was before the restart
+        except OSError as e:
+            log("cannot turn on conntrack accounting:", e)
+    conns.configure(DATA, conn_ip_status)
     seed_recent_logins()
     load_cdn()      # the last downloaded copy of Cloudflare's ranges, if there is one
     try:

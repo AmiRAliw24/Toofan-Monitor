@@ -45,6 +45,37 @@ def fetch(urls, check=None, timeout=40, limit=40_000_000):
     raise ValueError("; ".join(errors) or "no source")
 
 
+def fetch_file(urls, dest, check=None, timeout=60, limit=200_000_000):
+    """Download the first URL that works into `dest` (streamed, for big files); returns the URL used.
+    `check(path)` may reject a download (an error page, a cut-off file); the next URL is tried then."""
+    errors = []
+    for url in urls:
+        tmp = dest + ".part"
+        try:
+            req = Request(url, headers={"User-Agent": UA, "Accept-Encoding": "identity"})
+            size = 0
+            with urlopen(req, timeout=timeout) as r, open(tmp, "wb") as f:
+                while True:
+                    block = r.read(1 << 16)
+                    if not block:
+                        break
+                    size += len(block)
+                    if size > limit:
+                        raise ValueError("too large")
+                    f.write(block)
+            if check and not check(tmp):
+                raise ValueError("not a usable file (maybe an error page or cut off)")
+            os.replace(tmp, dest)
+            return url
+        except Exception as e:  # blocked, 403/404, timeout, bad content: try the next source
+            errors.append(f"{url.split('/')[2]}: {type(e).__name__}: {e}"[:160])
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+    raise ValueError("; ".join(errors) or "no source")
+
+
 def fetch_any(urls, **kw):
     """Like fetch(), with every URL expanded to its alternatives."""
     seen, all_urls = set(), []

@@ -218,7 +218,7 @@
   const tt = (k, i, vars) => { const v = t(k); const s = Array.isArray(v) ? v[i] : v; return vars ? Object.entries(vars).reduce((a, [x, y]) => a.replace(`{${x}}`, y), s) : s; };
 
   // ---------------------------------------------------------------- state
-  const TABS = [["overview", "grid"], ["firewall", "lock"], ["ddos", "zap"], ["rules", "rule"], ["lists", "list"], ["threat", "radar"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
+  const TABS = [["overview", "grid"], ["conns", "globe"], ["firewall", "lock"], ["ddos", "zap"], ["rules", "rule"], ["lists", "list"], ["threat", "radar"], ["ssh", "terminal"], ["f2b", "jail"], ["hardening", "shield"], ["advanced", "sliders"]];
   const store = { get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } } };
   const D = { tab: store.get("df_tab", "overview"), st: null, err: "", samples: [], lastT: 0, timer: null, ticks: 0, fw: null, talkers: [], events: [], root: null, heroKey: "" };
   if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
@@ -269,6 +269,7 @@
     try {
       body.innerHTML = await RENDER[id]();
       if (id === "overview") paintLive();
+      if (id === "conns" && window.DefenderConns) window.DefenderConns.mount(body);
     } catch (e) {
       if (e.message !== "unauthorized") body.innerHTML = `<div class="notice bad">${icon("bell")}<span>${esc(e.message)}</span></div>`;
     }
@@ -285,6 +286,7 @@
       Object.assign(D.st, { attack: live.attack, escalated: live.escalated, applied: live.applied, bans: live.bans, pending: live.pending });
       paintPending(live.pending);
       D.ticks++;
+      if (D.tab === "conns" && window.DefenderConns) window.DefenderConns.tick();
       if (D.tab === "overview") {
         paintLive();
         if (D.ticks % 5 === 0) refreshOverviewSlow();
@@ -1685,7 +1687,8 @@
     return testerHTML() + await renderLists();
   }
 
-  const RENDER = { advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderListsAll, threat: renderThreat, ssh: renderSshAll, f2b: renderF2b, hardening: renderHardening };
+  const renderConns = () => (window.DefenderConns ? window.DefenderConns.render({ apply, D, rerender: () => rerender() }) : "");
+  const RENDER = { conns: renderConns, advanced: renderAdvanced, overview: renderOverview, firewall: renderFirewall, ddos: renderDdos, rules: renderRules, lists: renderListsAll, threat: renderThreat, ssh: renderSshAll, f2b: renderF2b, hardening: renderHardening };
   const rerender = () => showTab(D.tab);
 
   // ---------------------------------------------------------------- events
