@@ -22,7 +22,7 @@ POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unall
               "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
               "f2b/file", "f2b/file/delete", "import", "sshd/apply", "sshd/confirm", "sshd/revert", "sshd/key/add",
               "sshd/key/remove", "test", "threat/refresh", "threat/custom/add", "threat/custom/remove", "port/open", "port/close", "sysfw/ufw",
-              "conns/acct", "conns/geo"}
+              "conns/acct", "conns/geo", "conns/ban", "conns/history"}
 NOT_RUNNING = ("The firewall service (defender) is not running. On the server run: "
                "cd /opt/server-monitoring && docker compose up -d --build defender")
 JAIL_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
@@ -65,7 +65,7 @@ CONN_PARAMS = {
     "dir": re.compile(r"^(in|out|int|all)$"), "proto": re.compile(r"^[a-z0-9-]{1,12}$"), "state": re.compile(r"^[A-Z_]{1,16}$"),
     "port": re.compile(r"^\d{1,5}$"), "cc": re.compile(r"^([A-Z]{2}|LAN|\?)$"), "asn": re.compile(r"^\d{1,10}$"),
     "ip": re.compile(r"^[0-9a-fA-F:.]{2,45}(/\d{1,3})?$"), "limit": re.compile(r"^\d{1,4}$"), "id": re.compile(r"^\d{1,12}$"),
-    "q": re.compile(r"^[^\x00-\x1f]{1,80}$"),
+    "q": re.compile(r"^[^\x00-\x1f]{1,80}$"), "hist": re.compile(r"^1$"), "qcc": re.compile(r"^[A-Z]{2}(,[A-Z]{2}){0,249}$"),
 }
 
 
@@ -138,6 +138,12 @@ def _message(e, host, enabled=True):
         return head + "\"Under attack\" limits switched on automatically.\nحالت «زیر حمله» خودکار فعال شد."
     if k == "ssh_ban":
         return head + f"SSH brute force from {e.get('ip')} ({e.get('failures')} failures): banned for {e.get('minutes')} min."
+    if k == "attack_sources":
+        cs = ", ".join(f"{c} {n}" for c, n in e.get("countries") or []) or "-"
+        return (f"{SHIELD}\U0001F30D Firewall · {host}\nAttack sources: {e.get('cc') or '?'} sent {round((e.get('share') or 0) * 100)}% of "
+                f"{e.get('conns')} incoming connections ({e.get('half') or 0} half-open) from {e.get('ips')} addresses.\n"
+                f"Countries: {cs}\nMost hit: {e.get('port') or '-'}" + (f" · network: {e['org']}" if e.get("org") else "")
+                + "\nمنشأ حمله: جزئیات در فایروال › اتصال‌ها › گزارش حمله‌ها.")
     if k == "f2b_ban" and not e.get("manual"):
         return head + f"fail2ban [{e.get('jail')}] banned {e.get('ip')}."
     return None
@@ -161,7 +167,7 @@ def notify_loop():
             notify = st.get("notify") or {}
             for e in rows:
                 last = max(last, e["id"])
-                if e["kind"] in ("attack_start", "attack_end", "escalate"):
+                if e["kind"] in ("attack_start", "attack_end", "escalate", "attack_sources"):
                     wanted = notify.get("attacks", True)
                 else:
                     wanted = notify.get("bans", False) and e["kind"] in ("ssh_ban", "f2b_ban")

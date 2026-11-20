@@ -830,6 +830,10 @@ ssh root@SERVER 'bash install.sh'
 - **سبک:** اتصال‌های یکسان (همان آی‌پی، پورت و وضعیت) یک ردیف با تعداد می‌شوند، پس حتی فلاد صدها هزار اتصالی هم سبک نمایش داده می‌شود. جدول فقط وقتی خوانده می‌شود که صفحه باز است و فاصله‌ی خواندن خودش را با اندازه‌ی جدول تنظیم می‌کند (زیر ~۱۰٪ یک هسته)؛ صفحه بسته باشد هیچ هزینه‌ای ندارد و حافظه آزاد می‌شود.
 - **گزارش حمله:** وقتی حمله تشخیص داده شود، شلوغ‌ترین لحظه‌ی اتصال‌های ورودی (کشورها، شبکه‌ها، پورت‌ها، زیرشبکه‌ها، آی‌پی‌ها) ذخیره می‌شود تا بعداً ببینید از کجا بوده.
 - **حجم هر اتصال (اختیاری):** با یک کلید، شمارش بایت هر اتصال کرنل روشن می‌شود.
+- **تاریخچه‌ی ۴۸ ساعته:** هر ۵ دقیقه (حتی وقتی صفحه بسته است) ثبت می‌شود اتصال‌های ورودی از کدام کشورها بوده‌اند؛ نمودار «۴۸ ساعت» نشان می‌دهد حمله از کی و از کجا شروع شده (حدود ۰٫۳٪ یک هسته؛ از پایین صفحه قابل خاموش کردن).
+- **برنامه‌ی هر اتصال خروجی** (xray، nginx، …) و کانتینری که وصل شده؛ **نام میزبان (PTR)** و لیست‌های تهدید هر آی‌پی در پنجره‌ی جزئیات.
+- **انتخاب چندتایی و مسدود کردن یک‌جا** (۱ ساعت، ۱ روز، ۷ روز یا دائمی)، **مرتب‌سازی** ستون‌ها، **خروجی CSV** (آی‌پی‌ها و همه‌ی اتصال‌ها، با نام کشورها، قابل باز کردن در اکسل)، جستجو با **نام کشور** («آلمان») و میان‌بر `/` برای جستجو.
+- **اعلان تلگرام منشأ حمله:** بعد از هر حمله پیامی می‌آید که از کدام کشورها، با چند درصد، به کدام پورت و از کدام شبکه بوده.
 - مسدود کردن کشور از این صفحه همان قانون «کشورهای مسدود» را می‌سازد و مثل هر تغییر دیگر اول ۶۰ ثانیه آزمایش می‌شود؛ آدرس‌های خودتان هیچ‌وقت مسدود نمی‌شوند. نقشه: [svg-maps](https://github.com/VictorCazanave/svg-maps) (CC BY 4.0).
 
 ### ایمنی (تا هرگز خودتان را بیرون نیندازید)
@@ -1079,6 +1083,17 @@ docker compose restart panel
 ```bash
 ./scripts/build-installer.sh
 ```
+
+تست‌ها (فقط کتابخانه‌ی استاندارد پایتون، بدون نیاز به سرور، داکر یا اینترنت):
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+- `tests/test_conns.py`: خواندن جدول conntrack (ورودی، خروجی، پورت داکر، کانتینر، ICMP، IPv6، نیمه‌باز، loopback، حجم)، همه‌ی فیلترها، هشدارها، تاریخچه، گزارش حمله و جزئیات آی‌پی
+- `tests/test_ipdb.py`: ساخت پایگاه‌داده‌ی کشور و شبکه و جستجوی آی‌پی (لبه‌ی بازه‌ها، IPv6، منبع جایگزین)
+- `tests/test_traffic.py`: شمارش دقیق ترافیک با ریبوت، قطعی و تانل
+- `tests/test_panel_params.py`: پنل فقط پارامترهای معتبر را به سرویس فایروال می‌فرستد
 
 ```
 .
@@ -4293,7 +4308,7 @@ POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unall
               "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
               "f2b/file", "f2b/file/delete", "import", "sshd/apply", "sshd/confirm", "sshd/revert", "sshd/key/add",
               "sshd/key/remove", "test", "threat/refresh", "threat/custom/add", "threat/custom/remove", "port/open", "port/close", "sysfw/ufw",
-              "conns/acct", "conns/geo"}
+              "conns/acct", "conns/geo", "conns/ban", "conns/history"}
 NOT_RUNNING = ("The firewall service (defender) is not running. On the server run: "
                "cd /opt/server-monitoring && docker compose up -d --build defender")
 JAIL_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
@@ -4336,7 +4351,7 @@ CONN_PARAMS = {
     "dir": re.compile(r"^(in|out|int|all)$"), "proto": re.compile(r"^[a-z0-9-]{1,12}$"), "state": re.compile(r"^[A-Z_]{1,16}$"),
     "port": re.compile(r"^\d{1,5}$"), "cc": re.compile(r"^([A-Z]{2}|LAN|\?)$"), "asn": re.compile(r"^\d{1,10}$"),
     "ip": re.compile(r"^[0-9a-fA-F:.]{2,45}(/\d{1,3})?$"), "limit": re.compile(r"^\d{1,4}$"), "id": re.compile(r"^\d{1,12}$"),
-    "q": re.compile(r"^[^\x00-\x1f]{1,80}$"),
+    "q": re.compile(r"^[^\x00-\x1f]{1,80}$"), "hist": re.compile(r"^1$"), "qcc": re.compile(r"^[A-Z]{2}(,[A-Z]{2}){0,249}$"),
 }
 
 
@@ -4409,6 +4424,12 @@ def _message(e, host, enabled=True):
         return head + "\"Under attack\" limits switched on automatically.\nحالت «زیر حمله» خودکار فعال شد."
     if k == "ssh_ban":
         return head + f"SSH brute force from {e.get('ip')} ({e.get('failures')} failures): banned for {e.get('minutes')} min."
+    if k == "attack_sources":
+        cs = ", ".join(f"{c} {n}" for c, n in e.get("countries") or []) or "-"
+        return (f"{SHIELD}\U0001F30D Firewall · {host}\nAttack sources: {e.get('cc') or '?'} sent {round((e.get('share') or 0) * 100)}% of "
+                f"{e.get('conns')} incoming connections ({e.get('half') or 0} half-open) from {e.get('ips')} addresses.\n"
+                f"Countries: {cs}\nMost hit: {e.get('port') or '-'}" + (f" · network: {e['org']}" if e.get("org") else "")
+                + "\nمنشأ حمله: جزئیات در فایروال › اتصال‌ها › گزارش حمله‌ها.")
     if k == "f2b_ban" and not e.get("manual"):
         return head + f"fail2ban [{e.get('jail')}] banned {e.get('ip')}."
     return None
@@ -4432,7 +4453,7 @@ def notify_loop():
             notify = st.get("notify") or {}
             for e in rows:
                 last = max(last, e["id"])
-                if e["kind"] in ("attack_start", "attack_end", "escalate"):
+                if e["kind"] in ("attack_start", "attack_end", "escalate", "attack_sources"):
                     wanted = notify.get("attacks", True)
                 else:
                     wanted = notify.get("bans", False) and e["kind"] in ("ssh_ban", "f2b_ban")
@@ -4856,6 +4877,8 @@ __MONITORING_EOF__
     const p = { ...e };
     if (e.kind === "attack_start") { p.pps = nf(e.pps, 0); p.drop = nf(e.drop, 0); }
     if (e.kind === "attack_end") p.min = nf((e.seconds || 0) / 60, 0);
+    if (e.kind === "attack_sources") { p.pct = nf((e.share || 0) * 100, 0); p.conns = nf(e.conns || 0, 0); p.port = e.port || "–"; p.cc = e.cc || "?"; }
+    if (e.kind === "conn_acct") p.state = t(e.on ? "df_on" : "df_off");
     return t(`df_e_${e.kind}`, p);
   }
   function eventsHTML() {
@@ -6481,6 +6504,14 @@ __MONITORING_EOF__
   // ---------------------------------------------------------------- strings
   const EN = {
     df_t_conns: "Connections", cx_n_ips: "{n} IPs",
+    df_e_attack_sources: "Attack sources: {cc} sent {pct}% of {conns} incoming connections, most to {port}",
+    df_e_bulk_ban: "{n} addresses banned from the connections page", df_e_conn_acct: "Per-connection traffic counting: {state}", df_on: "on", df_off: "off",
+    cx_live30: "Live (30 min)", cx_h48: "48 hours", cx_hist_empty: "The history fills up by itself: a point every 5 minutes, also when this page is closed.",
+    cx_hist_off: "Background history is off.", cx_hist: "Keep a 48-hour history", cx_hist_sub: "Every 5 minutes, also when this page is closed, notes where incoming connections come from (about 0.3% of one core).",
+    cx_sel: "{n} selected", cx_sel_all: "Select all on this page", cx_sel_clear: "Clear selection", cx_ban_sel: "Ban {d}", cx_block_sel: "Block permanently",
+    cx_bulk_q: "Ban {n} addresses for {d}?", cx_bulk_perm_q: "Add {n} addresses to the permanent blocklist?", cx_bulk_done: "{n} banned", cx_bulk_skip: "{n} skipped (yours, allowlisted or invalid)",
+    cx_csv: "CSV", cx_csv_t: "Download as CSV (opens in Excel)", cx_sort: "Sort", cx_ptr: "Host name", cx_threat_lists: "Threat lists", cx_kbd: "Press / to search",
+    cx_program: "program", cx_c_prog: "Program / service",
     cx_title: "Live connections", cx_sub: "Every connection to and from this server right now: who (address, country, network), to what (port, service, container) and in which state. Click anything to filter by it.",
     cx_in: "Incoming", cx_out: "Outgoing", cx_all: "All", cx_int: "Internal",
     cx_live: "Live · every {s}", cx_paused: "Paused", cx_pause: "Pause", cx_resume: "Resume", cx_read: "table read in {s}",
@@ -6526,6 +6557,14 @@ __MONITORING_EOF__
   };
   const FA = {
     df_t_conns: "اتصال‌ها", cx_n_ips: "{n} آی‌پی",
+    df_e_attack_sources: "منشأ حمله: {cc} با {pct}٪ از {conns} اتصال ورودی، بیشتر به {port}",
+    df_e_bulk_ban: "{n} آی‌پی از صفحه‌ی اتصال‌ها مسدود شد", df_e_conn_acct: "شمارش حجم هر اتصال: {state}", df_on: "روشن", df_off: "خاموش",
+    cx_live30: "زنده (۳۰ دقیقه)", cx_h48: "۴۸ ساعت", cx_hist_empty: "تاریخچه خودش پر می‌شود: هر ۵ دقیقه یک نقطه، حتی وقتی این صفحه بسته است.",
+    cx_hist_off: "ثبت تاریخچه در پس‌زمینه خاموش است.", cx_hist: "نگه‌داشتن تاریخچه‌ی ۴۸ ساعته", cx_hist_sub: "هر ۵ دقیقه، حتی وقتی این صفحه بسته است، ثبت می‌کند اتصال‌های ورودی از کجا آمده‌اند (حدود ۰٫۳٪ یک هسته).",
+    cx_sel: "{n} انتخاب شد", cx_sel_all: "انتخاب همه‌ی این صفحه", cx_sel_clear: "لغو انتخاب", cx_ban_sel: "مسدود {d}", cx_block_sel: "مسدود دائمی",
+    cx_bulk_q: "{n} آی‌پی برای {d} مسدود شود؟", cx_bulk_perm_q: "{n} آی‌پی به لیست سیاه دائمی اضافه شود؟", cx_bulk_done: "{n} آی‌پی مسدود شد", cx_bulk_skip: "{n} مورد رد شد (خودتان، مجاز یا نامعتبر)",
+    cx_csv: "CSV", cx_csv_t: "دانلود به‌صورت CSV (در اکسل باز می‌شود)", cx_sort: "مرتب‌سازی", cx_ptr: "نام میزبان", cx_threat_lists: "لیست‌های تهدید", cx_kbd: "برای جستجو / را بزنید",
+    cx_program: "برنامه", cx_c_prog: "برنامه / سرویس",
     cx_title: "اتصال‌های زنده", cx_sub: "همه‌ی اتصال‌های این سرور همین الان: چه کسی (آی‌پی، کشور، شبکه)، به کجا (پورت، سرویس، کانتینر) و در چه وضعیتی. روی هر چیزی کلیک کنید تا بر اساس آن فیلتر شود.",
     cx_in: "ورودی", cx_out: "خروجی", cx_all: "همه", cx_int: "داخلی",
     cx_live: "زنده · هر {s}", cx_paused: "متوقف", cx_pause: "توقف", cx_resume: "ادامه", cx_read: "خواندن جدول {s}",
@@ -6608,13 +6647,25 @@ __MONITORING_EOF__
   const C = {
     dir: "in", f: { cc: "", port: "", ip: "", asn: "", proto: "", state: "", q: "" }, limit: 300, data: null, paused: false, busy: false,
     last: 0, root: null, ctx: null, map: null, more: {}, err: "",
+    trend: "live", hist: null, histAt: 0, sel: new Set(), sort: { k: "conns", desc: true }, html: {},
   };
 
   function params() {
     const p = { dir: C.dir, limit: C.limit };
     for (const [k, v] of Object.entries(C.f)) if (v) p[k] = v;
+    if (C.f.q) {     // countries whose name (in this language or English) contains the search text
+      const q = C.f.q.toLowerCase(), codes = new Set();
+      const all = (C.map && Object.keys(C.map.paths)) || ((C.data && C.data.countries.map((c) => c.cc)) || []);
+      for (const cc of all) {
+        if (!/^[A-Z]{2}$/.test(cc)) continue;
+        if (ccName(cc).toLowerCase().includes(q) || enName(cc).toLowerCase().includes(q)) codes.add(cc);
+      }
+      if (codes.size) p.qcc = [...codes].slice(0, 250).join(",");
+    }
     return p;
   }
+  let enNames = null;
+  const enName = (cc) => { try { enNames = enNames || new Intl.DisplayNames(["en"], { type: "region" }); return enNames.of(cc) || cc; } catch (e) { return cc; } };
 
   async function load(force = false) {
     if (C.busy || (!force && C.paused)) return;
@@ -6634,6 +6685,16 @@ __MONITORING_EOF__
     if (!C.root || !document.body.contains(C.root) || C.paused || document.hidden) return;
     const every = Math.max(3, (C.data && C.data.interval) || 3) * 1000;
     if (Date.now() - C.last >= every - 300) load();
+    if (C.trend === "h48" && Date.now() - C.histAt > 60000) loadHistory();
+  }
+
+  async function loadHistory() {
+    C.histAt = Date.now();
+    try {
+      const d = await api("/api/defender/conns", { dir: "in", limit: 20, hist: 1 });
+      C.hist = d.history || [];
+    } catch (e) { /* the live view still works */ }
+    if (C.data) paintTrend(C.data);
   }
 
   // ---------------------------------------------------------------- layout
@@ -6643,7 +6704,7 @@ __MONITORING_EOF__
       <div class="sec-head"><h3>${icon("network")}${esc(t("cx_title"))}</h3><p class="muted">${esc(t("cx_sub"))}</p></div>
       <div class="cx-bar">
         <div class="seg" role="group" aria-label="${esc(t("cx_title"))}" id="cx-dir">${dirSeg()}</div>
-        <label class="cx-search">${icon("search")}<input type="search" id="cx-q" placeholder="${esc(t("cx_search"))}" value="${esc(C.f.q)}" autocomplete="off" spellcheck="false"></label>
+        <label class="cx-search" title="${esc(t("cx_kbd"))}">${icon("search")}<input type="search" id="cx-q" placeholder="${esc(t("cx_search"))}" value="${esc(C.f.q)}" autocomplete="off" spellcheck="false"><kbd class="cx-kbd" aria-hidden="true">/</kbd></label>
         <select id="cx-proto" aria-label="${esc(t("cx_proto"))}">${opts([["", `${t("cx_proto")}: ${t("cx_any")}`], ["tcp", "TCP"], ["udp", "UDP"], ["icmp", "ICMP"], ["ipv6-icmp", "ICMPv6"]], C.f.proto)}</select>
         <select id="cx-state" aria-label="${esc(t("cx_state"))}">${opts([["", `${t("cx_state")}: ${t("cx_any")}`], ["HALF", t("cx_half_state")], ...["ESTABLISHED", "SYN_RECV", "SYN_SENT", "TIME_WAIT", "CLOSE_WAIT", "UNREPLIED", "ACTIVE"].map((s) => [s, stName(s)])], C.f.state)}</select>
         <div class="cx-live" id="cx-live"></div>
@@ -6655,14 +6716,20 @@ __MONITORING_EOF__
         <div class="chart cx-map-card"><header><h3 id="cx-world-h">${icon("globe")}${esc(t(C.dir === "out" ? "cx_world_out" : "cx_world"))}</h3></header><div class="cx-map" id="cx-map"></div><div class="cx-tip" id="cx-tip" hidden></div></div>
         <div class="chart cx-cc-card"><header><h3>${icon("pin")}${esc(t("cx_countries"))}</h3></header><div id="cx-cc"></div></div>
       </div>
-      <div class="chart cx-trend-card" id="cx-trend-card" hidden><header><h3>${icon("activity")}${esc(t("cx_trend"))}</h3><p class="muted small">${esc(t("cx_trend_sub"))}</p></header><div class="legend" id="cx-trend-legend"></div><div class="plot" id="cx-trend"></div></div>
+      <div class="chart cx-trend-card" id="cx-trend-card" hidden><header><h3>${icon("activity")}${esc(t("cx_trend"))}</h3>
+        <div class="seg" role="group" aria-label="${esc(t("cx_trend"))}">${[["live", "cx_live30"], ["h48", "cx_h48"]].map(([k, l]) => `<button type="button" data-c="trend" data-v="${k}" aria-pressed="${C.trend === k}">${esc(t(l))}</button>`).join("")}</div>
+        <p class="muted small" id="cx-trend-sub">${esc(t("cx_trend_sub"))}</p></header><div class="legend" id="cx-trend-legend"></div><div class="plot" id="cx-trend"></div></div>
       <div class="cx-grid">
         <div class="chart"><header><h3 id="cx-ports-h">${icon("server")}${esc(t("cx_ports"))}</h3></header><div id="cx-ports"></div></div>
         <div class="chart"><header><h3>${icon("network")}${esc(t("cx_asns"))}</h3></header><div id="cx-asns"></div></div>
         <div class="chart"><header><h3>${icon("grid")}${esc(t("cx_subnets"))}</h3></header><div id="cx-subnets"></div></div>
       </div>
-      <div class="chart"><header><h3>${icon("globe")}${esc(t("cx_ips"))}</h3><span class="muted small" id="cx-ips-n"></span></header><div id="cx-ips"></div></div>
-      <div class="chart"><header><h3>${icon("list")}${esc(t("cx_rows"))}</h3><span class="muted small">${esc(t("cx_rows_sub"))}</span></header><div id="cx-rows"></div></div>
+      <div class="chart"><header><h3>${icon("globe")}${esc(t("cx_ips"))}</h3><span class="cx-count" id="cx-ips-n"></span>
+        <button type="button" class="btn small ghost cx-csv" data-c="csv" data-k="ips" title="${esc(t("cx_csv_t"))}">${icon("file")}${esc(t("cx_csv"))}</button></header>
+        <div id="cx-bulk"></div><div id="cx-ips"></div></div>
+      <div class="chart"><header><h3>${icon("list")}${esc(t("cx_rows"))}</h3>
+        <button type="button" class="btn small ghost cx-csv" data-c="csv" data-k="rows" title="${esc(t("cx_csv_t"))}">${icon("file")}${esc(t("cx_csv"))}</button>
+        <span class="muted small">${esc(t("cx_rows_sub"))}</span></header><div id="cx-rows"></div></div>
       <div class="chart"><header><h3>${icon("report")}${esc(t("cx_reports"))}</h3><span class="muted small">${esc(t("cx_reports_sub"))}</span></header><div id="cx-reports"></div></div>
       <div class="cx-foot" id="cx-foot"></div>
     </section>`;
@@ -6679,6 +6746,18 @@ __MONITORING_EOF__
     const q = C.root.querySelector("#cx-q");
     let deb = 0;
     q.addEventListener("input", () => { clearTimeout(deb); deb = setTimeout(() => { C.f.q = q.value.trim(); C.limit = 300; load(true); }, 350); });
+    if (!C.keyBound) {
+      C.keyBound = true;
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "/" || !C.root || !document.body.contains(C.root) || e.ctrlKey || e.metaKey || e.altKey) return;
+        const tag = (document.activeElement && document.activeElement.tagName) || "";
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || document.querySelector("dialog[open]")) return;
+        e.preventDefault();
+        const box = $("cx-q");
+        if (box) box.focus();
+      });
+    }
+    C.html = {};
     paintLive();
     loadMap();
     await load(true);
@@ -6686,7 +6765,12 @@ __MONITORING_EOF__
 
   // ---------------------------------------------------------------- painting
   const $ = (id) => C.root && C.root.querySelector(`#${id}`);
-  const put = (id, html) => { const el = $(id); if (el && el.innerHTML !== html) el.innerHTML = html; };
+  const put = (id, html) => {
+    const el = $(id);
+    if (!el || C.html[id] === html) return;      // unchanged: keep the DOM (hover, focus, scroll) as it is
+    C.html[id] = html;
+    el.innerHTML = html;
+  };
 
   function paint() {
     if (!C.root || !document.body.contains(C.root)) return;
@@ -6709,6 +6793,7 @@ __MONITORING_EOF__
     put("cx-subnets", subnetsHTML(d));
     put("cx-ips-n", d.ips.length ? esc(`${nf(d.summary.ips, 0)}`) : "");
     put("cx-ips", ipsHTML(d));
+    put("cx-bulk", bulkHTML());
     put("cx-rows", rowsHTML(d));
     put("cx-reports", reportsHTML(d));
     put("cx-foot", footHTML(d));
@@ -6844,11 +6929,18 @@ __MONITORING_EOF__
     return `<span class="pill ${kind} cx-st">${esc(stName(s))}</span>`;
   };
 
+  const SORTS = { conns: (r) => r.conns, half: (r) => r.half, nports: (r) => r.nports, first: (r) => -(r.first || 0), bytes: (r) => r.bytes_in + r.bytes_out };
+  const selectable = (r) => C.dir !== "out" && r.cc !== "LAN" && !r.allowed && !r.banned && !r.blocked;
+  const sortTh = (k, label) => `<th><button type="button" class="cx-th${C.sort.k === k ? " on" : ""}" data-c="sort" data-k="${k}" title="${esc(t("cx_sort"))}">${esc(t(label))}${C.sort.k === k ? `<span aria-hidden="true">${C.sort.desc ? "▾" : "▴"}</span>` : ""}</button></th>`;
+
   function ipsHTML(d) {
     if (!d.ips.length) return empty(d);
-    const max = d.ips[0].conns, out = C.dir === "out";
-    const rows = take("ips", d.ips, 25).map((r) => `<tr class="${r.banned || r.blocked ? "cx-dim" : ""}">
-      <td><button type="button" class="cx-link cx-ip" data-c="ip" data-ip="${esc(r.ip)}">${num(esc(r.ip))}</button>${statusPills(r)}</td>
+    const max = Math.max(...d.ips.map((r) => r.conns)), out = C.dir === "out";
+    const f = SORTS[C.sort.k] || SORTS.conns, sorted = d.ips.slice().sort((a, b) => (C.sort.desc ? f(b) - f(a) : f(a) - f(b)) || b.conns - a.conns);
+    const shown = take("ips", sorted, 25), canSel = shown.filter(selectable);
+    const allOn = canSel.length && canSel.every((r) => C.sel.has(r.ip));
+    const rows = shown.map((r) => `<tr class="${r.banned || r.blocked ? "cx-dim" : ""}${C.sel.has(r.ip) ? " cx-picked" : ""}">
+      <td>${selectable(r) ? `<input type="checkbox" class="cx-pick" data-c="pick" data-ip="${esc(r.ip)}" ${C.sel.has(r.ip) ? "checked" : ""} aria-label="${esc(r.ip)}">` : `<span class="cx-pick-gap"></span>`}<button type="button" class="cx-link cx-ip" data-c="ip" data-ip="${esc(r.ip)}">${num(esc(r.ip))}</button>${statusPills(r)}</td>
       <td data-label="${esc(t("cx_c_where"))}"><button type="button" class="cx-link" data-c="filter" data-k="cc" data-v="${esc(r.cc || "?")}">${place(r.cc || "?")}</button></td>
       <td data-label="${esc(t("cx_c_net"))}" class="cx-net">${r.asn ? `<button type="button" class="cx-link" data-c="filter" data-k="asn" data-v="${esc(r.asn)}">${orgHTML(d.orgs[r.asn], r.asn)}</button>` : "–"}</td>
       <td class="cx-num" data-label="${esc(t("cx_c_conns"))}"><span class="cx-cell-bar">${bar(r.conns, max, r.half > r.conns / 3 ? "bad" : "")}${num(nf(r.conns, 0))}</span>${r.half ? `<span class="cx-half" title="${esc(t("cx_k_half"))}">${num(nf(r.half, 0))}</span>` : ""}</td>
@@ -6859,7 +6951,8 @@ __MONITORING_EOF__
         <button type="button" class="btn small icon ghost" data-c="ip" data-ip="${esc(r.ip)}" title="${esc(t("cx_details"))}" aria-label="${esc(t("cx_details"))} ${esc(r.ip)}">${icon("eye")}</button>
         ${out || r.cc === "LAN" || r.allowed ? "" : `<button type="button" class="btn small icon ghost danger" data-c="ban" data-ip="${esc(r.ip)}" data-min="60" title="${esc(t("cx_ban"))}" aria-label="${esc(t("cx_ban"))} ${esc(r.ip)}">${icon("ban")}</button>`}
       </div></td></tr>`).join("");
-    return `<div class="table-wrap cx-table cx-ipt"><table><thead><tr><th>${esc(t("cx_c_ip"))}</th><th>${esc(t("cx_c_where"))}</th><th>${esc(t("cx_c_net"))}</th><th>${esc(t("cx_c_conns"))}</th><th>${esc(t(out ? "cx_c_port" : "cx_c_ports"))}</th>${d.acct ? `<th>${esc(t("cx_c_bytes"))}</th>` : ""}<th>${esc(t("cx_c_first"))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("ips", d.ips.length, 25)}`;
+    const head = `<th>${canSel.length ? `<input type="checkbox" class="cx-pick" data-c="pick-all" ${allOn ? "checked" : ""} aria-label="${esc(t("cx_sel_all"))}" title="${esc(t("cx_sel_all"))}">` : ""}${esc(t("cx_c_ip"))}</th><th>${esc(t("cx_c_where"))}</th><th>${esc(t("cx_c_net"))}</th>${sortTh("conns", "cx_c_conns")}${sortTh("nports", out ? "cx_c_port" : "cx_c_ports")}${d.acct ? sortTh("bytes", "cx_c_bytes") : ""}${sortTh("first", "cx_c_first")}<th></th>`;
+    return `<div class="table-wrap cx-table cx-ipt"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("ips", d.ips.length, 25)}`;
   }
 
   const dirIcon = (dr) => `<span class="cx-dir ${dr}" title="${esc(t(dr === "in" ? "cx_in" : dr === "out" ? "cx_out" : "cx_int"))}">${icon(dr === "in" ? "arrow-in" : dr === "out" ? "arrow-out" : "arrow-both")}</span>`;
@@ -6895,7 +6988,8 @@ __MONITORING_EOF__
     else if (db.state === "error") msg = `<div class="notice warn">${icon("alert")}<span>${esc(tv("cx_db_error", { e: db.error }))}</span><button type="button" class="btn small" data-c="db-retry">${esc(t("cx_db_retry"))}</button></div>`;
     else msg = `<div class="notice">${icon("refresh")}<span>${esc(t("cx_db_loading"))}</span></div>`;
     const acct = `<label class="cx-acct"><span class="switch"><input type="checkbox" data-c="acct-toggle" ${d.acct ? "checked" : ""}><span></span></span><span><b>${esc(t("cx_acct"))}</b><span class="muted small">${esc(t("cx_acct_sub"))}</span></span></label>`;
-    return `${msg}${acct}`;
+    const hist = `<label class="cx-acct"><span class="switch"><input type="checkbox" data-c="hist-toggle" ${d.history_on ? "checked" : ""}><span></span></span><span><b>${esc(t("cx_hist"))}</b><span class="muted small">${esc(t("cx_hist_sub"))}</span></span></label>`;
+    return `${msg}${acct}${hist}`;
   }
 
   // ---------------------------------------------------------------- map
@@ -6949,10 +7043,17 @@ __MONITORING_EOF__
   // ---------------------------------------------------------------- trend
   function paintTrend(d) {
     const card = $("cx-trend-card"), box = $("cx-trend");
-    const tl = d.timeline || [];
+    const h48 = C.trend === "h48";
+    const tl = h48 ? (C.hist || []) : (d.timeline || []);
     if (!card || !box) return;
-    if (C.dir === "out" || tl.length < 3) { card.hidden = true; return; }
+    if (C.dir === "out" || (!h48 && tl.length < 3 && !(d.history_on && d.db && d.db.ready))) { card.hidden = true; return; }
     card.hidden = false;
+    put("cx-trend-sub", esc(t(h48 ? "cx_hist_sub" : "cx_trend_sub")));
+    if (tl.length < 2) {
+      box.innerHTML = `<div class="empty">${esc(t(h48 && !d.history_on ? "cx_hist_off" : h48 ? "cx_hist_empty" : "cx_loading"))}</div>`;
+      put("cx-trend-legend", "");
+      return;
+    }
     const totals = {};
     tl.forEach((p) => Object.entries(p.cc || {}).forEach(([cc, n]) => { totals[cc] = (totals[cc] || 0) + n; }));
     const top = Object.entries(totals).filter(([cc]) => /^[A-Z]{2}$/.test(cc)).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([cc]) => cc);
@@ -6965,8 +7066,8 @@ __MONITORING_EOF__
     const X = (tt) => L + ((tt - t0) / span) * (W - L - R), Y = (v) => T + (1 - v / max) * (H - T - B);
     let grid = "";
     for (let i = 0; i <= 3; i++) { const v = (max * i) / 3; grid += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${esc(nf(v, 0))}</text>`; }
-    const hhmm = (s) => { const x = new Date(s * 1000); return `${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`; };
-    grid += `<text x="${L}" y="${H - 6}">${hhmm(t0)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${hhmm(t1)}</text>`;
+    const hhmm = (s) => { const x = new Date(s * 1000); return `${span > 86400 ? `${x.getMonth() + 1}/${x.getDate()} ` : ""}${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`; };
+    grid += `<text x="${L}" y="${H - 6}">${hhmm(t0)}</text><text x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle">${hhmm(t0 + span / 2)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${hhmm(t1)}</text>`;
     const lines = series.map((s) => `<polyline points="${tl.map((p) => `${X(p.t).toFixed(1)},${Y(s.get(p)).toFixed(1)}`).join(" ")}" fill="none" stroke="${s.col}" stroke-width="${s.w}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} stroke-linejoin="round"/>`).join("");
     box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="height:${H}px" role="img" aria-label="${esc(t("cx_trend"))}"><g class="grid">${grid}</g>${lines}</svg>`;
     put("cx-trend-legend", series.map((s) => `<span><i style="background:${s.col}"></i>${s.flag ? flag(s.flag) : ""}${esc(s.name)}</span>`).join(""));
@@ -7002,6 +7103,19 @@ __MONITORING_EOF__
       return load(true);
     }
     if (c === "pause") { C.paused = !C.paused; paintLive(); if (!C.paused) load(true); return; }
+    if (c === "trend") {
+      C.trend = b.dataset.v;
+      C.root.querySelectorAll('[data-c="trend"]').forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      if (C.trend === "h48") return loadHistory();
+      return paintTrend(C.data);
+    }
+    if (c === "sort") {
+      C.sort = C.sort.k === b.dataset.k ? { k: b.dataset.k, desc: !C.sort.desc } : { k: b.dataset.k, desc: true };
+      return paint();
+    }
+    if (c === "sel-clear") { C.sel.clear(); return paint(); }
+    if (c === "bulk") return bulkBan(b, +b.dataset.min);
+    if (c === "csv") return exportCsv(b, b.dataset.k);
     if (c === "more") { C.more[b.dataset.k] = !C.more[b.dataset.k]; return paint(); }
     if (c === "rows-more") { C.limit = Math.min(2000, C.limit + 500); return load(true); }
     if (c === "ip") return ipDialog(b.dataset.ip);
@@ -7015,9 +7129,67 @@ __MONITORING_EOF__
 
   function onChange(e) {
     const el = e.target;
+    if (el.dataset.c === "pick") { if (el.checked) C.sel.add(el.dataset.ip); else C.sel.delete(el.dataset.ip); return paint(); }
+    if (el.dataset.c === "pick-all") {
+      const ips = [...C.root.querySelectorAll('[data-c="pick"]')].map((x) => x.dataset.ip);
+      ips.forEach((ip) => (el.checked ? C.sel.add(ip) : C.sel.delete(ip)));
+      return paint();
+    }
+    if (el.dataset.c === "hist-toggle") {
+      act(el, () => post("/api/defender/conns/history", { on: el.checked }), t("saved")).then((r) => { if (!r) el.checked = !el.checked; C.hist = null; C.histAt = 0; load(true); });
+      return;
+    }
     if (el.id === "cx-proto") return setFilter("proto", el.value);
     if (el.id === "cx-state") return setFilter("state", el.value);
     if (el.dataset.c === "acct-toggle") return setAcct(el, el.checked);
+  }
+
+  const DURS = [[60, "cx_h1"], [1440, "cx_h24"], [10080, "cx_d7"]];
+  function bulkHTML() {
+    if (!C.sel.size) return "";
+    return `<div class="cx-bulkbar" role="region" aria-label="${esc(tv("cx_sel", { n: C.sel.size }))}"><b>${esc(tv("cx_sel", { n: nf(C.sel.size, 0) }))}</b>
+      ${DURS.map(([m, k]) => `<button type="button" class="btn small danger" data-c="bulk" data-min="${m}">${icon("ban")}${esc(tv("cx_ban_sel", { d: t(k) }))}</button>`).join("")}
+      <button type="button" class="btn small danger solid" data-c="bulk" data-min="0">${esc(t("cx_block_sel"))}</button>
+      <button type="button" class="btn small ghost" data-c="sel-clear">${esc(t("cx_sel_clear"))}</button></div>`;
+  }
+
+  async function bulkBan(btn, minutes) {
+    const ips = [...C.sel];
+    const d = (DURS.find(([m]) => m === minutes) || [0, "cx_h1"])[1];
+    const q = minutes ? tv("cx_bulk_q", { n: nf(ips.length, 0), d: t(d) }) : tv("cx_bulk_perm_q", { n: nf(ips.length, 0) });
+    if (!(await confirmBox({ message: q, label: minutes ? tv("cx_ban_sel", { d: t(d) }) : t("cx_block_sel") }))) return;
+    const r = await act(btn, () => post("/api/defender/conns/ban", { ips, minutes }));
+    if (!r) return;
+    toast(tv("cx_bulk_done", { n: nf(r.done.length, 0) }));
+    if (r.skipped.length) toast(tv("cx_bulk_skip", { n: nf(r.skipped.length, 0) }), "warn");
+    C.sel.clear();
+    load(true);
+  }
+
+  async function exportCsv(btn, kind) {
+    let d = C.data;
+    if (!d) return;
+    if (kind === "rows" && d.rows_total > d.rows.length) {        // everything that matches, not only what is shown
+      const full = await act(btn, () => api("/api/defender/conns", { ...params(), limit: 2000 }));
+      if (full) d = full;
+    }
+    const cell = (v) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    let head, lines;
+    if (kind === "ips") {
+      head = ["ip", "country", "country_name", "asn", "network", "connections", "half_open", "ports", "bytes_in", "bytes_out", "first_seen", "status"];
+      lines = d.ips.map((r) => [r.ip, r.cc || "", ccName(r.cc), r.asn || "", (d.orgs || {})[r.asn] || "", r.conns, r.half, r.ports.join(" "), r.bytes_in, r.bytes_out,
+        r.first ? new Date(r.first * 1000).toISOString() : "", [r.banned && "banned", r.blocked && "blocked", r.allowed && "allowed", r.threat && "threat"].filter(Boolean).join(" ")]);
+    } else {
+      head = ["direction", "protocol", "ip", "country", "asn", "network", "port", "service", "forwarded_to", "state", "count", "half_open", "bytes_in", "bytes_out", "expires_s"];
+      lines = d.rows.map((r) => [r.dir, r.proto, r.ip, r.cc || "", r.asn || "", (d.orgs || {})[r.asn] || "", r.port, r.svc, r.target, r.state, r.n, r.half, r.bytes_in, r.bytes_out, r.ttl]);
+    }
+    const csv = "\ufeff" + [head, ...lines].map((l) => l.map(cell).join(",")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `connections-${kind}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
   async function setAcct(el, on) {
@@ -7078,6 +7250,8 @@ __MONITORING_EOF__
           <div><dt>${esc(t("cx_ip_subnet"))}</dt><dd>${num(esc(d.subnet))}</dd></div>
           <div><dt>${esc(t("cx_k_conns"))}</dt><dd>${num(nf(s.conns, 0))}${s.half ? ` <span class="pill bad">${num(nf(s.half, 0))} ${esc(t("cx_k_half"))}</span>` : ""}</dd></div>
           ${d.first ? `<div><dt>${esc(t("cx_c_first"))}</dt><dd>${esc(ago(d.first))}</dd></div>` : ""}
+          ${d.ptr ? `<div><dt>${esc(t("cx_ptr"))}</dt><dd><bdi class="cx-mono">${esc(d.ptr)}</bdi></dd></div>` : ""}
+          ${d.threat && d.threat.length ? `<div><dt>${esc(t("cx_threat_lists"))}</dt><dd>${d.threat.map((n) => pill("warn", n)).join(" ")}</dd></div>` : ""}
         </dl>
       </div>
       ${lan || d.allowed ? "" : `<div class="cx-ipd-acts">
@@ -8222,8 +8396,59 @@ def conn_ip_status(ip):
         except Exception:
             hits = []
         if hits:
-            out["threat"] = hits
+            names = {c.get("id"): c.get("name") for c in CFG["threat"].get("custom") or [] if isinstance(c, dict)}
+            out["threat"] = [(threat.FEEDS.get(h) or {}).get("name") or names.get(h) or h for h in hits]
     return out
+
+
+def api_conn_ban(b):
+    """Ban several addresses at once from the connections page (minutes; 0 = the permanent blocklist)."""
+    ips = b.get("ips") or []
+    if not isinstance(ips, list) or not 1 <= len(ips) <= 500:
+        raise ValueError("choose 1 to 500 addresses")
+    try:
+        minutes = max(0, min(525600, int(b.get("minutes") or 0)))
+    except (TypeError, ValueError):
+        raise ValueError("invalid duration")
+    note = str(b.get("note") or "connections page")[:80]
+    done, skipped, perm = [], [], []
+    for raw in ips:
+        try:
+            addr = str(ipaddress.ip_address(str(raw).strip()))
+        except ValueError:
+            skipped.append({"ip": str(raw)[:45], "why": "invalid"})
+            continue
+        if own_or_admin(addr):
+            skipped.append({"ip": addr, "why": "protected"})
+            continue
+        if minutes:
+            try:
+                ban(addr, minutes, note, "manual")
+                done.append(addr)
+            except ValueError as e:
+                skipped.append({"ip": addr, "why": str(e)[:120]})
+        else:
+            perm.append(addr)
+    if perm:
+        def mut(c):
+            have = {e["ip"] for e in c["block"]}
+            c["block"] += [{"ip": a, "note": note, "added": int(time.time())} for a in perm if a not in have]
+        change(mut, rollback=False, what="block")
+        done += perm
+    if done:
+        event("bulk_ban", n=len(done), minutes=minutes)
+    _conn_status["at"] = 0
+    return {"done": done, "skipped": skipped}
+
+
+def on_attack_report(rep):
+    """Where the attack came from, for the activity log and Telegram."""
+    top = (rep.get("countries") or [{}])[0]
+    asn = (rep.get("asns") or [{}])[0]
+    event("attack_sources", cc=rep.get("top_cc"), share=round((top.get("conns") or 0) / max(1, rep.get("conns") or 1), 3),
+          ips=rep.get("ips"), conns=rep.get("conns"), half=rep.get("half"), port=rep.get("top_port"),
+          org=(rep.get("orgs") or {}).get(str(asn.get("asn"))) or (rep.get("orgs") or {}).get(asn.get("asn")) or None,
+          countries=[[c["cc"], c["conns"]] for c in (rep.get("countries") or [])[:5]])
 
 
 def _try_net(v):
@@ -9469,6 +9694,8 @@ POST = {
     "/threat/custom/remove": api_threat_custom_remove,
     "/test": api_test,
     "/conns/acct": api_conn_acct,
+    "/conns/ban": api_conn_ban,
+    "/conns/history": lambda b: (conns.set_history(bool(b.get("on"))), {"history_on": conns.history_on()})[1],
     "/conns/geo": lambda b: (ipdb.ensure(DATA, force=True), ipdb.status(DATA))[1],
 }
 
@@ -9544,7 +9771,7 @@ def main():
             conns.set_acct(True)        # per-connection byte counting, as it was before the restart
         except OSError as e:
             log("cannot turn on conntrack accounting:", e)
-    conns.configure(DATA, conn_ip_status)
+    conns.configure(DATA, conn_ip_status, on_attack_report)
     seed_recent_logins()
     load_cdn()      # the last downloaded copy of Cloudflare's ranges, if there is one
     try:
@@ -12209,9 +12436,10 @@ def _build(data):
     for name, arr in (("c4s", c_start), ("c4e", c_end), ("c4c", c_cc), ("a4s", a4_start), ("a4e", a4_end), ("a4a", a4_asn), ("a4n", a4_name),
                       ("a6s", a6_start), ("a6e", a6_end), ("a6a", a6_asn), ("a6n", a6_name), ("a6c", a6_cc)):
         save(name, arr)
-    with open(os.path.join(d, "names.tmp"), "w", encoding="utf-8") as f:
+    # newline="\n": the reader splits on \n, also when this runs on Windows (tests)
+    with open(os.path.join(d, "names.tmp"), "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(names))
-    with open(os.path.join(d, "ccs.tmp"), "w") as f:
+    with open(os.path.join(d, "ccs.tmp"), "w", newline="\n") as f:
         f.write("\n".join(ccs))
     for name in ("c4s", "c4e", "c4c", "a4s", "a4e", "a4a", "a4n", "a6s", "a6e", "a6a", "a6n", "a6c", "names", "ccs"):
         os.replace(os.path.join(d, name + ".tmp"), os.path.join(d, name))
@@ -12362,6 +12590,7 @@ import ipaddress
 import json
 import os
 import re
+import socket
 import subprocess
 import threading
 import time
@@ -12386,14 +12615,22 @@ _timeline = collections.deque()
 _first_seen = {}
 _local = {"at": 0, "set": frozenset()}
 _geo_cache = {}
+_subnets = {}
 _data = "/data"
-_ip_status = None              # agent callback: ip -> {"banned": ..., "blocked": ..., "allowed": ..., "threat": [...]}
+_ip_status = None              # agent callback: ip -> {"banned": ..., "blocked": ..., "allowed": ..., "threat": [names]}
+_on_report = None              # agent callback: a new attack report (for the event log and Telegram)
+HISTORY = 48 * 3600            # background history kept (about 600 points)
+HISTORY_EVERY = 300            # seconds between background points (more when the table is huge)
+_history = collections.deque()
+_hist_last = 0.0
 
 
-def configure(data, ip_status):
-    global _data, _ip_status
-    _data, _ip_status = data, ip_status
+def configure(data, ip_status, on_report=None):
+    global _data, _ip_status, _on_report
+    _data, _ip_status, _on_report = data, ip_status, on_report
+    _load_history()
     threading.Thread(target=_housekeeping, daemon=True).start()
+    threading.Thread(target=_history_loop, daemon=True).start()
 
 
 def _housekeeping():
@@ -12407,6 +12644,7 @@ def _housekeeping():
                 _timeline.clear()
                 _first_seen.clear()
                 _geo_cache.clear()
+                _subnets.clear()
 
 
 def _locals():
@@ -12461,11 +12699,33 @@ def _services():
     return _svc_cache["map"]
 
 
-def _parse(text, local, services):
+_proc_cache = {"at": 0, "map": {}}
+
+
+def _client_procs():
+    """(proto, local port) -> the program owning that socket, for this server's own outgoing connections
+    (containers have their own network: those show the container's address instead)."""
+    if time.time() - _proc_cache["at"] > 30:
+        owners, out = hostinfo._inode_owners(), {}
+        for proto, files in (("tcp", ("/proc/net/tcp", "/proc/net/tcp6")), ("udp", ("/proc/net/udp", "/proc/net/udp6"))):
+            for path in files:
+                try:
+                    lines = open(path).read().splitlines()[1:]
+                except OSError:
+                    continue
+                for line in lines:
+                    p = line.split()
+                    if len(p) > 9 and p[9] in owners:
+                        out[(proto, int(p[1].rsplit(":", 1)[1], 16))] = owners[p[9]]
+        _proc_cache.update(at=time.time(), map=out)
+    return _proc_cache["map"]
+
+
+def _parse(text, local, services, procs=None):
     """{key: [count, half_open, bytes_in, bytes_out, max_timeout]} with key =
     (dir, proto, remote, port, state, service, target)."""
     groups = {}
-    states = collections.Counter()
+    procs = procs or {}
     n = loopback = 0
     for line in text.splitlines():
         n += 1
@@ -12523,16 +12783,16 @@ def _parse(text, local, services):
         elif d == "out":
             remote, port = odst, o.get("dport", "")
             target = osrc if osrc not in local else ""                          # the container that connects
-            svc = None
+            sp = o.get("sport", "")
+            svc = procs.get((proto, int(sp))) if not target and sp.isdigit() else None   # the program that connects
             bin_, bout = bytes_[1], bytes_[0]
         else:
             remote, port, target, svc, bin_, bout = osrc, o.get("dport", ""), odst, None, bytes_[0], bytes_[1]
-        if not svc and port.isdigit():
+        if not svc and port.isdigit() and d != "out":
             svc = WELL_KNOWN.get(int(port))
         # half-open: an incoming TCP connection whose handshake never completed (what a SYN flood leaves)
         half = 1 if (proto == "tcp" and d == "in" and (state == "SYN_RECV" or unreplied)) else 0
         st = state or ("UNREPLIED" if unreplied else "ACTIVE")
-        states[(d, st)] += 1
         key = (d, proto, remote, port, st, svc or "", target)
         g = groups.get(key)
         if g is None:
@@ -12557,7 +12817,7 @@ def snapshot(force=False):
             text = subprocess.run(["conntrack", "-L", "-o", "extended"], capture_output=True, text=True, timeout=60).stdout
         except (OSError, subprocess.TimeoutExpired) as e:
             raise ValueError(f"cannot read the connection table: {e}")
-        groups, n, loopback = _parse(text, _locals(), _services())
+        groups, n, loopback = _parse(text, _locals(), _services(), _client_procs())
         del text
         took = time.time() - t0
         usage = hostinfo.conntrack_usage() or {}
@@ -12568,34 +12828,117 @@ def snapshot(force=False):
         return s
 
 
-def _record(s):
-    """Timeline point and first-seen times (only while the page is watched)."""
-    inbound = collections.Counter()
+def _point(at, groups, seen=None):
+    """One point of a timeline: incoming, outgoing, half-open, addresses, and incoming per country."""
+    inbound, ips = collections.Counter(), set()
     half = out = total_in = 0
-    for (d, _p, remote, *_r), g in s["groups"].items():
+    for (d, _p, remote, *_r), g in groups.items():
         if d == "in":
             total_in += g[0]
             half += g[1]
+            ips.add(remote)
             inbound[geo(remote)[0] or "?"] += g[0]
-            if remote not in _first_seen:
-                _first_seen[remote] = s["at"]
+            if seen is not None and remote not in seen:
+                seen[remote] = at
         elif d == "out":
             out += g[0]
-    _timeline.append({"t": round(s["at"]), "in": total_in, "out": out, "half": half, "cc": dict(inbound.most_common(12))})
+    return {"t": round(at), "in": total_in, "out": out, "half": half, "ips": len(ips), "cc": dict(inbound.most_common(12))}
+
+
+def _record(s):
+    """Timeline point and first-seen times (only while the page is watched)."""
+    p = _point(s["at"], s["groups"], _first_seen)
+    _timeline.append(p)
     while _timeline and _timeline[0]["t"] < s["at"] - TIMELINE:
         _timeline.popleft()
     if len(_first_seen) > 200_000:
         _first_seen.clear()
+    if history_on() and s["at"] - _hist_last >= HISTORY_EVERY:     # a watched snapshot also serves the history
+        _add_history(p)
+
+
+# ------------------------------------------------------------------ background history (48 hours)
+
+def _hist_path():
+    return os.path.join(_data, "conn_history.json")
+
+
+def history_on():
+    return not os.path.exists(os.path.join(_data, "conn_history_off"))
+
+
+def set_history(on):
+    flag = os.path.join(_data, "conn_history_off")
+    if on and os.path.exists(flag):
+        os.unlink(flag)
+    elif not on:
+        open(flag, "w").close()
+        _history.clear()
+        try:
+            os.unlink(_hist_path())
+        except OSError:
+            pass
+
+
+def _load_history():
+    try:
+        with open(_hist_path()) as f:
+            pts = json.load(f)
+        cut = time.time() - HISTORY
+        _history.extend(p for p in pts if isinstance(p, dict) and p.get("t", 0) >= cut)
+    except (OSError, ValueError):
+        pass
+
+
+def _add_history(p):
+    global _hist_last
+    _hist_last = p["t"]
+    _history.append(p)
+    while _history and _history[0]["t"] < p["t"] - HISTORY:
+        _history.popleft()
+    tmp = _hist_path() + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            json.dump(list(_history), f, separators=(",", ":"))
+        os.replace(tmp, _hist_path())
+    except OSError:
+        pass
+
+
+def _history_loop():
+    """Every few minutes, also when nobody has the page open, note where incoming connections come from.
+    Reading the table costs ~0.2 s per 15 000 entries; the pace slows down when it is bigger."""
+    time.sleep(90)
+    every = HISTORY_EVERY
+    while True:
+        try:
+            if history_on() and time.time() - _hist_last >= every and ipdb.meta(_data).get("built"):
+                t0 = time.time()
+                text = subprocess.run(["conntrack", "-L", "-o", "extended"], capture_output=True, text=True, timeout=60).stdout
+                groups, _n, _lb = _parse(text, _locals(), _services())
+                del text
+                with _lock:
+                    _add_history(_point(time.time(), groups))
+                every = max(HISTORY_EVERY, (time.time() - t0) * 300)   # at most ~0.3% of one core
+        except Exception as e:  # the next round tries again
+            print(f"conns history: {type(e).__name__}: {e}", flush=True)
+        time.sleep(60)
 
 
 # ------------------------------------------------------------------ the view
 
 def _subnet(ip):
-    try:
-        a = ipaddress.ip_address(ip)
-    except ValueError:
-        return ip
-    return str(ipaddress.ip_network(f"{ip}/{24 if a.version == 4 else 48}", strict=False))
+    hit = _subnets.get(ip)
+    if hit is None:
+        try:
+            a = ipaddress.ip_address(ip)
+            hit = str(ipaddress.ip_network(f"{ip}/{24 if a.version == 4 else 48}", strict=False))
+        except ValueError:
+            hit = ip
+        if len(_subnets) > 300_000:
+            _subnets.clear()
+        _subnets[ip] = hit
+    return hit
 
 
 def _match(q, d, proto, remote, port, st, svc, target, cc, asn, org):
@@ -12615,7 +12958,7 @@ def _match(q, d, proto, remote, port, st, svc, target, cc, asn, org):
         return False
     if q["text"]:
         hay = f"{remote} {port} {svc} {target} {cc or ''} {asn or ''} {org or ''} {st}".lower()
-        if q["text"] not in hay:
+        if q["text"] not in hay and (cc or "") not in q["qcc"]:
             return False
     return True
 
@@ -12631,7 +12974,9 @@ def _query(params):
     except ValueError:
         limit = 300
     return {"dir": d, "proto": s("proto").lower(), "state": s("state").upper(), "port": s("port"), "cc": s("cc").upper(),
-            "asn": s("asn"), "ip": s("ip"), "text": s("q", 80).lower(), "limit": limit}
+            "asn": s("asn"), "ip": s("ip"), "text": s("q", 80).lower(), "limit": limit, "hist": s("hist") == "1",
+            # countries whose name in the viewer's language matches the search text (the page sends their codes)
+            "qcc": {c for c in s("qcc", 900).upper().split(",") if len(c) == 2 and c.isalpha()}}
 
 
 def view(params):
@@ -12697,7 +13042,7 @@ def view(params):
     nips = len(ips)
     result = {
         "at": snap["at"], "took": snap["took"], "interval": snap["interval"], "entries": snap["entries"], "max": snap["max"],
-        "truncated": snap["truncated"], "acct": acct_on(), "db": db, "query": q,
+        "truncated": snap["truncated"], "acct": acct_on(), "db": db, "query": {**q, "qcc": sorted(q["qcc"])},
         "dirs": dict(dirs),
         "summary": {"conns": conns, "ips": nips, "countries": len([c for c in countries if c not in ("?", "LAN")]), "asns": len(asns),
                     "half": half, "bytes_in": bin_t, "bytes_out": bout_t, "proto": dict(by_proto), "states": dict(by_state.most_common(12))},
@@ -12710,6 +13055,7 @@ def view(params):
         "rows": out_rows, "rows_total": len(rows),
         "orgs": {a: orgs[a] for a in {r["asn"] for r in out_rows if r["asn"]} | {r["asn"] for r in ip_rows if r["asn"]} if a in orgs},
         "timeline": list(_timeline),
+        "history": list(_history) if q["hist"] else None, "history_on": history_on(),
         "insights": insights(conns, half, countries, subnets, ips, asns, q["dir"]),
         "reports": [{k: r[k] for k in ("id", "since", "ended", "reason", "conns", "top_cc", "top_port")} for r in reports()][::-1],
     }
@@ -12794,6 +13140,11 @@ def record_attack(is_active, since, reason):
         with open(tmp, "w") as f:
             json.dump(all_[-KEEP_REPORTS:], f)
         os.replace(tmp, _reports_path())
+        if _on_report:
+            try:
+                _on_report(rep)
+            except Exception as e:
+                print(f"conns report hook: {e}", flush=True)
     threading.Thread(target=run, daemon=True).start()
 
 
@@ -12807,12 +13158,36 @@ def check_ip(ip):
     return ip
 
 
+_ptr_cache = {}
+
+
+def _ptr(ip):
+    """The address's host name (reverse DNS), waiting at most 1.5 s."""
+    if ip in _ptr_cache:
+        return _ptr_cache[ip]
+    res = {}
+
+    def run():
+        try:
+            res["name"] = socket.gethostbyaddr(ip)[0]
+        except (OSError, UnicodeError):
+            res["name"] = None
+    th = threading.Thread(target=run, daemon=True)
+    th.start()
+    th.join(1.5)
+    if "name" in res:
+        if len(_ptr_cache) > 5000:
+            _ptr_cache.clear()
+        _ptr_cache[ip] = res["name"]
+    return res.get("name")
+
+
 def detail(params):
     """Everything about one remote address: where it is, what it does here, every connection of it."""
     ip = check_ip(str(params.get("ip", "")))
     cc, asn, org = geo(ip)
     v = view({"ip": ip, "dir": "all", "limit": 500})
-    return {"ip": ip, "cc": cc, "asn": asn, "org": org, "subnet": _subnet(ip), "first": _first_seen.get(ip),
+    return {"ip": ip, "cc": cc, "asn": asn, "org": org, "subnet": _subnet(ip), "first": _first_seen.get(ip), "ptr": _ptr(ip),
             "summary": v["summary"], "ports": v["ports"], "rows": v["rows"], **((_ip_status or (lambda i: {}))(ip))}
 __MONITORING_EOF__
   write_file panel/static/index.html 644 <<'__MONITORING_EOF__'
@@ -15919,6 +16294,25 @@ label.btn input[type="file"] { display: none; }
   .cx-rank-s { display: none; }
   .cx-rows table { min-width: 0; }
 }
+
+.cx-search { position: relative; }
+.cx-kbd { flex: none; padding: 1px 7px; border: 1px solid var(--line-2); border-radius: 6px; font: 600 11px var(--mono); color: var(--faint); background: var(--surface); }
+.cx-search:focus-within .cx-kbd { display: none; }
+.cx .chart > header .cx-csv { margin-inline-start: auto; }
+.cx .chart > header .cx-csv .ico { width: 14px; height: 14px; }
+.cx-trend-card > header .seg { margin-inline-start: auto; }
+.cx-pick { width: 16px; height: 16px; margin: 0 8px 0 0; margin-inline: 0 8px; accent-color: var(--s-bad); cursor: pointer; vertical-align: middle; }
+.cx-pick-gap { display: inline-block; width: 24px; }
+tr.cx-picked td { background: color-mix(in srgb, var(--s-bad) 7%, transparent); }
+.cx-bulkbar { position: sticky; top: 8px; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--s-bad) 55%, var(--line)); border-radius: 12px; background: color-mix(in srgb, var(--s-bad) 10%, var(--surface)); box-shadow: var(--shadow-pop); }
+.cx-bulkbar b { margin-inline-end: 4px; }
+.cx-th { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.cx-th:hover, .cx-th.on { color: var(--ink); }
+.cx-th:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.cx-mono { font-family: var(--mono); font-size: 12.5px; }
+@media (max-width: 699px) { .cx-kbd { display: none; } }
+.cx-count { font-size: 12px; font-weight: 650; color: var(--muted); background: var(--surface-3); padding: 1px 9px; border-radius: 99px; }
+.cx-count:empty { display: none; }
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'
 /* Vazirmatn (SIL Open Font License 1.1) - Latin + Persian/Arabic subset, embedded so the panel needs no external font host. */

@@ -146,9 +146,10 @@ def _build(data):
     for name, arr in (("c4s", c_start), ("c4e", c_end), ("c4c", c_cc), ("a4s", a4_start), ("a4e", a4_end), ("a4a", a4_asn), ("a4n", a4_name),
                       ("a6s", a6_start), ("a6e", a6_end), ("a6a", a6_asn), ("a6n", a6_name), ("a6c", a6_cc)):
         save(name, arr)
-    with open(os.path.join(d, "names.tmp"), "w", encoding="utf-8") as f:
+    # newline="\n": the reader splits on \n, also when this runs on Windows (tests)
+    with open(os.path.join(d, "names.tmp"), "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(names))
-    with open(os.path.join(d, "ccs.tmp"), "w") as f:
+    with open(os.path.join(d, "ccs.tmp"), "w", newline="\n") as f:
         f.write("\n".join(ccs))
     for name in ("c4s", "c4e", "c4c", "a4s", "a4e", "a4a", "a4n", "a6s", "a6e", "a6a", "a6n", "a6c", "names", "ccs"):
         os.replace(os.path.join(d, name + ".tmp"), os.path.join(d, name))

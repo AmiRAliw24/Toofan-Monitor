@@ -16,6 +16,7 @@ import ipaddress
 import json
 import os
 import re
+import socket
 import subprocess
 import threading
 import time
@@ -40,14 +41,22 @@ _timeline = collections.deque()
 _first_seen = {}
 _local = {"at": 0, "set": frozenset()}
 _geo_cache = {}
+_subnets = {}
 _data = "/data"
-_ip_status = None              # agent callback: ip -> {"banned": ..., "blocked": ..., "allowed": ..., "threat": [...]}
+_ip_status = None              # agent callback: ip -> {"banned": ..., "blocked": ..., "allowed": ..., "threat": [names]}
+_on_report = None              # agent callback: a new attack report (for the event log and Telegram)
+HISTORY = 48 * 3600            # background history kept (about 600 points)
+HISTORY_EVERY = 300            # seconds between background points (more when the table is huge)
+_history = collections.deque()
+_hist_last = 0.0
 
 
-def configure(data, ip_status):
-    global _data, _ip_status
-    _data, _ip_status = data, ip_status
+def configure(data, ip_status, on_report=None):
+    global _data, _ip_status, _on_report
+    _data, _ip_status, _on_report = data, ip_status, on_report
+    _load_history()
     threading.Thread(target=_housekeeping, daemon=True).start()
+    threading.Thread(target=_history_loop, daemon=True).start()
 
 
 def _housekeeping():
@@ -61,6 +70,7 @@ def _housekeeping():
                 _timeline.clear()
                 _first_seen.clear()
                 _geo_cache.clear()
+                _subnets.clear()
 
 
 def _locals():
@@ -115,11 +125,33 @@ def _services():
     return _svc_cache["map"]
 
 
-def _parse(text, local, services):
+_proc_cache = {"at": 0, "map": {}}
+
+
+def _client_procs():
+    """(proto, local port) -> the program owning that socket, for this server's own outgoing connections
+    (containers have their own network: those show the container's address instead)."""
+    if time.time() - _proc_cache["at"] > 30:
+        owners, out = hostinfo._inode_owners(), {}
+        for proto, files in (("tcp", ("/proc/net/tcp", "/proc/net/tcp6")), ("udp", ("/proc/net/udp", "/proc/net/udp6"))):
+            for path in files:
+                try:
+                    lines = open(path).read().splitlines()[1:]
+                except OSError:
+                    continue
+                for line in lines:
+                    p = line.split()
+                    if len(p) > 9 and p[9] in owners:
+                        out[(proto, int(p[1].rsplit(":", 1)[1], 16))] = owners[p[9]]
+        _proc_cache.update(at=time.time(), map=out)
+    return _proc_cache["map"]
+
+
+def _parse(text, local, services, procs=None):
     """{key: [count, half_open, bytes_in, bytes_out, max_timeout]} with key =
     (dir, proto, remote, port, state, service, target)."""
     groups = {}
-    states = collections.Counter()
+    procs = procs or {}
     n = loopback = 0
     for line in text.splitlines():
         n += 1
@@ -177,16 +209,16 @@ def _parse(text, local, services):
         elif d == "out":
             remote, port = odst, o.get("dport", "")
             target = osrc if osrc not in local else ""                          # the container that connects
-            svc = None
+            sp = o.get("sport", "")
+            svc = procs.get((proto, int(sp))) if not target and sp.isdigit() else None   # the program that connects
             bin_, bout = bytes_[1], bytes_[0]
         else:
             remote, port, target, svc, bin_, bout = osrc, o.get("dport", ""), odst, None, bytes_[0], bytes_[1]
-        if not svc and port.isdigit():
+        if not svc and port.isdigit() and d != "out":
             svc = WELL_KNOWN.get(int(port))
         # half-open: an incoming TCP connection whose handshake never completed (what a SYN flood leaves)
         half = 1 if (proto == "tcp" and d == "in" and (state == "SYN_RECV" or unreplied)) else 0
         st = state or ("UNREPLIED" if unreplied else "ACTIVE")
-        states[(d, st)] += 1
         key = (d, proto, remote, port, st, svc or "", target)
         g = groups.get(key)
         if g is None:
@@ -211,7 +243,7 @@ def snapshot(force=False):
             text = subprocess.run(["conntrack", "-L", "-o", "extended"], capture_output=True, text=True, timeout=60).stdout
         except (OSError, subprocess.TimeoutExpired) as e:
             raise ValueError(f"cannot read the connection table: {e}")
-        groups, n, loopback = _parse(text, _locals(), _services())
+        groups, n, loopback = _parse(text, _locals(), _services(), _client_procs())
         del text
         took = time.time() - t0
         usage = hostinfo.conntrack_usage() or {}
@@ -222,34 +254,117 @@ def snapshot(force=False):
         return s
 
 
-def _record(s):
-    """Timeline point and first-seen times (only while the page is watched)."""
-    inbound = collections.Counter()
+def _point(at, groups, seen=None):
+    """One point of a timeline: incoming, outgoing, half-open, addresses, and incoming per country."""
+    inbound, ips = collections.Counter(), set()
     half = out = total_in = 0
-    for (d, _p, remote, *_r), g in s["groups"].items():
+    for (d, _p, remote, *_r), g in groups.items():
         if d == "in":
             total_in += g[0]
             half += g[1]
+            ips.add(remote)
             inbound[geo(remote)[0] or "?"] += g[0]
-            if remote not in _first_seen:
-                _first_seen[remote] = s["at"]
+            if seen is not None and remote not in seen:
+                seen[remote] = at
         elif d == "out":
             out += g[0]
-    _timeline.append({"t": round(s["at"]), "in": total_in, "out": out, "half": half, "cc": dict(inbound.most_common(12))})
+    return {"t": round(at), "in": total_in, "out": out, "half": half, "ips": len(ips), "cc": dict(inbound.most_common(12))}
+
+
+def _record(s):
+    """Timeline point and first-seen times (only while the page is watched)."""
+    p = _point(s["at"], s["groups"], _first_seen)
+    _timeline.append(p)
     while _timeline and _timeline[0]["t"] < s["at"] - TIMELINE:
         _timeline.popleft()
     if len(_first_seen) > 200_000:
         _first_seen.clear()
+    if history_on() and s["at"] - _hist_last >= HISTORY_EVERY:     # a watched snapshot also serves the history
+        _add_history(p)
+
+
+# ------------------------------------------------------------------ background history (48 hours)
+
+def _hist_path():
+    return os.path.join(_data, "conn_history.json")
+
+
+def history_on():
+    return not os.path.exists(os.path.join(_data, "conn_history_off"))
+
+
+def set_history(on):
+    flag = os.path.join(_data, "conn_history_off")
+    if on and os.path.exists(flag):
+        os.unlink(flag)
+    elif not on:
+        open(flag, "w").close()
+        _history.clear()
+        try:
+            os.unlink(_hist_path())
+        except OSError:
+            pass
+
+
+def _load_history():
+    try:
+        with open(_hist_path()) as f:
+            pts = json.load(f)
+        cut = time.time() - HISTORY
+        _history.extend(p for p in pts if isinstance(p, dict) and p.get("t", 0) >= cut)
+    except (OSError, ValueError):
+        pass
+
+
+def _add_history(p):
+    global _hist_last
+    _hist_last = p["t"]
+    _history.append(p)
+    while _history and _history[0]["t"] < p["t"] - HISTORY:
+        _history.popleft()
+    tmp = _hist_path() + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            json.dump(list(_history), f, separators=(",", ":"))
+        os.replace(tmp, _hist_path())
+    except OSError:
+        pass
+
+
+def _history_loop():
+    """Every few minutes, also when nobody has the page open, note where incoming connections come from.
+    Reading the table costs ~0.2 s per 15 000 entries; the pace slows down when it is bigger."""
+    time.sleep(90)
+    every = HISTORY_EVERY
+    while True:
+        try:
+            if history_on() and time.time() - _hist_last >= every and ipdb.meta(_data).get("built"):
+                t0 = time.time()
+                text = subprocess.run(["conntrack", "-L", "-o", "extended"], capture_output=True, text=True, timeout=60).stdout
+                groups, _n, _lb = _parse(text, _locals(), _services())
+                del text
+                with _lock:
+                    _add_history(_point(time.time(), groups))
+                every = max(HISTORY_EVERY, (time.time() - t0) * 300)   # at most ~0.3% of one core
+        except Exception as e:  # the next round tries again
+            print(f"conns history: {type(e).__name__}: {e}", flush=True)
+        time.sleep(60)
 
 
 # ------------------------------------------------------------------ the view
 
 def _subnet(ip):
-    try:
-        a = ipaddress.ip_address(ip)
-    except ValueError:
-        return ip
-    return str(ipaddress.ip_network(f"{ip}/{24 if a.version == 4 else 48}", strict=False))
+    hit = _subnets.get(ip)
+    if hit is None:
+        try:
+            a = ipaddress.ip_address(ip)
+            hit = str(ipaddress.ip_network(f"{ip}/{24 if a.version == 4 else 48}", strict=False))
+        except ValueError:
+            hit = ip
+        if len(_subnets) > 300_000:
+            _subnets.clear()
+        _subnets[ip] = hit
+    return hit
 
 
 def _match(q, d, proto, remote, port, st, svc, target, cc, asn, org):
@@ -269,7 +384,7 @@ def _match(q, d, proto, remote, port, st, svc, target, cc, asn, org):
         return False
     if q["text"]:
         hay = f"{remote} {port} {svc} {target} {cc or ''} {asn or ''} {org or ''} {st}".lower()
-        if q["text"] not in hay:
+        if q["text"] not in hay and (cc or "") not in q["qcc"]:
             return False
     return True
 
@@ -285,7 +400,9 @@ def _query(params):
     except ValueError:
         limit = 300
     return {"dir": d, "proto": s("proto").lower(), "state": s("state").upper(), "port": s("port"), "cc": s("cc").upper(),
-            "asn": s("asn"), "ip": s("ip"), "text": s("q", 80).lower(), "limit": limit}
+            "asn": s("asn"), "ip": s("ip"), "text": s("q", 80).lower(), "limit": limit, "hist": s("hist") == "1",
+            # countries whose name in the viewer's language matches the search text (the page sends their codes)
+            "qcc": {c for c in s("qcc", 900).upper().split(",") if len(c) == 2 and c.isalpha()}}
 
 
 def view(params):
@@ -351,7 +468,7 @@ def view(params):
     nips = len(ips)
     result = {
         "at": snap["at"], "took": snap["took"], "interval": snap["interval"], "entries": snap["entries"], "max": snap["max"],
-        "truncated": snap["truncated"], "acct": acct_on(), "db": db, "query": q,
+        "truncated": snap["truncated"], "acct": acct_on(), "db": db, "query": {**q, "qcc": sorted(q["qcc"])},
         "dirs": dict(dirs),
         "summary": {"conns": conns, "ips": nips, "countries": len([c for c in countries if c not in ("?", "LAN")]), "asns": len(asns),
                     "half": half, "bytes_in": bin_t, "bytes_out": bout_t, "proto": dict(by_proto), "states": dict(by_state.most_common(12))},
@@ -364,6 +481,7 @@ def view(params):
         "rows": out_rows, "rows_total": len(rows),
         "orgs": {a: orgs[a] for a in {r["asn"] for r in out_rows if r["asn"]} | {r["asn"] for r in ip_rows if r["asn"]} if a in orgs},
         "timeline": list(_timeline),
+        "history": list(_history) if q["hist"] else None, "history_on": history_on(),
         "insights": insights(conns, half, countries, subnets, ips, asns, q["dir"]),
         "reports": [{k: r[k] for k in ("id", "since", "ended", "reason", "conns", "top_cc", "top_port")} for r in reports()][::-1],
     }
@@ -448,6 +566,11 @@ def record_attack(is_active, since, reason):
         with open(tmp, "w") as f:
             json.dump(all_[-KEEP_REPORTS:], f)
         os.replace(tmp, _reports_path())
+        if _on_report:
+            try:
+                _on_report(rep)
+            except Exception as e:
+                print(f"conns report hook: {e}", flush=True)
     threading.Thread(target=run, daemon=True).start()
 
 
@@ -461,10 +584,34 @@ def check_ip(ip):
     return ip
 
 
+_ptr_cache = {}
+
+
+def _ptr(ip):
+    """The address's host name (reverse DNS), waiting at most 1.5 s."""
+    if ip in _ptr_cache:
+        return _ptr_cache[ip]
+    res = {}
+
+    def run():
+        try:
+            res["name"] = socket.gethostbyaddr(ip)[0]
+        except (OSError, UnicodeError):
+            res["name"] = None
+    th = threading.Thread(target=run, daemon=True)
+    th.start()
+    th.join(1.5)
+    if "name" in res:
+        if len(_ptr_cache) > 5000:
+            _ptr_cache.clear()
+        _ptr_cache[ip] = res["name"]
+    return res.get("name")
+
+
 def detail(params):
     """Everything about one remote address: where it is, what it does here, every connection of it."""
     ip = check_ip(str(params.get("ip", "")))
     cc, asn, org = geo(ip)
     v = view({"ip": ip, "dir": "all", "limit": 500})
-    return {"ip": ip, "cc": cc, "asn": asn, "org": org, "subnet": _subnet(ip), "first": _first_seen.get(ip),
+    return {"ip": ip, "cc": cc, "asn": asn, "org": org, "subnet": _subnet(ip), "first": _first_seen.get(ip), "ptr": _ptr(ip),
             "summary": v["summary"], "ports": v["ports"], "rows": v["rows"], **((_ip_status or (lambda i: {}))(ip))}

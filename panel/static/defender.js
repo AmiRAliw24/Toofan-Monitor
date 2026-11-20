@@ -402,6 +402,8 @@
     const p = { ...e };
     if (e.kind === "attack_start") { p.pps = nf(e.pps, 0); p.drop = nf(e.drop, 0); }
     if (e.kind === "attack_end") p.min = nf((e.seconds || 0) / 60, 0);
+    if (e.kind === "attack_sources") { p.pct = nf((e.share || 0) * 100, 0); p.conns = nf(e.conns || 0, 0); p.port = e.port || "–"; p.cc = e.cc || "?"; }
+    if (e.kind === "conn_acct") p.state = t(e.on ? "df_on" : "df_off");
     return t(`df_e_${e.kind}`, p);
   }
   function eventsHTML() {

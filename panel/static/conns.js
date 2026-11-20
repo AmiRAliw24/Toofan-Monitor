@@ -20,6 +20,14 @@
   // ---------------------------------------------------------------- strings
   const EN = {
     df_t_conns: "Connections", cx_n_ips: "{n} IPs",
+    df_e_attack_sources: "Attack sources: {cc} sent {pct}% of {conns} incoming connections, most to {port}",
+    df_e_bulk_ban: "{n} addresses banned from the connections page", df_e_conn_acct: "Per-connection traffic counting: {state}", df_on: "on", df_off: "off",
+    cx_live30: "Live (30 min)", cx_h48: "48 hours", cx_hist_empty: "The history fills up by itself: a point every 5 minutes, also when this page is closed.",
+    cx_hist_off: "Background history is off.", cx_hist: "Keep a 48-hour history", cx_hist_sub: "Every 5 minutes, also when this page is closed, notes where incoming connections come from (about 0.3% of one core).",
+    cx_sel: "{n} selected", cx_sel_all: "Select all on this page", cx_sel_clear: "Clear selection", cx_ban_sel: "Ban {d}", cx_block_sel: "Block permanently",
+    cx_bulk_q: "Ban {n} addresses for {d}?", cx_bulk_perm_q: "Add {n} addresses to the permanent blocklist?", cx_bulk_done: "{n} banned", cx_bulk_skip: "{n} skipped (yours, allowlisted or invalid)",
+    cx_csv: "CSV", cx_csv_t: "Download as CSV (opens in Excel)", cx_sort: "Sort", cx_ptr: "Host name", cx_threat_lists: "Threat lists", cx_kbd: "Press / to search",
+    cx_program: "program", cx_c_prog: "Program / service",
     cx_title: "Live connections", cx_sub: "Every connection to and from this server right now: who (address, country, network), to what (port, service, container) and in which state. Click anything to filter by it.",
     cx_in: "Incoming", cx_out: "Outgoing", cx_all: "All", cx_int: "Internal",
     cx_live: "Live · every {s}", cx_paused: "Paused", cx_pause: "Pause", cx_resume: "Resume", cx_read: "table read in {s}",
@@ -65,6 +73,14 @@
   };
   const FA = {
     df_t_conns: "اتصال‌ها", cx_n_ips: "{n} آی‌پی",
+    df_e_attack_sources: "منشأ حمله: {cc} با {pct}٪ از {conns} اتصال ورودی، بیشتر به {port}",
+    df_e_bulk_ban: "{n} آی‌پی از صفحه‌ی اتصال‌ها مسدود شد", df_e_conn_acct: "شمارش حجم هر اتصال: {state}", df_on: "روشن", df_off: "خاموش",
+    cx_live30: "زنده (۳۰ دقیقه)", cx_h48: "۴۸ ساعت", cx_hist_empty: "تاریخچه خودش پر می‌شود: هر ۵ دقیقه یک نقطه، حتی وقتی این صفحه بسته است.",
+    cx_hist_off: "ثبت تاریخچه در پس‌زمینه خاموش است.", cx_hist: "نگه‌داشتن تاریخچه‌ی ۴۸ ساعته", cx_hist_sub: "هر ۵ دقیقه، حتی وقتی این صفحه بسته است، ثبت می‌کند اتصال‌های ورودی از کجا آمده‌اند (حدود ۰٫۳٪ یک هسته).",
+    cx_sel: "{n} انتخاب شد", cx_sel_all: "انتخاب همه‌ی این صفحه", cx_sel_clear: "لغو انتخاب", cx_ban_sel: "مسدود {d}", cx_block_sel: "مسدود دائمی",
+    cx_bulk_q: "{n} آی‌پی برای {d} مسدود شود؟", cx_bulk_perm_q: "{n} آی‌پی به لیست سیاه دائمی اضافه شود؟", cx_bulk_done: "{n} آی‌پی مسدود شد", cx_bulk_skip: "{n} مورد رد شد (خودتان، مجاز یا نامعتبر)",
+    cx_csv: "CSV", cx_csv_t: "دانلود به‌صورت CSV (در اکسل باز می‌شود)", cx_sort: "مرتب‌سازی", cx_ptr: "نام میزبان", cx_threat_lists: "لیست‌های تهدید", cx_kbd: "برای جستجو / را بزنید",
+    cx_program: "برنامه", cx_c_prog: "برنامه / سرویس",
     cx_title: "اتصال‌های زنده", cx_sub: "همه‌ی اتصال‌های این سرور همین الان: چه کسی (آی‌پی، کشور، شبکه)، به کجا (پورت، سرویس، کانتینر) و در چه وضعیتی. روی هر چیزی کلیک کنید تا بر اساس آن فیلتر شود.",
     cx_in: "ورودی", cx_out: "خروجی", cx_all: "همه", cx_int: "داخلی",
     cx_live: "زنده · هر {s}", cx_paused: "متوقف", cx_pause: "توقف", cx_resume: "ادامه", cx_read: "خواندن جدول {s}",
@@ -147,13 +163,25 @@
   const C = {
     dir: "in", f: { cc: "", port: "", ip: "", asn: "", proto: "", state: "", q: "" }, limit: 300, data: null, paused: false, busy: false,
     last: 0, root: null, ctx: null, map: null, more: {}, err: "",
+    trend: "live", hist: null, histAt: 0, sel: new Set(), sort: { k: "conns", desc: true }, html: {},
   };
 
   function params() {
     const p = { dir: C.dir, limit: C.limit };
     for (const [k, v] of Object.entries(C.f)) if (v) p[k] = v;
+    if (C.f.q) {     // countries whose name (in this language or English) contains the search text
+      const q = C.f.q.toLowerCase(), codes = new Set();
+      const all = (C.map && Object.keys(C.map.paths)) || ((C.data && C.data.countries.map((c) => c.cc)) || []);
+      for (const cc of all) {
+        if (!/^[A-Z]{2}$/.test(cc)) continue;
+        if (ccName(cc).toLowerCase().includes(q) || enName(cc).toLowerCase().includes(q)) codes.add(cc);
+      }
+      if (codes.size) p.qcc = [...codes].slice(0, 250).join(",");
+    }
     return p;
   }
+  let enNames = null;
+  const enName = (cc) => { try { enNames = enNames || new Intl.DisplayNames(["en"], { type: "region" }); return enNames.of(cc) || cc; } catch (e) { return cc; } };
 
   async function load(force = false) {
     if (C.busy || (!force && C.paused)) return;
@@ -173,6 +201,16 @@
     if (!C.root || !document.body.contains(C.root) || C.paused || document.hidden) return;
     const every = Math.max(3, (C.data && C.data.interval) || 3) * 1000;
     if (Date.now() - C.last >= every - 300) load();
+    if (C.trend === "h48" && Date.now() - C.histAt > 60000) loadHistory();
+  }
+
+  async function loadHistory() {
+    C.histAt = Date.now();
+    try {
+      const d = await api("/api/defender/conns", { dir: "in", limit: 20, hist: 1 });
+      C.hist = d.history || [];
+    } catch (e) { /* the live view still works */ }
+    if (C.data) paintTrend(C.data);
   }
 
   // ---------------------------------------------------------------- layout
@@ -182,7 +220,7 @@
       <div class="sec-head"><h3>${icon("network")}${esc(t("cx_title"))}</h3><p class="muted">${esc(t("cx_sub"))}</p></div>
       <div class="cx-bar">
         <div class="seg" role="group" aria-label="${esc(t("cx_title"))}" id="cx-dir">${dirSeg()}</div>
-        <label class="cx-search">${icon("search")}<input type="search" id="cx-q" placeholder="${esc(t("cx_search"))}" value="${esc(C.f.q)}" autocomplete="off" spellcheck="false"></label>
+        <label class="cx-search" title="${esc(t("cx_kbd"))}">${icon("search")}<input type="search" id="cx-q" placeholder="${esc(t("cx_search"))}" value="${esc(C.f.q)}" autocomplete="off" spellcheck="false"><kbd class="cx-kbd" aria-hidden="true">/</kbd></label>
         <select id="cx-proto" aria-label="${esc(t("cx_proto"))}">${opts([["", `${t("cx_proto")}: ${t("cx_any")}`], ["tcp", "TCP"], ["udp", "UDP"], ["icmp", "ICMP"], ["ipv6-icmp", "ICMPv6"]], C.f.proto)}</select>
         <select id="cx-state" aria-label="${esc(t("cx_state"))}">${opts([["", `${t("cx_state")}: ${t("cx_any")}`], ["HALF", t("cx_half_state")], ...["ESTABLISHED", "SYN_RECV", "SYN_SENT", "TIME_WAIT", "CLOSE_WAIT", "UNREPLIED", "ACTIVE"].map((s) => [s, stName(s)])], C.f.state)}</select>
         <div class="cx-live" id="cx-live"></div>
@@ -194,14 +232,20 @@
         <div class="chart cx-map-card"><header><h3 id="cx-world-h">${icon("globe")}${esc(t(C.dir === "out" ? "cx_world_out" : "cx_world"))}</h3></header><div class="cx-map" id="cx-map"></div><div class="cx-tip" id="cx-tip" hidden></div></div>
         <div class="chart cx-cc-card"><header><h3>${icon("pin")}${esc(t("cx_countries"))}</h3></header><div id="cx-cc"></div></div>
       </div>
-      <div class="chart cx-trend-card" id="cx-trend-card" hidden><header><h3>${icon("activity")}${esc(t("cx_trend"))}</h3><p class="muted small">${esc(t("cx_trend_sub"))}</p></header><div class="legend" id="cx-trend-legend"></div><div class="plot" id="cx-trend"></div></div>
+      <div class="chart cx-trend-card" id="cx-trend-card" hidden><header><h3>${icon("activity")}${esc(t("cx_trend"))}</h3>
+        <div class="seg" role="group" aria-label="${esc(t("cx_trend"))}">${[["live", "cx_live30"], ["h48", "cx_h48"]].map(([k, l]) => `<button type="button" data-c="trend" data-v="${k}" aria-pressed="${C.trend === k}">${esc(t(l))}</button>`).join("")}</div>
+        <p class="muted small" id="cx-trend-sub">${esc(t("cx_trend_sub"))}</p></header><div class="legend" id="cx-trend-legend"></div><div class="plot" id="cx-trend"></div></div>
       <div class="cx-grid">
         <div class="chart"><header><h3 id="cx-ports-h">${icon("server")}${esc(t("cx_ports"))}</h3></header><div id="cx-ports"></div></div>
         <div class="chart"><header><h3>${icon("network")}${esc(t("cx_asns"))}</h3></header><div id="cx-asns"></div></div>
         <div class="chart"><header><h3>${icon("grid")}${esc(t("cx_subnets"))}</h3></header><div id="cx-subnets"></div></div>
       </div>
-      <div class="chart"><header><h3>${icon("globe")}${esc(t("cx_ips"))}</h3><span class="muted small" id="cx-ips-n"></span></header><div id="cx-ips"></div></div>
-      <div class="chart"><header><h3>${icon("list")}${esc(t("cx_rows"))}</h3><span class="muted small">${esc(t("cx_rows_sub"))}</span></header><div id="cx-rows"></div></div>
+      <div class="chart"><header><h3>${icon("globe")}${esc(t("cx_ips"))}</h3><span class="cx-count" id="cx-ips-n"></span>
+        <button type="button" class="btn small ghost cx-csv" data-c="csv" data-k="ips" title="${esc(t("cx_csv_t"))}">${icon("file")}${esc(t("cx_csv"))}</button></header>
+        <div id="cx-bulk"></div><div id="cx-ips"></div></div>
+      <div class="chart"><header><h3>${icon("list")}${esc(t("cx_rows"))}</h3>
+        <button type="button" class="btn small ghost cx-csv" data-c="csv" data-k="rows" title="${esc(t("cx_csv_t"))}">${icon("file")}${esc(t("cx_csv"))}</button>
+        <span class="muted small">${esc(t("cx_rows_sub"))}</span></header><div id="cx-rows"></div></div>
       <div class="chart"><header><h3>${icon("report")}${esc(t("cx_reports"))}</h3><span class="muted small">${esc(t("cx_reports_sub"))}</span></header><div id="cx-reports"></div></div>
       <div class="cx-foot" id="cx-foot"></div>
     </section>`;
@@ -218,6 +262,18 @@
     const q = C.root.querySelector("#cx-q");
     let deb = 0;
     q.addEventListener("input", () => { clearTimeout(deb); deb = setTimeout(() => { C.f.q = q.value.trim(); C.limit = 300; load(true); }, 350); });
+    if (!C.keyBound) {
+      C.keyBound = true;
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "/" || !C.root || !document.body.contains(C.root) || e.ctrlKey || e.metaKey || e.altKey) return;
+        const tag = (document.activeElement && document.activeElement.tagName) || "";
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || document.querySelector("dialog[open]")) return;
+        e.preventDefault();
+        const box = $("cx-q");
+        if (box) box.focus();
+      });
+    }
+    C.html = {};
     paintLive();
     loadMap();
     await load(true);
@@ -225,7 +281,12 @@
 
   // ---------------------------------------------------------------- painting
   const $ = (id) => C.root && C.root.querySelector(`#${id}`);
-  const put = (id, html) => { const el = $(id); if (el && el.innerHTML !== html) el.innerHTML = html; };
+  const put = (id, html) => {
+    const el = $(id);
+    if (!el || C.html[id] === html) return;      // unchanged: keep the DOM (hover, focus, scroll) as it is
+    C.html[id] = html;
+    el.innerHTML = html;
+  };
 
   function paint() {
     if (!C.root || !document.body.contains(C.root)) return;
@@ -248,6 +309,7 @@
     put("cx-subnets", subnetsHTML(d));
     put("cx-ips-n", d.ips.length ? esc(`${nf(d.summary.ips, 0)}`) : "");
     put("cx-ips", ipsHTML(d));
+    put("cx-bulk", bulkHTML());
     put("cx-rows", rowsHTML(d));
     put("cx-reports", reportsHTML(d));
     put("cx-foot", footHTML(d));
@@ -383,11 +445,18 @@
     return `<span class="pill ${kind} cx-st">${esc(stName(s))}</span>`;
   };
 
+  const SORTS = { conns: (r) => r.conns, half: (r) => r.half, nports: (r) => r.nports, first: (r) => -(r.first || 0), bytes: (r) => r.bytes_in + r.bytes_out };
+  const selectable = (r) => C.dir !== "out" && r.cc !== "LAN" && !r.allowed && !r.banned && !r.blocked;
+  const sortTh = (k, label) => `<th><button type="button" class="cx-th${C.sort.k === k ? " on" : ""}" data-c="sort" data-k="${k}" title="${esc(t("cx_sort"))}">${esc(t(label))}${C.sort.k === k ? `<span aria-hidden="true">${C.sort.desc ? "▾" : "▴"}</span>` : ""}</button></th>`;
+
   function ipsHTML(d) {
     if (!d.ips.length) return empty(d);
-    const max = d.ips[0].conns, out = C.dir === "out";
-    const rows = take("ips", d.ips, 25).map((r) => `<tr class="${r.banned || r.blocked ? "cx-dim" : ""}">
-      <td><button type="button" class="cx-link cx-ip" data-c="ip" data-ip="${esc(r.ip)}">${num(esc(r.ip))}</button>${statusPills(r)}</td>
+    const max = Math.max(...d.ips.map((r) => r.conns)), out = C.dir === "out";
+    const f = SORTS[C.sort.k] || SORTS.conns, sorted = d.ips.slice().sort((a, b) => (C.sort.desc ? f(b) - f(a) : f(a) - f(b)) || b.conns - a.conns);
+    const shown = take("ips", sorted, 25), canSel = shown.filter(selectable);
+    const allOn = canSel.length && canSel.every((r) => C.sel.has(r.ip));
+    const rows = shown.map((r) => `<tr class="${r.banned || r.blocked ? "cx-dim" : ""}${C.sel.has(r.ip) ? " cx-picked" : ""}">
+      <td>${selectable(r) ? `<input type="checkbox" class="cx-pick" data-c="pick" data-ip="${esc(r.ip)}" ${C.sel.has(r.ip) ? "checked" : ""} aria-label="${esc(r.ip)}">` : `<span class="cx-pick-gap"></span>`}<button type="button" class="cx-link cx-ip" data-c="ip" data-ip="${esc(r.ip)}">${num(esc(r.ip))}</button>${statusPills(r)}</td>
       <td data-label="${esc(t("cx_c_where"))}"><button type="button" class="cx-link" data-c="filter" data-k="cc" data-v="${esc(r.cc || "?")}">${place(r.cc || "?")}</button></td>
       <td data-label="${esc(t("cx_c_net"))}" class="cx-net">${r.asn ? `<button type="button" class="cx-link" data-c="filter" data-k="asn" data-v="${esc(r.asn)}">${orgHTML(d.orgs[r.asn], r.asn)}</button>` : "–"}</td>
       <td class="cx-num" data-label="${esc(t("cx_c_conns"))}"><span class="cx-cell-bar">${bar(r.conns, max, r.half > r.conns / 3 ? "bad" : "")}${num(nf(r.conns, 0))}</span>${r.half ? `<span class="cx-half" title="${esc(t("cx_k_half"))}">${num(nf(r.half, 0))}</span>` : ""}</td>
@@ -398,7 +467,8 @@
         <button type="button" class="btn small icon ghost" data-c="ip" data-ip="${esc(r.ip)}" title="${esc(t("cx_details"))}" aria-label="${esc(t("cx_details"))} ${esc(r.ip)}">${icon("eye")}</button>
         ${out || r.cc === "LAN" || r.allowed ? "" : `<button type="button" class="btn small icon ghost danger" data-c="ban" data-ip="${esc(r.ip)}" data-min="60" title="${esc(t("cx_ban"))}" aria-label="${esc(t("cx_ban"))} ${esc(r.ip)}">${icon("ban")}</button>`}
       </div></td></tr>`).join("");
-    return `<div class="table-wrap cx-table cx-ipt"><table><thead><tr><th>${esc(t("cx_c_ip"))}</th><th>${esc(t("cx_c_where"))}</th><th>${esc(t("cx_c_net"))}</th><th>${esc(t("cx_c_conns"))}</th><th>${esc(t(out ? "cx_c_port" : "cx_c_ports"))}</th>${d.acct ? `<th>${esc(t("cx_c_bytes"))}</th>` : ""}<th>${esc(t("cx_c_first"))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("ips", d.ips.length, 25)}`;
+    const head = `<th>${canSel.length ? `<input type="checkbox" class="cx-pick" data-c="pick-all" ${allOn ? "checked" : ""} aria-label="${esc(t("cx_sel_all"))}" title="${esc(t("cx_sel_all"))}">` : ""}${esc(t("cx_c_ip"))}</th><th>${esc(t("cx_c_where"))}</th><th>${esc(t("cx_c_net"))}</th>${sortTh("conns", "cx_c_conns")}${sortTh("nports", out ? "cx_c_port" : "cx_c_ports")}${d.acct ? sortTh("bytes", "cx_c_bytes") : ""}${sortTh("first", "cx_c_first")}<th></th>`;
+    return `<div class="table-wrap cx-table cx-ipt"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("ips", d.ips.length, 25)}`;
   }
 
   const dirIcon = (dr) => `<span class="cx-dir ${dr}" title="${esc(t(dr === "in" ? "cx_in" : dr === "out" ? "cx_out" : "cx_int"))}">${icon(dr === "in" ? "arrow-in" : dr === "out" ? "arrow-out" : "arrow-both")}</span>`;
@@ -434,7 +504,8 @@
     else if (db.state === "error") msg = `<div class="notice warn">${icon("alert")}<span>${esc(tv("cx_db_error", { e: db.error }))}</span><button type="button" class="btn small" data-c="db-retry">${esc(t("cx_db_retry"))}</button></div>`;
     else msg = `<div class="notice">${icon("refresh")}<span>${esc(t("cx_db_loading"))}</span></div>`;
     const acct = `<label class="cx-acct"><span class="switch"><input type="checkbox" data-c="acct-toggle" ${d.acct ? "checked" : ""}><span></span></span><span><b>${esc(t("cx_acct"))}</b><span class="muted small">${esc(t("cx_acct_sub"))}</span></span></label>`;
-    return `${msg}${acct}`;
+    const hist = `<label class="cx-acct"><span class="switch"><input type="checkbox" data-c="hist-toggle" ${d.history_on ? "checked" : ""}><span></span></span><span><b>${esc(t("cx_hist"))}</b><span class="muted small">${esc(t("cx_hist_sub"))}</span></span></label>`;
+    return `${msg}${acct}${hist}`;
   }
 
   // ---------------------------------------------------------------- map
@@ -488,10 +559,17 @@
   // ---------------------------------------------------------------- trend
   function paintTrend(d) {
     const card = $("cx-trend-card"), box = $("cx-trend");
-    const tl = d.timeline || [];
+    const h48 = C.trend === "h48";
+    const tl = h48 ? (C.hist || []) : (d.timeline || []);
     if (!card || !box) return;
-    if (C.dir === "out" || tl.length < 3) { card.hidden = true; return; }
+    if (C.dir === "out" || (!h48 && tl.length < 3 && !(d.history_on && d.db && d.db.ready))) { card.hidden = true; return; }
     card.hidden = false;
+    put("cx-trend-sub", esc(t(h48 ? "cx_hist_sub" : "cx_trend_sub")));
+    if (tl.length < 2) {
+      box.innerHTML = `<div class="empty">${esc(t(h48 && !d.history_on ? "cx_hist_off" : h48 ? "cx_hist_empty" : "cx_loading"))}</div>`;
+      put("cx-trend-legend", "");
+      return;
+    }
     const totals = {};
     tl.forEach((p) => Object.entries(p.cc || {}).forEach(([cc, n]) => { totals[cc] = (totals[cc] || 0) + n; }));
     const top = Object.entries(totals).filter(([cc]) => /^[A-Z]{2}$/.test(cc)).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([cc]) => cc);
@@ -504,8 +582,8 @@
     const X = (tt) => L + ((tt - t0) / span) * (W - L - R), Y = (v) => T + (1 - v / max) * (H - T - B);
     let grid = "";
     for (let i = 0; i <= 3; i++) { const v = (max * i) / 3; grid += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${esc(nf(v, 0))}</text>`; }
-    const hhmm = (s) => { const x = new Date(s * 1000); return `${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`; };
-    grid += `<text x="${L}" y="${H - 6}">${hhmm(t0)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${hhmm(t1)}</text>`;
+    const hhmm = (s) => { const x = new Date(s * 1000); return `${span > 86400 ? `${x.getMonth() + 1}/${x.getDate()} ` : ""}${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`; };
+    grid += `<text x="${L}" y="${H - 6}">${hhmm(t0)}</text><text x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle">${hhmm(t0 + span / 2)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${hhmm(t1)}</text>`;
     const lines = series.map((s) => `<polyline points="${tl.map((p) => `${X(p.t).toFixed(1)},${Y(s.get(p)).toFixed(1)}`).join(" ")}" fill="none" stroke="${s.col}" stroke-width="${s.w}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} stroke-linejoin="round"/>`).join("");
     box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="height:${H}px" role="img" aria-label="${esc(t("cx_trend"))}"><g class="grid">${grid}</g>${lines}</svg>`;
     put("cx-trend-legend", series.map((s) => `<span><i style="background:${s.col}"></i>${s.flag ? flag(s.flag) : ""}${esc(s.name)}</span>`).join(""));
@@ -541,6 +619,19 @@
       return load(true);
     }
     if (c === "pause") { C.paused = !C.paused; paintLive(); if (!C.paused) load(true); return; }
+    if (c === "trend") {
+      C.trend = b.dataset.v;
+      C.root.querySelectorAll('[data-c="trend"]').forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      if (C.trend === "h48") return loadHistory();
+      return paintTrend(C.data);
+    }
+    if (c === "sort") {
+      C.sort = C.sort.k === b.dataset.k ? { k: b.dataset.k, desc: !C.sort.desc } : { k: b.dataset.k, desc: true };
+      return paint();
+    }
+    if (c === "sel-clear") { C.sel.clear(); return paint(); }
+    if (c === "bulk") return bulkBan(b, +b.dataset.min);
+    if (c === "csv") return exportCsv(b, b.dataset.k);
     if (c === "more") { C.more[b.dataset.k] = !C.more[b.dataset.k]; return paint(); }
     if (c === "rows-more") { C.limit = Math.min(2000, C.limit + 500); return load(true); }
     if (c === "ip") return ipDialog(b.dataset.ip);
@@ -554,9 +645,67 @@
 
   function onChange(e) {
     const el = e.target;
+    if (el.dataset.c === "pick") { if (el.checked) C.sel.add(el.dataset.ip); else C.sel.delete(el.dataset.ip); return paint(); }
+    if (el.dataset.c === "pick-all") {
+      const ips = [...C.root.querySelectorAll('[data-c="pick"]')].map((x) => x.dataset.ip);
+      ips.forEach((ip) => (el.checked ? C.sel.add(ip) : C.sel.delete(ip)));
+      return paint();
+    }
+    if (el.dataset.c === "hist-toggle") {
+      act(el, () => post("/api/defender/conns/history", { on: el.checked }), t("saved")).then((r) => { if (!r) el.checked = !el.checked; C.hist = null; C.histAt = 0; load(true); });
+      return;
+    }
     if (el.id === "cx-proto") return setFilter("proto", el.value);
     if (el.id === "cx-state") return setFilter("state", el.value);
     if (el.dataset.c === "acct-toggle") return setAcct(el, el.checked);
+  }
+
+  const DURS = [[60, "cx_h1"], [1440, "cx_h24"], [10080, "cx_d7"]];
+  function bulkHTML() {
+    if (!C.sel.size) return "";
+    return `<div class="cx-bulkbar" role="region" aria-label="${esc(tv("cx_sel", { n: C.sel.size }))}"><b>${esc(tv("cx_sel", { n: nf(C.sel.size, 0) }))}</b>
+      ${DURS.map(([m, k]) => `<button type="button" class="btn small danger" data-c="bulk" data-min="${m}">${icon("ban")}${esc(tv("cx_ban_sel", { d: t(k) }))}</button>`).join("")}
+      <button type="button" class="btn small danger solid" data-c="bulk" data-min="0">${esc(t("cx_block_sel"))}</button>
+      <button type="button" class="btn small ghost" data-c="sel-clear">${esc(t("cx_sel_clear"))}</button></div>`;
+  }
+
+  async function bulkBan(btn, minutes) {
+    const ips = [...C.sel];
+    const d = (DURS.find(([m]) => m === minutes) || [0, "cx_h1"])[1];
+    const q = minutes ? tv("cx_bulk_q", { n: nf(ips.length, 0), d: t(d) }) : tv("cx_bulk_perm_q", { n: nf(ips.length, 0) });
+    if (!(await confirmBox({ message: q, label: minutes ? tv("cx_ban_sel", { d: t(d) }) : t("cx_block_sel") }))) return;
+    const r = await act(btn, () => post("/api/defender/conns/ban", { ips, minutes }));
+    if (!r) return;
+    toast(tv("cx_bulk_done", { n: nf(r.done.length, 0) }));
+    if (r.skipped.length) toast(tv("cx_bulk_skip", { n: nf(r.skipped.length, 0) }), "warn");
+    C.sel.clear();
+    load(true);
+  }
+
+  async function exportCsv(btn, kind) {
+    let d = C.data;
+    if (!d) return;
+    if (kind === "rows" && d.rows_total > d.rows.length) {        // everything that matches, not only what is shown
+      const full = await act(btn, () => api("/api/defender/conns", { ...params(), limit: 2000 }));
+      if (full) d = full;
+    }
+    const cell = (v) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    let head, lines;
+    if (kind === "ips") {
+      head = ["ip", "country", "country_name", "asn", "network", "connections", "half_open", "ports", "bytes_in", "bytes_out", "first_seen", "status"];
+      lines = d.ips.map((r) => [r.ip, r.cc || "", ccName(r.cc), r.asn || "", (d.orgs || {})[r.asn] || "", r.conns, r.half, r.ports.join(" "), r.bytes_in, r.bytes_out,
+        r.first ? new Date(r.first * 1000).toISOString() : "", [r.banned && "banned", r.blocked && "blocked", r.allowed && "allowed", r.threat && "threat"].filter(Boolean).join(" ")]);
+    } else {
+      head = ["direction", "protocol", "ip", "country", "asn", "network", "port", "service", "forwarded_to", "state", "count", "half_open", "bytes_in", "bytes_out", "expires_s"];
+      lines = d.rows.map((r) => [r.dir, r.proto, r.ip, r.cc || "", r.asn || "", (d.orgs || {})[r.asn] || "", r.port, r.svc, r.target, r.state, r.n, r.half, r.bytes_in, r.bytes_out, r.ttl]);
+    }
+    const csv = "\ufeff" + [head, ...lines].map((l) => l.map(cell).join(",")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `connections-${kind}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
   async function setAcct(el, on) {
@@ -617,6 +766,8 @@
           <div><dt>${esc(t("cx_ip_subnet"))}</dt><dd>${num(esc(d.subnet))}</dd></div>
           <div><dt>${esc(t("cx_k_conns"))}</dt><dd>${num(nf(s.conns, 0))}${s.half ? ` <span class="pill bad">${num(nf(s.half, 0))} ${esc(t("cx_k_half"))}</span>` : ""}</dd></div>
           ${d.first ? `<div><dt>${esc(t("cx_c_first"))}</dt><dd>${esc(ago(d.first))}</dd></div>` : ""}
+          ${d.ptr ? `<div><dt>${esc(t("cx_ptr"))}</dt><dd><bdi class="cx-mono">${esc(d.ptr)}</bdi></dd></div>` : ""}
+          ${d.threat && d.threat.length ? `<div><dt>${esc(t("cx_threat_lists"))}</dt><dd>${d.threat.map((n) => pill("warn", n)).join(" ")}</dd></div>` : ""}
         </dl>
       </div>
       ${lan || d.allowed ? "" : `<div class="cx-ipd-acts">

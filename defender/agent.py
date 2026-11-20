@@ -594,8 +594,59 @@ def conn_ip_status(ip):
         except Exception:
             hits = []
         if hits:
-            out["threat"] = hits
+            names = {c.get("id"): c.get("name") for c in CFG["threat"].get("custom") or [] if isinstance(c, dict)}
+            out["threat"] = [(threat.FEEDS.get(h) or {}).get("name") or names.get(h) or h for h in hits]
     return out
+
+
+def api_conn_ban(b):
+    """Ban several addresses at once from the connections page (minutes; 0 = the permanent blocklist)."""
+    ips = b.get("ips") or []
+    if not isinstance(ips, list) or not 1 <= len(ips) <= 500:
+        raise ValueError("choose 1 to 500 addresses")
+    try:
+        minutes = max(0, min(525600, int(b.get("minutes") or 0)))
+    except (TypeError, ValueError):
+        raise ValueError("invalid duration")
+    note = str(b.get("note") or "connections page")[:80]
+    done, skipped, perm = [], [], []
+    for raw in ips:
+        try:
+            addr = str(ipaddress.ip_address(str(raw).strip()))
+        except ValueError:
+            skipped.append({"ip": str(raw)[:45], "why": "invalid"})
+            continue
+        if own_or_admin(addr):
+            skipped.append({"ip": addr, "why": "protected"})
+            continue
+        if minutes:
+            try:
+                ban(addr, minutes, note, "manual")
+                done.append(addr)
+            except ValueError as e:
+                skipped.append({"ip": addr, "why": str(e)[:120]})
+        else:
+            perm.append(addr)
+    if perm:
+        def mut(c):
+            have = {e["ip"] for e in c["block"]}
+            c["block"] += [{"ip": a, "note": note, "added": int(time.time())} for a in perm if a not in have]
+        change(mut, rollback=False, what="block")
+        done += perm
+    if done:
+        event("bulk_ban", n=len(done), minutes=minutes)
+    _conn_status["at"] = 0
+    return {"done": done, "skipped": skipped}
+
+
+def on_attack_report(rep):
+    """Where the attack came from, for the activity log and Telegram."""
+    top = (rep.get("countries") or [{}])[0]
+    asn = (rep.get("asns") or [{}])[0]
+    event("attack_sources", cc=rep.get("top_cc"), share=round((top.get("conns") or 0) / max(1, rep.get("conns") or 1), 3),
+          ips=rep.get("ips"), conns=rep.get("conns"), half=rep.get("half"), port=rep.get("top_port"),
+          org=(rep.get("orgs") or {}).get(str(asn.get("asn"))) or (rep.get("orgs") or {}).get(asn.get("asn")) or None,
+          countries=[[c["cc"], c["conns"]] for c in (rep.get("countries") or [])[:5]])
 
 
 def _try_net(v):
@@ -1841,6 +1892,8 @@ POST = {
     "/threat/custom/remove": api_threat_custom_remove,
     "/test": api_test,
     "/conns/acct": api_conn_acct,
+    "/conns/ban": api_conn_ban,
+    "/conns/history": lambda b: (conns.set_history(bool(b.get("on"))), {"history_on": conns.history_on()})[1],
     "/conns/geo": lambda b: (ipdb.ensure(DATA, force=True), ipdb.status(DATA))[1],
 }
 
@@ -1916,7 +1969,7 @@ def main():
             conns.set_acct(True)        # per-connection byte counting, as it was before the restart
         except OSError as e:
             log("cannot turn on conntrack accounting:", e)
-    conns.configure(DATA, conn_ip_status)
+    conns.configure(DATA, conn_ip_status, on_attack_report)
     seed_recent_logins()
     load_cdn()      # the last downloaded copy of Cloudflare's ranges, if there is one
     try:
