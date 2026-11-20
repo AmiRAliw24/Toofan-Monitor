@@ -6898,8 +6898,8 @@ __MONITORING_EOF__
         ${p.svc ? `<span class="cx-svc">${esc(p.svc)}</span>` : ""}${p.targets.length ? `<span class="cx-target muted small">→ ${num(esc(p.targets.join(", ")))}</span>` : ""}</td>
       <td class="cx-num" data-label="${esc(t("cx_c_conns"))}"><span class="cx-cell-bar">${bar(p.conns, max, p.half > p.conns / 3 ? "bad" : "")}${num(nf(p.conns, 0))}</span></td>
       <td class="cx-num" data-label="${esc(t("cx_c_ips"))}">${num(nf(p.ips, 0))}</td>
-      <td data-label="${esc(t("cx_c_cc"))}"><span class="cx-flags">${p.ccs.map((c) => `<span title="${esc(ccName(c))}">${flag(c)}</span>`).join("")}</span></td></tr>`).join("");
-    return `<div class="table-wrap cx-table"><table><thead><tr><th>${esc(t("cx_c_port"))}</th><th>${esc(t("cx_c_conns"))}</th><th>${esc(t("cx_c_ips"))}</th><th>${esc(t("cx_c_cc"))}</th></tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("ports", d.ports.length, 8)}`;
+      <td class="cx-hide-sm" data-label="${esc(t("cx_c_cc"))}"><span class="cx-flags">${p.ccs.map((c) => `<span title="${esc(ccName(c))}">${flag(c)}</span>`).join("")}</span></td></tr>`).join("");
+    return `<div class="table-wrap cx-table cx-compact"><table><thead><tr><th>${esc(t("cx_c_port"))}</th><th>${esc(t("cx_c_conns"))}</th><th>${esc(t("cx_c_ips"))}</th><th class="cx-hide-sm">${esc(t("cx_c_cc"))}</th></tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("ports", d.ports.length, 8)}`;
   }
 
   function asnsHTML(d) {
@@ -6909,7 +6909,7 @@ __MONITORING_EOF__
       <td><button type="button" class="cx-link cx-org" data-c="filter" data-k="asn" data-v="${esc(a.asn)}">${flag(a.cc)}<span>${orgHTML(a.org, a.asn)}</span></button><span class="muted small cx-asn">${num(`AS${a.asn}`)}</span></td>
       <td class="cx-num" data-label="${esc(t("cx_c_conns"))}"><span class="cx-cell-bar">${bar(a.conns, max)}${num(nf(a.conns, 0))}</span></td>
       <td class="cx-num" data-label="${esc(t("cx_c_ips"))}">${num(nf(a.ips, 0))}</td></tr>`).join("");
-    return `<div class="table-wrap cx-table"><table><thead><tr><th>${esc(t("cx_c_net2"))}</th><th>${esc(t("cx_c_conns"))}</th><th>${esc(t("cx_c_ips"))}</th></tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("asns", d.asns.length, 8)}`;
+    return `<div class="table-wrap cx-table cx-compact"><table><thead><tr><th>${esc(t("cx_c_net2"))}</th><th>${esc(t("cx_c_conns"))}</th><th>${esc(t("cx_c_ips"))}</th></tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("asns", d.asns.length, 8)}`;
   }
 
   function subnetsHTML(d) {
@@ -6920,7 +6920,7 @@ __MONITORING_EOF__
       <td class="cx-num" data-label="${esc(t("cx_c_conns"))}"><span class="cx-cell-bar">${bar(s.conns, max)}${num(nf(s.conns, 0))}</span></td>
       <td class="cx-num" data-label="${esc(t("cx_c_ips"))}">${num(nf(s.ips, 0))}</td>
       <td class="act">${C.dir !== "out" && s.cc !== "LAN" ? `<button type="button" class="btn small icon ghost danger" data-c="block-net" data-net="${esc(s.net)}" title="${esc(t("cx_block_net"))}" aria-label="${esc(t("cx_block_net"))} ${esc(s.net)}">${icon("ban")}</button>` : ""}</td></tr>`).join("");
-    return `<div class="table-wrap cx-table"><table><thead><tr><th>${esc(t("cx_subnets"))}</th><th>${esc(t("cx_c_conns"))}</th><th>${esc(t("cx_c_ips"))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("subnets", d.subnets.length, 8)}`;
+    return `<div class="table-wrap cx-table cx-compact"><table><thead><tr><th>${esc(t("cx_subnets"))}</th><th>${esc(t("cx_c_conns"))}</th><th>${esc(t("cx_c_ips"))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${moreBtn("subnets", d.subnets.length, 8)}`;
   }
 
   const statusPills = (r) => [r.banned ? pill("bad", t("cx_banned")) : "", r.blocked ? pill("bad", t("cx_blocked")) : "", r.allowed ? pill("ok", t("cx_allowed")) : "", r.threat ? pill("warn", t("cx_threat")) : ""].join("");
@@ -6940,14 +6940,14 @@ __MONITORING_EOF__
     const shown = take("ips", sorted, 25), canSel = shown.filter(selectable);
     const allOn = canSel.length && canSel.every((r) => C.sel.has(r.ip));
     const rows = shown.map((r) => `<tr class="${r.banned || r.blocked ? "cx-dim" : ""}${C.sel.has(r.ip) ? " cx-picked" : ""}">
-      <td>${selectable(r) ? `<input type="checkbox" class="cx-pick" data-c="pick" data-ip="${esc(r.ip)}" ${C.sel.has(r.ip) ? "checked" : ""} aria-label="${esc(r.ip)}">` : `<span class="cx-pick-gap"></span>`}<button type="button" class="cx-link cx-ip" data-c="ip" data-ip="${esc(r.ip)}">${num(esc(r.ip))}</button>${statusPills(r)}</td>
-      <td data-label="${esc(t("cx_c_where"))}"><button type="button" class="cx-link" data-c="filter" data-k="cc" data-v="${esc(r.cc || "?")}">${place(r.cc || "?")}</button></td>
-      <td data-label="${esc(t("cx_c_net"))}" class="cx-net">${r.asn ? `<button type="button" class="cx-link" data-c="filter" data-k="asn" data-v="${esc(r.asn)}">${orgHTML(d.orgs[r.asn], r.asn)}</button>` : "–"}</td>
-      <td class="cx-num" data-label="${esc(t("cx_c_conns"))}"><span class="cx-cell-bar">${bar(r.conns, max, r.half > r.conns / 3 ? "bad" : "")}${num(nf(r.conns, 0))}</span>${r.half ? `<span class="cx-half" title="${esc(t("cx_k_half"))}">${num(nf(r.half, 0))}</span>` : ""}</td>
-      <td data-label="${esc(t(out ? "cx_c_port" : "cx_c_ports"))}"><span class="cx-ports">${r.ports.map((p) => `<span class="chip">${num(esc(p))}</span>`).join("")}${r.nports > r.ports.length ? `<span class="muted small">+${num(r.nports - r.ports.length)}</span>` : ""}</span></td>
-      ${d.acct ? `<td class="cx-num" data-label="${esc(t("cx_c_bytes"))}">${num(esc(fmtBytes(r.bytes_in + r.bytes_out)))}</td>` : ""}
-      <td data-label="${esc(t("cx_c_first"))}" class="muted small">${r.first ? esc(ago(r.first)) : "–"}</td>
-      <td class="act"><div class="row-actions">
+      <td class="cx-c-ip">${selectable(r) ? `<input type="checkbox" class="cx-pick" data-c="pick" data-ip="${esc(r.ip)}" ${C.sel.has(r.ip) ? "checked" : ""} aria-label="${esc(r.ip)}">` : `<span class="cx-pick-gap"></span>`}<button type="button" class="cx-link cx-ip" data-c="ip" data-ip="${esc(r.ip)}">${num(esc(r.ip))}</button>${statusPills(r)}</td>
+      <td class="cx-c-where" data-label="${esc(t("cx_c_where"))}"><button type="button" class="cx-link" data-c="filter" data-k="cc" data-v="${esc(r.cc || "?")}">${place(r.cc || "?")}</button></td>
+      <td data-label="${esc(t("cx_c_net"))}" class="cx-net cx-c-net">${r.asn ? `<button type="button" class="cx-link" data-c="filter" data-k="asn" data-v="${esc(r.asn)}">${orgHTML(d.orgs[r.asn], r.asn)}</button>` : "–"}</td>
+      <td class="cx-num cx-c-conns" data-label="${esc(t("cx_c_conns"))}"><span class="cx-cell-bar">${bar(r.conns, max, r.half > r.conns / 3 ? "bad" : "")}${num(nf(r.conns, 0))}</span>${r.half ? `<span class="cx-half" title="${esc(t("cx_k_half"))}">${num(nf(r.half, 0))}</span>` : ""}</td>
+      <td class="cx-c-ports" data-label="${esc(t(out ? "cx_c_port" : "cx_c_ports"))}"><span class="cx-ports">${r.ports.map((p) => `<span class="chip">${num(esc(p))}</span>`).join("")}${r.nports > r.ports.length ? `<span class="muted small">+${num(r.nports - r.ports.length)}</span>` : ""}</span></td>
+      ${d.acct ? `<td class="cx-num cx-c-bytes" data-label="${esc(t("cx_c_bytes"))}">${num(esc(fmtBytes(r.bytes_in + r.bytes_out)))}</td>` : ""}
+      <td data-label="${esc(t("cx_c_first"))}" class="muted small cx-c-first">${r.first ? esc(ago(r.first)) : "–"}</td>
+      <td class="act cx-c-act"><div class="row-actions">
         <button type="button" class="btn small icon ghost" data-c="ip" data-ip="${esc(r.ip)}" title="${esc(t("cx_details"))}" aria-label="${esc(t("cx_details"))} ${esc(r.ip)}">${icon("eye")}</button>
         ${out || r.cc === "LAN" || r.allowed ? "" : `<button type="button" class="btn small icon ghost danger" data-c="ban" data-ip="${esc(r.ip)}" data-min="60" title="${esc(t("cx_ban"))}" aria-label="${esc(t("cx_ban"))} ${esc(r.ip)}">${icon("ban")}</button>`}
       </div></td></tr>`).join("");
@@ -6960,12 +6960,12 @@ __MONITORING_EOF__
   function rowsHTML(d) {
     if (!d.rows.length) return empty(d);
     const rows = d.rows.map((r) => `<tr>
-      <td>${dirIcon(r.dir)}<button type="button" class="cx-link cx-ip" data-c="ip" data-ip="${esc(r.ip)}">${flag(r.cc)}${num(esc(r.ip))}</button></td>
-      <td data-label="${esc(t(r.dir === "out" ? "cx_c_to" : "cx_c_port"))}"><button type="button" class="cx-link" data-c="filter" data-k="port" data-v="${esc(r.port)}">${num(esc(r.port ? `${r.port}/${r.proto}` : r.proto))}</button>${r.svc ? ` <span class="cx-svc">${esc(r.svc)}</span>` : ""}${r.target ? `<span class="cx-target muted small">${r.dir === "out" ? "←" : "→"} ${num(esc(r.target))}</span>` : ""}</td>
-      <td data-label="${esc(t("cx_c_state"))}">${statePill(r.state)}</td>
-      <td class="cx-num" data-label="${esc(t("cx_c_n"))}">${r.n > 1 ? `<b>×${num(nf(r.n, 0))}</b>` : num("1")}</td>
-      ${d.acct ? `<td class="cx-num" data-label="${esc(t("cx_c_bytes"))}">${r.bytes_in + r.bytes_out ? `${icon("down")}${num(esc(fmtBytes(r.bytes_in)))} ${icon("up")}${num(esc(fmtBytes(r.bytes_out)))}` : "–"}</td>` : ""}
-      <td class="cx-num muted small" data-label="${esc(t("cx_c_ttl"))}">${num(esc(fmtTtl(r.ttl)))}</td></tr>`).join("");
+      <td class="cx-r-ip">${dirIcon(r.dir)}<button type="button" class="cx-link cx-ip" data-c="ip" data-ip="${esc(r.ip)}">${flag(r.cc)}${num(esc(r.ip))}</button></td>
+      <td class="cx-r-port" data-label="${esc(t(r.dir === "out" ? "cx_c_to" : "cx_c_port"))}"><button type="button" class="cx-link" data-c="filter" data-k="port" data-v="${esc(r.port)}">${num(esc(r.port ? `${r.port}/${r.proto}` : r.proto))}</button>${r.svc ? ` <span class="cx-svc">${esc(r.svc)}</span>` : ""}${r.target ? `<span class="cx-target muted small">${r.dir === "out" ? "←" : "→"} ${num(esc(r.target))}</span>` : ""}</td>
+      <td class="cx-r-state" data-label="${esc(t("cx_c_state"))}">${statePill(r.state)}</td>
+      <td class="cx-num cx-r-n" data-label="${esc(t("cx_c_n"))}">${r.n > 1 ? `<b>×${num(nf(r.n, 0))}</b>` : num("1")}</td>
+      ${d.acct ? `<td class="cx-num cx-r-bytes" data-label="${esc(t("cx_c_bytes"))}">${r.bytes_in + r.bytes_out ? `${icon("down")}${num(esc(fmtBytes(r.bytes_in)))} ${icon("up")}${num(esc(fmtBytes(r.bytes_out)))}` : "–"}</td>` : ""}
+      <td class="cx-num muted small cx-r-ttl" data-label="${esc(t("cx_c_ttl"))}">${num(esc(fmtTtl(r.ttl)))}</td></tr>`).join("");
     const more = d.rows_total > d.rows.length ? `<button type="button" class="btn small ghost cx-more" data-c="rows-more">${esc(t("cx_more"))} (${num(nf(d.rows_total - d.rows.length, 0))})</button>` : "";
     return `<div class="table-wrap cx-table cx-rows"><table><thead><tr><th>${esc(t("cx_c_ip"))}</th><th>${esc(t("cx_c_port"))}</th><th>${esc(t("cx_c_state"))}</th><th>${esc(t("cx_c_n"))}</th>${d.acct ? `<th>${esc(t("cx_c_bytes"))}</th>` : ""}<th>${esc(t("cx_c_ttl"))}</th></tr></thead><tbody>${rows}</tbody></table></div>${more}`;
   }
@@ -7245,13 +7245,13 @@ __MONITORING_EOF__
         <div class="cx-ipd-ip">${flag(d.cc)}<b>${num(esc(d.ip))}</b>${statusPills(d)}</div>
         <dl class="cx-dl">
           <div><dt>${esc(t("cx_c_where"))}</dt><dd>${esc(ccName(d.cc))}</dd></div>
-          <div><dt>${esc(t("cx_c_net"))}</dt><dd>${d.asn ? `${orgHTML(d.org, d.asn)} <span class="muted">${num(`AS${d.asn}`)}</span>` : "–"}</dd></div>
+          <div><dt>${esc(t("cx_c_net"))}</dt><dd>${d.asn ? `${orgHTML(d.org, d.asn)}<span class="muted small cx-asline">${num(`AS${d.asn}`)}</span>` : "–"}</dd></div>
           <div><dt>${esc(t("cx_c_state"))}</dt><dd class="cx-states">${Object.entries(s.states || {}).map(([k, n]) => `<span class="cx-stn">${esc(stName(k))} <b>${num(nf(n, 0))}</b></span>`).join("") || "–"}</dd></div>
           <div><dt>${esc(t("cx_ip_subnet"))}</dt><dd>${num(esc(d.subnet))}</dd></div>
           <div><dt>${esc(t("cx_k_conns"))}</dt><dd>${num(nf(s.conns, 0))}${s.half ? ` <span class="pill bad">${num(nf(s.half, 0))} ${esc(t("cx_k_half"))}</span>` : ""}</dd></div>
           ${d.first ? `<div><dt>${esc(t("cx_c_first"))}</dt><dd>${esc(ago(d.first))}</dd></div>` : ""}
-          ${d.ptr ? `<div><dt>${esc(t("cx_ptr"))}</dt><dd><bdi class="cx-mono">${esc(d.ptr)}</bdi></dd></div>` : ""}
-          ${d.threat && d.threat.length ? `<div><dt>${esc(t("cx_threat_lists"))}</dt><dd>${d.threat.map((n) => pill("warn", n)).join(" ")}</dd></div>` : ""}
+          ${d.ptr ? `<div class="cx-wide"><dt>${esc(t("cx_ptr"))}</dt><dd><bdi class="cx-mono">${esc(d.ptr)}</bdi></dd></div>` : ""}
+          ${d.threat && d.threat.length ? `<div class="cx-wide"><dt>${esc(t("cx_threat_lists"))}</dt><dd>${d.threat.map((n) => pill("warn", n)).join(" ")}</dd></div>` : ""}
         </dl>
       </div>
       ${lan || d.allowed ? "" : `<div class="cx-ipd-acts">
@@ -7267,7 +7267,7 @@ __MONITORING_EOF__
         <a class="btn small ghost" href="https://www.abuseipdb.com/check/${encodeURIComponent(d.ip)}" target="_blank" rel="noopener noreferrer">${icon("link")}AbuseIPDB</a>
       </div>
       <h4 class="cx-h4">${esc(t("cx_ip_conns"))}</h4>
-      ${d.rows.length ? `<div class="table-wrap cx-table"><table><thead><tr><th>${esc(t("cx_c_port"))}</th><th>${esc(t("cx_c_state"))}</th><th>${esc(t("cx_c_n"))}</th><th>${esc(t("cx_c_ttl"))}</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">${esc(t("cx_none"))}</div>`}
+      ${d.rows.length ? `<div class="table-wrap cx-table cx-compact"><table><thead><tr><th>${esc(t("cx_c_port"))}</th><th>${esc(t("cx_c_state"))}</th><th>${esc(t("cx_c_n"))}</th><th>${esc(t("cx_c_ttl"))}</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">${esc(t("cx_none"))}</div>`}
     </div>`;
     box.addEventListener("click", async (e) => {
       const b = e.target.closest("[data-d]");
@@ -7287,7 +7287,7 @@ __MONITORING_EOF__
     const box = dlg.querySelector("#cx-rep");
     let r;
     try { r = await api("/api/defender/conns/report", { id }); } catch (e) { box.innerHTML = `<div class="notice bad">${icon("alert")}<span>${esc(e.message)}</span></div>`; return; }
-    const list = (head, items, cells) => items.length ? `<div class="table-wrap cx-table"><table><thead><tr>${head.map((h) => `<th>${esc(t(h))}</th>`).join("")}</tr></thead><tbody>${items.map((x) => `<tr>${cells(x)}</tr>`).join("")}</tbody></table></div>` : "";
+    const list = (head, items, cells) => items.length ? `<div class="table-wrap cx-table cx-compact"><table><thead><tr>${head.map((h) => `<th>${esc(t(h))}</th>`).join("")}</tr></thead><tbody>${items.map((x) => `<tr>${cells(x)}</tr>`).join("")}</tbody></table></div>` : "";
     box.innerHTML = `<div class="cx-rep">
       <h4 class="cx-h4">${icon("flame")}${esc(tv("cx_report_title", { date: when(r.since) }))} · <span class="muted">${esc(r.ended ? tv("cx_report_lasted", { d: dur(r.ended - r.since) }) : t("cx_report_ongoing"))}</span></h4>
       <p>${esc(tv("cx_report_peak", { n: nf(r.conns, 0), half: nf(r.half, 0), ips: nf(r.ips, 0) }))} <span class="muted small">(${esc(when(r.at))})</span></p>
@@ -16283,17 +16283,6 @@ label.btn input[type="file"] { display: none; }
 .cx-h4 .ico { width: 16px; height: 16px; color: var(--s-bad); }
 .cx-rep-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
 @media (max-width: 900px) { .cx-geo { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 699px) {
-  .cx-grid, .cx-rep-grid { grid-template-columns: minmax(0, 1fr); }
-  .cx-ipt table { min-width: 0; }
-  .cx-live { margin-inline-start: 0; width: 100%; }
-  .cx-bar select { flex: 1 1 140px; max-width: none; }
-  .cx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cx-kpi-v { font-size: 20px; }
-  .cx-rank-main { grid-template-columns: minmax(0, 1.2fr) minmax(30px, .8fr) auto; }
-  .cx-rank-s { display: none; }
-  .cx-rows table { min-width: 0; }
-}
 
 .cx-search { position: relative; }
 .cx-kbd { flex: none; padding: 1px 7px; border: 1px solid var(--line-2); border-radius: 6px; font: 600 11px var(--mono); color: var(--faint); background: var(--surface); }
@@ -16310,9 +16299,118 @@ tr.cx-picked td { background: color-mix(in srgb, var(--s-bad) 7%, transparent); 
 .cx-th:hover, .cx-th.on { color: var(--ink); }
 .cx-th:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .cx-mono { font-family: var(--mono); font-size: 12.5px; }
-@media (max-width: 699px) { .cx-kbd { display: none; } }
 .cx-count { font-size: 12px; font-weight: 650; color: var(--muted); background: var(--surface-3); padding: 1px 9px; border-radius: 99px; }
 .cx-count:empty { display: none; }
+
+/* ---- connections on phones: each section laid out for a narrow screen (not the generic table cards) */
+@media (max-width: 699px) {
+  .cx .chart { padding: 14px 12px; }
+  .cx-grid, .cx-rep-grid { grid-template-columns: minmax(0, 1fr); }
+  .cx-kbd, .cx-hide-sm, .cx-pick-gap { display: none !important; }
+
+  /* filters: direction across the full width, search below it, the two selects side by side */
+  .cx-bar { gap: 8px; }
+  .cx-bar .seg { display: flex; width: 100%; }
+  .cx-bar .seg button { flex: 1; justify-content: center; padding: 8px 6px; }
+  .cx-search { flex: 1 1 100%; }
+  .cx-bar select { flex: 1 1 0; min-width: 0; max-width: none; font-size: 13px; }
+  .cx-live { width: 100%; margin-inline-start: 0; justify-content: flex-start; flex-wrap: wrap; }
+  .cx-live .btn { margin-inline-start: auto; }
+
+  .cx-alert { padding: 12px; }
+  .cx-alert-a { width: 100%; }
+  .cx-alert-a .btn { flex: 1 1 auto; justify-content: center; }
+  .cx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cx-kpi { padding: 10px 12px; }
+  .cx-kpi-v { font-size: 20px; }
+
+  /* card headers: title first, controls under it */
+  .cx .chart > header h3 { flex: 1 1 auto; min-width: 0; }
+  .cx-trend-card > header .seg { margin-inline-start: 0; width: 100%; display: flex; }
+  .cx-trend-card > header .seg button { flex: 1; }
+
+  /* countries: name and count on one line, the bar under them, the block icon right beside the count */
+  .cx-rank { gap: 2px; }
+  .cx-rank-main { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name n" "bar bar"; gap: 6px 10px; padding: 9px 8px; }
+  .cx-rank-main > .cx-place { grid-area: name; }
+  .cx-rank-bar { grid-area: bar; }
+  .cx-rank-n { grid-area: n; }
+  .cx-rank-s { display: none; }
+
+  /* small tables stay real tables */
+  .cx .cx-compact { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: none; }
+  .cx .cx-compact table { display: table; width: 100%; min-width: 0; table-layout: auto; }
+  .cx .cx-compact thead { display: table-header-group; }
+  .cx .cx-compact tbody { display: table-row-group; }
+  .cx .cx-compact tbody tr, .cx .cx-compact tr { display: table-row; border: 0; padding: 0; margin: 0; background: none; border-radius: 0; }
+  .cx .cx-compact th, .cx .cx-compact td, .cx .cx-compact td:first-child { display: table-cell; padding: 8px; margin: 0; font-size: 12.5px; border: 0; border-bottom: 1px solid var(--line); white-space: normal; text-align: start; vertical-align: middle; }
+  .cx .cx-compact tbody tr:last-child td { border-bottom: 0; }
+  .cx .cx-compact td::before { display: none; }
+  .cx .cx-compact .cx-num { text-align: end; white-space: nowrap; }
+  .cx .cx-compact td.act { width: 1%; padding-inline-start: 0; }
+  .cx .cx-compact .cx-cell-bar .cx-bar-in { display: none; }
+  .cx .cx-compact .cx-svc { margin-inline-start: 0; margin-top: 3px; }
+  .cx .cx-compact .cx-link, .cx .cx-compact bdi { overflow-wrap: anywhere; }
+  .cx .cx-compact .cx-org span { max-width: none; white-space: normal; }
+
+  /* every connection: address and count on top, port and service, then state and expiry */
+  .cx .cx-rows { border: 0; overflow: visible; }
+  .cx .cx-rows table { min-width: 0; }
+  .cx .cx-rows thead { display: none; }
+  .cx .cx-rows tbody tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; margin: 0 0 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+  .cx .cx-rows td, .cx .cx-rows td:first-child { display: block; padding: 0; margin: 0; border: 0; min-width: 0; text-align: start; font-size: 12.5px; }
+  .cx .cx-rows td::before { display: none; }
+  .cx .cx-rows tbody td.cx-r-ip { order: 1; flex: 1 1 0; display: flex; align-items: center; gap: 6px; }
+  .cx .cx-rows .cx-r-ip .cx-ip { margin: 0; }
+  .cx .cx-rows .cx-r-n { order: 2; flex: none; font-size: 13px; }
+  .cx .cx-rows .cx-r-port { order: 3; flex: 1 1 100%; }
+  .cx .cx-rows .cx-r-state { order: 4; flex: none; }
+  .cx .cx-rows .cx-r-bytes { order: 5; flex: none; }
+  .cx .cx-rows .cx-r-ttl { order: 6; flex: none; margin-inline-start: auto; }
+
+  .cx-bulkbar { top: 64px; padding: 10px; }
+  .cx-bulkbar b { flex: 1 1 100%; }
+  .cx-bulkbar .btn { flex: 1 1 auto; justify-content: center; }
+  .cx-reports { grid-template-columns: minmax(0, 1fr); }
+  .cx-dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cx-dl > div { padding: 8px 10px; }
+  .cx-ipd-ip { font-size: 17px; }
+  .cx-ipd-acts .btn { flex: 1 1 auto; justify-content: center; }
+}
+.cx-asline { display: block; margin-top: 2px; font-weight: 500; }
+.cx-dl dd bdi.cx-mono { overflow-wrap: anywhere; }
+.cx-dl > .cx-wide { grid-column: 1 / -1; }
+
+/* ---- the address list as cards on phones and tablets: as a table it needs about 1000 px */
+@media (max-width: 980px) {
+  /* addresses: one card each. Line 1: checkbox, address, status, actions; then where, network; then the numbers */
+  .cx .cx-ipt { border: 0; overflow: visible; }
+  .cx .cx-ipt table, .cx .cx-ipt tbody { display: block; min-width: 0; }
+  .cx .cx-ipt thead { display: none; }
+  .cx .cx-ipt tbody tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 12px 14px; margin: 0 0 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+  .cx .cx-ipt tbody tr.cx-picked { border-color: color-mix(in srgb, var(--s-bad) 60%, var(--line)); background: color-mix(in srgb, var(--s-bad) 8%, var(--surface-2)); }
+  .cx .cx-ipt tbody tr.cx-picked td { background: none; }
+  .cx .cx-ipt td, .cx .cx-ipt td:first-child { display: block; padding: 0; margin: 0; border: 0; min-width: 0; text-align: start; font-size: 12.5px; white-space: normal; }
+  .cx .cx-ipt td::before { display: none; }
+  .cx .cx-ipt tbody td.cx-c-ip { order: 1; flex: 1 1 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 14px; }
+  .cx .cx-ipt .cx-c-ip .cx-ip { font-size: 13.5px; margin: 0; }
+  .cx .cx-ipt .cx-pick { margin: 0; width: 20px; height: 20px; }
+  .cx .cx-ipt .cx-c-act { order: 2; flex: none; width: auto; }
+  .cx .cx-ipt .cx-c-act .row-actions { gap: 4px; }
+  .cx .cx-ipt .cx-c-where { order: 3; flex: 1 1 100%; padding-top: 8px; border-top: 1px solid var(--line); }
+  .cx .cx-ipt .cx-c-net { order: 4; flex: 1 1 100%; color: var(--muted); }
+  .cx .cx-ipt .cx-c-net .cx-link { max-width: 100%; white-space: normal; display: inline; color: var(--muted); }
+  .cx .cx-ipt .cx-c-conns, .cx .cx-ipt .cx-c-ports, .cx .cx-ipt .cx-c-bytes, .cx .cx-ipt .cx-c-first { order: 5; flex: none; display: inline-flex; align-items: center; gap: 6px; }
+  .cx .cx-ipt .cx-c-conns::before, .cx .cx-ipt .cx-c-ports::before, .cx .cx-ipt .cx-c-bytes::before, .cx .cx-ipt .cx-c-first::before { display: inline; content: attr(data-label); color: var(--faint); font-size: 11px; font-weight: 600; }
+  .cx .cx-ipt .cx-c-conns .cx-bar-in { display: none; }
+  .cx .cx-ipt .cx-c-first { margin-inline-start: auto; }
+
+  .cx .cx-c-ip .cx-pick-gap { display: none; }
+}
+@media (min-width: 700px) and (max-width: 980px) {
+  .cx .cx-ipt tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .cx .cx-ipt tbody tr { margin: 0; }
+}
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'
 /* Vazirmatn (SIL Open Font License 1.1) - Latin + Persian/Arabic subset, embedded so the panel needs no external font host. */
