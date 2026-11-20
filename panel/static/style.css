@@ -335,7 +335,7 @@ select {
 .notice.warn .ico { color: var(--s-warn); }
 
 /* ---------- tables */
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface-2) 40%, transparent); }
+.table-wrap { overflow-x: auto; contain: inline-size; min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface-2) 40%, transparent); }
 table { width: 100%; border-collapse: collapse; min-width: 640px; }
 th, td { text-align: start; padding: 14px 16px; white-space: nowrap; }
 th { font-size: 12px; letter-spacing: .03em; color: var(--muted); font-weight: 700; background: color-mix(in srgb, var(--surface-2) 80%, transparent); border-bottom: 1px solid var(--line); }
@@ -549,18 +549,20 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
   thead { display: none; }
   tbody tr { border: 1px solid var(--line); border-radius: 16px; background: var(--surface-2); padding: 12px 14px; margin-bottom: 10px; }
   tbody tr:hover td { background: none; }
-  td { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 7px 0; border: 0; white-space: normal; text-align: end; min-width: 0; }
-  td::before { content: attr(data-label); color: var(--muted); font-size: 12px; font-weight: 600; text-align: start; flex: none; }
+  td { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px 12px; padding: 7px 0; border: 0; white-space: normal; text-align: start; min-width: 0; overflow-wrap: anywhere; }
+  td:empty, td.act:empty { display: none; }
+  td > * { min-width: 0; max-width: 100%; }
+  td::before { content: attr(data-label); color: var(--muted); font-size: 12px; font-weight: 600; text-align: start; flex: 0 0 min(36%, 132px); }
   td:first-child { display: block; text-align: start; padding-top: 0; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); font-size: 15px; }
   td:first-child::before { display: none; }
   td.wrap-cell { min-width: 0; }
   td .sub-line { max-width: none; }
-  td .chips { justify-content: flex-end; }
+  td .chips { justify-content: flex-start; }
   td .mini-bar { min-width: 0; width: 100%; max-width: 190px; }
   td[data-label=""]::before, td:not([data-label])::before { display: none; }
-  td.act { justify-content: flex-end; padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--line); }
+  td.act { justify-content: flex-start; padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--line); }
   td.act::before { display: none; }
-  .row-actions { gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .row-actions { gap: 8px; flex-wrap: wrap; justify-content: flex-start; }
   .row-actions .btn.small.icon { width: 42px; height: 42px; }
   .btn.small { height: 40px; }
   .tools .btn.small { height: 40px; }
@@ -607,7 +609,7 @@ button.chip:disabled { cursor: default; opacity: .6; }
 .chip .ipl { font-size: 10.5px; letter-spacing: .08em; color: var(--accent); background: var(--accent-soft); padding: 0 6px; border-radius: 6px; line-height: 1.7; }
 
 /* ================================================================== network page: traffic usage */
-.sec { display: grid; gap: 14px; }
+.sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .sec + .sec { margin-top: 26px; }
 .sec-head { display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; }
 .sec-head h3 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; }
@@ -710,7 +712,7 @@ pre.logs.short { height: auto; max-height: 220px; }
 .df-tab:hover { color: var(--ink); background: var(--surface); }
 .df-tab.on { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
 .df-tab:focus-visible, .df-opt:focus-visible, .df-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.df-body { display: grid; gap: 22px; }
+.df-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
 .df-hero .hero-text .hero-meta { margin-top: 12px; }
 .df-hero-act { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; position: relative; z-index: 1; margin-inline-start: auto; }
 .df-cta { padding: 12px 22px; font-size: 15px; }
@@ -755,9 +757,9 @@ pre.logs.short { height: auto; max-height: 220px; }
 .chip-x:hover { color: var(--s-bad); background: color-mix(in srgb, var(--s-bad) 12%, transparent); }
 .chip-x .ico { width: 14px; height: 14px; }
 .df-inline { margin-top: 10px; flex-wrap: wrap; }
-.df-actions { position: sticky; bottom: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); }
+.df-actions { position: static; bottom: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); }
 .df-actions > .muted { margin-inline-end: auto; }
-.df-actions.dirty { border-color: color-mix(in srgb, var(--s-warn) 45%, var(--line)); }
+.df-actions.dirty { position: sticky; border-color: color-mix(in srgb, var(--s-warn) 45%, var(--line)); }
 .df-actions.dirty > .muted { color: var(--s-warn); font-weight: 650; }
 .df-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0 14px; }
 .df-switch { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; cursor: pointer; }
@@ -1238,4 +1240,46 @@ tr.cx-picked td { background: color-mix(in srgb, var(--s-bad) 7%, transparent); 
 @media (min-width: 700px) and (max-width: 980px) {
   .cx .cx-ipt tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .cx .cx-ipt tbody tr { margin: 0; }
+}
+
+/* ---- phones: firewall tiles two per row; small tables marked keep-table stay tables */
+@media (max-width: 699px) {
+  .tiles.df-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .keep-table .table-wrap { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: none; }
+  .keep-table table { display: table; width: 100%; min-width: 0; }
+  .keep-table thead { display: table-header-group; }
+  .keep-table tbody { display: table-row-group; }
+  .keep-table tbody tr, .keep-table tr { display: table-row; border: 0; padding: 0; margin: 0; background: none; border-radius: 0; }
+  .keep-table th, .keep-table td, .keep-table td:first-child { display: table-cell; padding: 8px 10px; margin: 0; font-size: 13px; border: 0; border-bottom: 1px solid var(--line); text-align: start; vertical-align: middle; white-space: normal; }
+  .keep-table tbody tr:last-child td { border-bottom: 0; }
+  .keep-table td::before { display: none; }
+  .keep-table td.act { width: 1%; padding-top: 4px; padding-bottom: 4px; border-top: 0; margin: 0; }
+  .keep-table td.act:empty { display: table-cell; }
+  .keep-table .row-actions { flex-wrap: nowrap; gap: 4px; }
+  .keep-table .row-actions .btn.small.icon { width: 38px; height: 38px; }
+}
+
+/* ---- tablets: tables fit their card (cells wrap) instead of hiding columns behind a sideways scroll */
+@media (min-width: 700px) and (max-width: 1099px) {
+  table { min-width: 0; }
+  th, td { padding: 11px 12px; white-space: normal; }
+  td .num, td .pill, td .btn { white-space: nowrap; }
+  .cx-rows table { min-width: 0; }
+}
+@media (min-width: 700px) and (max-width: 1099px) {
+  th, td { padding: 10px; overflow-wrap: anywhere; }
+  .inline-field { flex-wrap: wrap; }
+  .inline-field input { width: 74px; }
+  .rule-code { display: block; margin: 2px 0 0; }
+}
+
+/* ---- very small phones (320-420 px) */
+@media (max-width: 420px) {
+  .seg { display: flex; max-width: 100%; }
+  .tr-chart header .seg, .cx-trend-card > header .seg { width: 100%; }
+  .seg button { flex: 1 1 0; min-width: 0; padding-inline: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cx .cx-compact td, .cx .cx-compact th { padding: 7px 6px; overflow-wrap: anywhere; }
+  .cx .cx-compact .num { display: inline; }
+  .keep-table th, .keep-table td { padding: 7px 6px; overflow-wrap: anywhere; }
+  .keep-table .num { display: inline; }
 }

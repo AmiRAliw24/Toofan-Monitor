@@ -4624,11 +4624,11 @@ __MONITORING_EOF__
     df_fw_mode: "حالت فایروال", df_fw_mode_sub: "حالت باز فقط ترافیک مخرب را می‌بندد. حالت سخت‌گیر هر پورتی که در لیست پایین نیست را هم می‌بندد.",
     df_mode_open_d: "همه‌ی پورت‌ها در دسترس می‌مانند؛ فلاد، اسکن و آی‌پی‌های مسدود بسته می‌شوند.", df_mode_strict_d: "فقط پورت‌هایی که اجازه می‌دهید در دسترس‌اند (TCP و UDP). تانل‌ها و پروتکل‌های دیگر کار می‌کنند.",
     df_always: "همیشه باز:", df_ssh: "SSH", df_panel: "پنل",
-    df_po_title: "باز کردن پورت", df_po_sub: "مثل زدن ufw allow: پورت در فایروال خود سرور (ufw، firewalld یا iptables، هر کدام روشن باشد) و در حالت سخت‌گیر این فایروال باز می‌شود. وقتی یک پنل یا سرویس گوش می‌دهد ولی لود نمی‌شود از این استفاده کنید.",
+    df_po_title: "باز کردن پورت", df_po_sub: "مثل زدن ⁦ufw allow⁩: پورت در فایروال خود سرور (ufw، firewalld یا iptables، هر کدام روشن باشد) و در حالت سخت‌گیر این فایروال باز می‌شود. وقتی یک پنل یا سرویس گوش می‌دهد ولی لود نمی‌شود از این استفاده کنید.",
     df_po_port: "پورت یا بازه", df_po_proto: "پروتکل", df_po_from: "فقط از (اختیاری)", df_po_from_ph: "هر آدرسی", df_po_btn: "باز کردن پورت",
     df_po_done: "پورت {port}/{proto} باز است", df_po_done_sys: "پورت {port}/{proto} باز است (در {fw} هم)", df_po_none: "فایروال دیگری روی این سرور ترافیک را فیلتر نمی‌کند، پس پورت آن‌جا از قبل باز بود.",
     df_po_nolisten: "هنوز برنامه‌ای روی پورت {port} گوش نمی‌دهد: اول برنامه را اجرا کنید یا پورتش را بررسی کنید.",
-    df_po_provider: "باز هم لود نمی‌شود؟ فایروال شرکت سرور را بررسی کنید (مثلاً Hetzner Cloud Firewall): آن جلوتر از سرور است.",
+    df_po_provider: "باز هم لود نمی‌شود؟ فایروال شرکت سرور را بررسی کنید (مثلاً ⁦Hetzner Cloud Firewall⁩): آن جلوتر از سرور است.",
     df_po_closed: "پورت {port}/{proto} دوباره بسته شد",
     df_sys_title: "فایروال خود سرور", df_sys_sub: "فایروال سیستم‌عامل. این فایروال فقط مسدود می‌کند و نمی‌تواند چیزی را که فایروال خود سرور بسته باز کند.",
     df_sys_none: "فایروال دیگری روی این سرور ترافیک ورودی را فیلتر نمی‌کند (ufw خاموش یا نصب‌نشده است و iptables همه را راه می‌دهد). هر پورتی که برنامه‌ای رویش گوش دهد در دسترس است، مگر این فایروال مسدودش کند.",
@@ -4643,7 +4643,7 @@ __MONITORING_EOF__
     df_services: "سرویس‌هایی که از اینترنت در دسترس‌اند", df_services_sub: "برنامه‌هایی که همین الان روی آدرس عمومی گوش می‌دهند.",
     df_port: "پورت", df_proto: "پروتکل", df_process: "برنامه", df_state: "در حالت سخت‌گیر", df_open: "باز", df_closed: "بسته", df_only_from: "فقط از آی‌پی‌های مشخص", df_locked: "همیشه باز",
     df_open_it: "اجازه", df_close_it: "بستن", df_rules: "قوانین پورت", df_rules_sub: "پورت‌هایی که در حالت سخت‌گیر باز می‌مانند. منبع، پورت را به یک آی‌پی یا شبکه محدود می‌کند.", df_add_rule: "افزودن قانون",
-    df_from: "منبع", df_any: "همه", df_note: "توضیح", df_from_hint: "اختیاری: یک آی‌پی یا شبکه (203.0.113.7 یا 203.0.113.0/24). خالی = همه.", df_port_hint: "یک پورت (443) یا یک بازه (8000-8100).",
+    df_from: "منبع", df_any: "همه", df_note: "توضیح", df_from_hint: "اختیاری: یک آی‌پی یا شبکه (203.0.113.7 یا ⁦203.0.113.0/24⁩). خالی = همه.", df_port_hint: "یک پورت (443) یا یک بازه (8000-8100).",
     df_ifaces: "اینترفیس‌های مورد اعتماد", df_ifaces_sub: "ترافیکی که از این‌ها می‌آید هرگز فیلتر نمی‌شود (VPN و تانل‌ها). لوپ‌بک و داکر همیشه مورد اعتمادند. * در آخر یعنی هر نامی که با آن شروع شود.",
     df_iface_add: "افزودن اینترفیس", df_review: "دیدن قوانین", df_discard: "لغو تغییرات", df_apply: "ذخیره و اعمال", df_dirty: "تغییرات ذخیره‌نشده",
     df_strict_prefill: "همه‌ی پورت‌هایی که الان استفاده می‌شوند به لیست اضافه شدند تا چیزی از کار نیفتد. آن‌هایی که نباید عمومی باشند را حذف کنید و بعد اعمال کنید.",
@@ -4663,16 +4663,16 @@ __MONITORING_EOF__
     df_ssh_title: "محافظ حمله‌ی رمز SSH", df_ssh_sub: "لاگ ورود SSH را می‌خواند و آدرس‌هایی که مدام ورود ناموفق دارند را مسدود می‌کند. کاربرهای واردشده و آدرس‌هایی که امروز موفق وارد شده‌اند هرگز مسدود نمی‌شوند.",
     df_ssh_on: "مسدود کردن آدرس‌های با ورود ناموفق", df_ssh_l4: "محدود کردن اتصال‌های جدید SSH (۱۲ در دقیقه برای هر آدرس)", df_ssh_private: "شبکه‌های خصوصی هرگز مسدود نشوند",
     df_ssh_failures: "ورود ناموفق قبل از مسدودی", df_ssh_window: "در مدت (دقیقه)", df_ssh_ban: "مدت مسدودی (دقیقه)",
-    df_ssh_24h: "ورودهای ناموفق (از شروع سرویس)", df_ssh_top: "بیشترین ورود ناموفق", df_ssh_nolog: "لاگ SSH (/var/log/auth.log) خوانا نیست، پس فقط محدودیت اتصال فعال است.",
+    df_ssh_24h: "ورودهای ناموفق (از شروع سرویس)", df_ssh_top: "بیشترین ورود ناموفق", df_ssh_nolog: "لاگ SSH (⁦/var/log/auth.log⁩) خوانا نیست، پس فقط محدودیت اتصال فعال است.",
     df_f2b_present: "fail2ban هم نصب است. هر دو با هم کار می‌کنند؛ محافظ فایروال سرورهای بدون آن را هم پوشش می‌دهد.", df_attempts: "تلاش‌ها",
     df_score: "امتیاز امنیت", df_checks: "بررسی‌های امنیتی", df_fix: "راه رفع", df_kernel: "سخت‌سازی شبکه‌ی کرنل",
     df_kernel_sub: "تنظیمات لینوکس که تحمل فلاد را ارزان‌تر می‌کنند. بعد از هر ری‌بوت دوباره اعمال می‌شوند و قابل بازگشت به مقدار اصلی‌اند.",
     df_setting: "تنظیم", df_current: "فعلی", df_recommended: "پیشنهادی", df_apply_all: "اعمال پیشنهادها", df_restore: "بازگشت به اصلی",
     df_notify: "اعلان تلگرام", df_notify_attacks: "حمله‌ها (شروع، پایان، فعال شدن «زیر حمله»)", df_notify_bans: "هر مسدودی محافظ SSH",
     df_sev0: "خوب", df_sev1: "کم", df_sev2: "متوسط", df_sev3: "زیاد",
-    df_c_ssh_root_pw: ["root می‌تواند با رمز از SSH وارد شود", "ورود root محدود است"], df_f_ssh_root_pw: "کلید SSH بسازید، بعد در /etc/ssh/sshd_config بگذارید PermitRootLogin prohibit-password و PasswordAuthentication no و بزنید systemctl restart ssh.",
-    df_c_ssh_root: ["root می‌تواند از SSH وارد شود", "root با رمز وارد نمی‌شود"], df_f_ssh_root: "در /etc/ssh/sshd_config بگذارید PermitRootLogin prohibit-password.",
-    df_c_ssh_password: ["SSH رمز عبور قبول می‌کند", "SSH فقط کلید قبول می‌کند"], df_f_ssh_password: "کلید حدس‌زدنی نیست. کلیدتان را در ~/.ssh/authorized_keys بگذارید، تست کنید، بعد PasswordAuthentication no.",
+    df_c_ssh_root_pw: ["root می‌تواند با رمز از SSH وارد شود", "ورود root محدود است"], df_f_ssh_root_pw: "کلید SSH بسازید، بعد در ⁦/etc/ssh/sshd_config⁩ بگذارید ⁦PermitRootLogin prohibit-password⁩ و ⁦PasswordAuthentication no⁩ و بزنید ⁦systemctl restart ssh⁩.",
+    df_c_ssh_root: ["root می‌تواند از SSH وارد شود", "root با رمز وارد نمی‌شود"], df_f_ssh_root: "در ⁦/etc/ssh/sshd_config⁩ بگذارید ⁦PermitRootLogin prohibit-password⁩.",
+    df_c_ssh_password: ["SSH رمز عبور قبول می‌کند", "SSH فقط کلید قبول می‌کند"], df_f_ssh_password: "کلید حدس‌زدنی نیست. کلیدتان را در ⁦~/.ssh/authorized_keys⁩ بگذارید، تست کنید، بعد ⁦PasswordAuthentication no⁩.",
     df_c_ssh_port: ["SSH روی پورت پیش‌فرض ۲۲ است", "SSH روی پورت {ports} است"], df_f_ssh_port: "پورت دیگر فقط اسکن‌های خودکار را کم می‌کند و به‌تنهایی دفاع نیست. کلید و محافظ SSH مهم‌ترند.",
     df_c_ssh_bruteforce: ["{n} ورود ناموفق SSH در لاگ", "ورود ناموفق SSH کم است ({n})"], df_f_ssh_bruteforce: "محافظ SSH را روشن نگه دارید و به ورود فقط با کلید بروید.",
     df_c_fw_enabled: ["محافظت فایروال خاموش است", "محافظت فایروال روشن است"], df_f_fw_enabled: "از تب نمای کلی محافظت را روشن کنید.",
@@ -4682,11 +4682,11 @@ __MONITORING_EOF__
     df_c_auto_updates: ["آپدیت امنیتی خودکار خاموش است", "آپدیت امنیتی خودکار روشن است"], df_f_auto_updates: "apt install unattended-upgrades && dpkg-reconfigure -plow unattended-upgrades",
     df_c_conntrack: ["جدول اتصال‌ها {pct} درصد پر است", "{pct} درصد از جدول اتصال‌ها استفاده شده"], df_f_conntrack: "سخت‌سازی کرنل پایین را اعمال کنید؛ ظرفیت را بالا می‌برد.",
     df_c_kernel: ["{n} تنظیم شبکه‌ی کرنل سخت‌سازی نشده", "تنظیمات شبکه‌ی کرنل سخت‌سازی شده"], df_f_kernel: "از دکمه‌ی «اعمال پیشنهادها» پایین استفاده کنید.",
-    df_c_syncookies: ["SYN cookie خاموش است", "SYN cookie روشن است"], df_f_syncookies: "سخت‌سازی کرنل پایین را اعمال کنید.",
+    df_c_syncookies: ["⁦SYN cookie⁩ خاموش است", "⁦SYN cookie⁩ روشن است"], df_f_syncookies: "سخت‌سازی کرنل پایین را اعمال کنید.",
     df_c_fail2ban: ["fail2ban نصب نیست", "fail2ban نصب است"], df_f_fail2ban: "اختیاری: محافظ SSH فایروال همین کار را می‌کند.",
     sc_syncookies: "بدون پر شدن صف، به SYN فلاد جواب می‌دهد", sc_synack: "اتصال‌های نیمه‌باز را زودتر رها می‌کند", sc_backlog: "صف بلندتر برای اتصال‌های در حال باز شدن",
     sc_rfc1337: "محافظت در برابر حمله‌ی TIME-WAIT", sc_bcast: "پینگ به آدرس broadcast را نادیده می‌گیرد (حمله‌ی smurf)", sc_bogus: "پاسخ‌های خطای جعلی ICMP را نادیده می‌گیرد",
-    sc_redirects: "ICMP redirect را نادیده می‌گیرد (ربودن مسیر)", sc_send_redirects: "ICMP redirect نمی‌فرستد", sc_source_route: "بسته‌های source-routed را رد می‌کند",
+    sc_redirects: "⁦ICMP redirect⁩ را نادیده می‌گیرد (ربودن مسیر)", sc_send_redirects: "⁦ICMP redirect⁩ نمی‌فرستد", sc_source_route: "بسته‌های source-routed را رد می‌کند",
     sc_conntrack: "جای بیشتر برای اتصال‌ها هنگام فلاد", sc_ct_timeout: "اتصال‌های بی‌کار را بعد از یک روز فراموش می‌کند نه پنج روز",
   };
   P.addStrings(EN, FA);
@@ -4699,6 +4699,7 @@ __MONITORING_EOF__
   if (!TABS.some(([id]) => id === D.tab)) D.tab = "overview";
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const sev = (n) => pill(["ok", "", "warn", "bad"][n], t(`df_sev${n}`));
+  const ltr = (s) => `\u2066${s}\u2069`;     // an address, file or name inside Persian text keeps its own direction
   const KEEP = 300;
 
   // ---------------------------------------------------------------- shell
@@ -4865,11 +4866,11 @@ __MONITORING_EOF__
 
   function talkersHTML() {
     const admins = new Set(D.st.admin_ips || []);
-    return table([
+    return `<div class="keep-table">` + table([
       { h: "df_ip", cls: "strong", cell: (r) => `${num(esc(r.ip))}${admins.has(r.ip) ? `<span class="tag">${esc(t("df_you"))}</span>` : ""}` },
       { h: "df_conns", cell: (r) => num(nf(r.conns, 0)) },
-      { h: "actions", cell: (r) => admins.has(r.ip) ? "–" : `<div class="row-actions">${btnIcon("ban", t("df_ban1h"), `data-a="ban" data-ip="${esc(r.ip)}" data-min="60"`, "danger")}${btnIcon("check", t("df_allow"), `data-a="allow" data-ip="${esc(r.ip)}"`)}</div>` },
-    ], D.talkers.slice(0, 10));
+      { h: "actions", cell: (r) => admins.has(r.ip) ? "" : `<div class="row-actions">${btnIcon("ban", t("df_ban1h"), `data-a="ban" data-ip="${esc(r.ip)}" data-min="60"`, "danger")}${btnIcon("check", t("df_allow"), `data-a="allow" data-ip="${esc(r.ip)}"`)}</div>` },
+    ], D.talkers.slice(0, 10)) + `</div>`;
   }
 
   const EVENT_IC = { f2b_ban: "jail", f2b_unban: "unlock", f2b_config: "sliders", f2b_service: "jail", attack_start: "flame", attack_end: "okmark", escalate: "alert", deescalate: "shield", ban: "ban", ssh_ban: "terminal", unban: "unlock", block: "ban", allow: "check", rollback: "refresh", applied: "sliders", confirmed: "okmark", sysctl: "gear", started: "power" };
@@ -4949,7 +4950,7 @@ __MONITORING_EOF__
       { h: "df_process", cell: (r) => esc(r.process || "–") },
       { h: "df_sys_col", cell: sysCell },
       { h: "df_state", cell: (r) => r.always ? pill("ok", t("df_locked")) : ruleFor(r) >= 0 ? pill("ok", t("df_open")) : r.restricted ? pill("warn", t("df_only_from")) : strict ? pill("bad", t("df_closed")) : pill("", t("df_open")) },
-      { h: "actions", cell: (r) => r.always ? "–" : ruleFor(r) >= 0
+      { h: "actions", cell: (r) => r.always ? "" : ruleFor(r) >= 0
         ? `<button type="button" class="btn small" data-a="fw-close" data-proto="${r.proto}" data-port="${r.port}">${esc(t("df_close_it"))}</button>`
         : `<button type="button" class="btn small" data-a="fw-open" data-proto="${r.proto}" data-port="${r.port}" data-note="${esc(r.process)}">${esc(t("df_open_it"))}</button>` },
     ], D.ports || []);
@@ -5067,7 +5068,7 @@ __MONITORING_EOF__
       const on = st.profile === p;
       return `<button type="button" class="df-opt df-prof${on ? " on" : ""}" aria-pressed="${on}" data-a="profile" data-p="${p}" ${p === "custom" ? "disabled" : ""}>
         <b>${esc(t(`df_p_${p}`))}</b><span>${esc(t(`df_p_${p}_d`))}</span>
-        <span class="df-nums">${num(`SYN ${nf(L.syn, 0)}/s · ${t("df_conns")} ${nf(L.conc, 0)} · ${t("df_l_ban").replace(/ \(.*/, "")} ${nf(L.ban, 0)}m`)}</span></button>`;
+        <span class="df-nums">${num(`SYN ${nf(L.syn, 0)}/s`)} · <bdi>${esc(t("df_conns"))}</bdi> ${num(nf(L.conc, 0))} · <bdi>${esc(t("df_l_ban").replace(/ \(.*/, ""))}</bdi> ${num(`${nf(L.ban, 0)}m`)}</span></button>`;
     };
     const inputs = LIMITS.map(([k, lo, hi]) => field(t(`df_l_${k}`), `<input type="number" name="${k}" min="${lo}" max="${hi}" step="1" required value="${esc(st.limits[k])}" dir="ltr" inputmode="numeric">`)).join("");
     const sw = (name, on, label, sub = "") => `<label class="df-switch"><span class="switch"><input type="checkbox" name="${name}" ${on ? "checked" : ""}><span></span></span><span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span></label>`;
@@ -5086,7 +5087,7 @@ __MONITORING_EOF__
   async function renderLists() {
     const b = await api("/api/defender/bans");
     D.bans = b;
-    const admins = b.admin_ips.length ? `<div class="notice ok">${icon("check")}<span>${esc(t("df_admins", { ips: b.admin_ips.join("، ") }))}</span></div>` : "";
+    const admins = b.admin_ips.length ? `<div class="notice ok">${icon("check")}<span>${esc(t("df_admins", { ips: b.admin_ips.map(ltr).join("، ") }))}</span></div>` : "";
     const bans = table([
       { h: "df_ip", cls: "strong", cell: (r) => `<code dir="ltr">${esc(r.ip)}</code>` },
       { h: "df_ban_reason", cell: banReason },
@@ -5273,8 +5274,8 @@ __MONITORING_EOF__
     df_f2b_tries: "تعداد خطای مجاز", df_f2b_window: "در مدت", df_f2b_bantime: "مدت مسدودی", df_f2b_forever: "همیشه",
     df_f2b_defaults: "تنظیمات کلی", df_f2b_defaults_sub: "برای هر محافظتی که مقدار خودش را ندارد استفاده می‌شود.",
     df_f2b_increment: "مسدودی تکراری هر بار طولانی‌تر شود", df_f2b_increment_sub: "هر مسدودی جدید همان آدرس طولانی‌تر است، تا سقف پایین.", df_f2b_maxtime: "طولانی‌ترین مسدودی",
-    df_f2b_ignore: "این آدرس‌ها هرگز مسدود نشوند", df_f2b_ignore_sub: "آی‌پی‌های خودتان، دفتر، مانیتورینگ. شبکه هم می‌شود مثل 10.0.0.0/8.", df_f2b_add_trusted: "افزودن آدرس‌های مورد اعتماد SSH",
-    df_f2b_ban_ip: "مسدود کردن یک آدرس در این جیل", df_f2b_no_bans: "در این جیل کسی مسدود نیست.", df_f2b_log: "لاگ fail2ban", df_f2b_log_sub: "آخرین خط‌های /var/log/fail2ban.log.",
+    df_f2b_ignore: "این آدرس‌ها هرگز مسدود نشوند", df_f2b_ignore_sub: "آی‌پی‌های خودتان، دفتر، مانیتورینگ. شبکه هم می‌شود مثل ⁦10.0.0.0/8⁩.", df_f2b_add_trusted: "افزودن آدرس‌های مورد اعتماد SSH",
+    df_f2b_ban_ip: "مسدود کردن یک آدرس در این جیل", df_f2b_no_bans: "در این جیل کسی مسدود نیست.", df_f2b_log: "لاگ fail2ban", df_f2b_log_sub: "آخرین خط‌های ⁦/var/log/fail2ban.log⁩.",
     df_f2b_saved: "ذخیره و اعمال شد", df_f2b_ends: "پایان",
     f2bj_sshd: "ورود SSH", f2bd_sshd: "آدرس‌هایی که رمز یا کاربر SSH را حدس می‌زنند مسدود می‌کند.",
     f2bj_recidive: "متخلفان تکراری", f2bd_recidive: "آدرس‌هایی که fail2ban بارها مسدودشان کرده، برای مدت طولانی از همه‌ی پورت‌ها مسدود می‌شوند.",
@@ -5282,7 +5283,7 @@ __MONITORING_EOF__
     "f2bj_nginx-http-auth": "صفحه‌های رمزدار Nginx", "f2bd_nginx-http-auth": "آدرس‌هایی که رمز صفحه‌های محافظت‌شده با Nginx را حدس می‌زنند مسدود می‌کند.",
     "f2bj_nginx-botsearch": "اسکنرهای آسیب‌پذیری Nginx", "f2bd_nginx-botsearch": "ربات‌هایی که دنبال صفحه‌ی مدیریت و نقطه‌ضعف‌های شناخته‌شده می‌گردند مسدود می‌کند.",
     "f2bj_nginx-bad-request": "درخواست‌های خراب Nginx", "f2bd_nginx-bad-request": "کلاینت‌هایی که درخواست HTTP خراب می‌فرستند (معمولاً اسکنر) مسدود می‌کند.",
-    "f2bj_nginx-limit-req": "فلاد درخواست Nginx", "f2bd_nginx-limit-req": "کلاینت‌هایی که Nginx محدودشان کرده مسدود می‌کند (به limit_req در تنظیمات Nginx نیاز دارد).",
+    "f2bj_nginx-limit-req": "فلاد درخواست Nginx", "f2bd_nginx-limit-req": "کلاینت‌هایی که Nginx محدودشان کرده مسدود می‌کند (به ⁦limit_req⁩ در تنظیمات Nginx نیاز دارد).",
     "f2bj_apache-auth": "صفحه‌های رمزدار Apache", "f2bd_apache-auth": "آدرس‌هایی که رمز صفحه‌های محافظت‌شده با Apache را حدس می‌زنند مسدود می‌کند.",
     "f2bj_apache-badbots": "ربات‌های بد Apache", "f2bd_apache-badbots": "ربات‌های اسپم و جمع‌کننده‌ی ایمیل را مسدود می‌کند.",
     f2bj_postfix: "سرور ایمیل (Postfix)", f2bd_postfix: "آدرس‌هایی که از سرور ایمیل سوءاستفاده می‌کنند مسدود می‌کند.",
@@ -5544,23 +5545,23 @@ __MONITORING_EOF__
     df_j_filter: "فیلتر", df_j_filter_hint: "چه الگوهایی خطا حساب شوند (فایل‌های filter.d).", df_j_logpath: "فایل‌های لاگ", df_j_logpath_hint: "هر خط یک مسیر. با backend سیستم‌دی لازم نیست.",
     df_j_backend: "روش خواندن لاگ", df_j_banaction: "روش مسدودی", df_j_banaction_hint: "آدرس‌ها چطور بسته شوند (nftables، iptables-multiport، …).", df_j_action: "اکشن‌ها (پیشرفته)",
     df_j_ignoreip: "هرگز مسدود نشوند (این جیل)", df_j_increment: "مسدودی طولانی‌تر برای تکرار", df_j_inherit: "مثل تنظیمات کلی", df_j_on: "روشن", df_j_off: "خاموش",
-    df_j_extra: "تنظیمات بیشتر", df_j_extra_hint: "هر گزینه‌ی دیگر fail2ban، هر خط یک `key = value`.", df_j_from: "از {file}", df_j_defined: "تعریف‌شده در: {files}",
-    df_j_delete_confirm: "جیل {name} حذف شود؟ بخش آن از فایل‌های /etc/fail2ban پاک می‌شود (یک پشتیبان در /etc/fail2ban/.panel-backup می‌ماند).",
+    df_j_extra: "تنظیمات بیشتر", df_j_extra_hint: "هر گزینه‌ی دیگر fail2ban، هر خط یک `⁦key = value⁩`.", df_j_from: "از {file}", df_j_defined: "تعریف‌شده در: {files}",
+    df_j_delete_confirm: "جیل {name} حذف شود؟ بخش آن از فایل‌های ⁦/etc/fail2ban⁩ پاک می‌شود (یک پشتیبان در ⁦/etc/fail2ban/.panel-backup⁩ می‌ماند).",
     df_j_deleted: "جیل حذف شد", df_j_stock_off: "این جیل همراه خود fail2ban است (jail.conf)، پس خاموش شد و تنظیمات اضافه‌اش پاک شد.", df_j_saved: "ذخیره، بررسی و اعمال شد",
-    df_files: "فایل‌های تنظیمات", df_files_sub: "همه‌ی فایل‌های fail2ban، برای هر چیزی که فرم‌ها پوشش نمی‌دهند. هر ذخیره با fail2ban-client -t بررسی می‌شود و اگر خطا داشت فایل به حالت قبل برمی‌گردد.",
-    df_file_new: "فایل جدید", df_file_path: "فایل", df_file_path_hint: "jail.d/name.local، filter.d/name.conf، action.d/name.conf، jail.local …", df_file_size: "حجم", df_file_mtime: "تغییر",
-    df_file_panel: "این فایل را پنل می‌نویسد: تغییرات اینجا دفعه‌ی بعدی که فرمی ذخیره شود جایگزین می‌شود.", df_file_deleted: "فایل حذف شد", df_file_delete_confirm: "{path} حذف شود؟ یک پشتیبان در /etc/fail2ban/.panel-backup می‌ماند.",
-    df_file_bad: "مسیری مثل jail.d/name.local یا filter.d/name.conf بنویسید",
+    df_files: "فایل‌های تنظیمات", df_files_sub: "همه‌ی فایل‌های fail2ban، برای هر چیزی که فرم‌ها پوشش نمی‌دهند. هر ذخیره با ⁦fail2ban-client -t⁩ بررسی می‌شود و اگر خطا داشت فایل به حالت قبل برمی‌گردد.",
+    df_file_new: "فایل جدید", df_file_path: "فایل", df_file_path_hint: "⁦jail.d/name.local⁩، ⁦filter.d/name.conf⁩، ⁦action.d/name.conf⁩، jail.local …", df_file_size: "حجم", df_file_mtime: "تغییر",
+    df_file_panel: "این فایل را پنل می‌نویسد: تغییرات اینجا دفعه‌ی بعدی که فرمی ذخیره شود جایگزین می‌شود.", df_file_deleted: "فایل حذف شد", df_file_delete_confirm: "{path} حذف شود؟ یک پشتیبان در ⁦/etc/fail2ban/.panel-backup⁩ می‌ماند.",
+    df_file_bad: "مسیری مثل ⁦jail.d/name.local⁩ یا ⁦filter.d/name.conf⁩ بنویسید",
     df_adv_title: "تنظیمات پیشرفته", df_adv_sub: "هر چیزی که تب‌های دیگر ثابت نگه می‌دارند. تغییرات مثل هر تغییر قانون دیگری آزمایش می‌شوند.",
     df_adv_panel: "چه کسی پنل را باز کند", df_adv_panel_sub: "فقط این آدرس‌ها به پورت پنل می‌رسند؛ بقیه هیچ جوابی نمی‌گیرند. کاربرهای واردشده با SSH و لیست سفید همیشه می‌توانند. خالی = همه.",
     df_adv_my_ip: "افزودن آدرس من ({ip})", df_adv_safety: "ایمنی", df_adv_rollback: "مدت آزمایش قبل از ماندن تغییرات", df_adv_rollback_off: "خاموش (فوری اعمال شود)",
     df_adv_lock: "پورت SSH و پنل همیشه باز بماند", df_adv_lock_sub: "خاموش: مثل بقیه‌ی پورت‌ها از حالت سخت‌گیر پیروی می‌کنند. یک اشتباه می‌تواند دسترسی شما را قطع کند.",
     df_adv_docker: "ترافیک داکر هرگز فیلتر نشود", df_adv_docker_sub: "خاموش: ترافیک کانتینرها مثل بقیه فیلتر می‌شود.", df_adv_logged: "اعتماد به آدرس‌هایی که با SSH وارد شده‌اند", df_adv_logged_sub: "خاموش: مثل بقیه محدود می‌شوند.",
     df_adv_detect: "تشخیص حمله", df_adv_detect_sub: "وقتی یکی از این‌ها ۳ ثانیه رد شود حمله شروع می‌شود و بعد از زمان آرامش تمام می‌شود.",
-    df_adv_drops: "بسته‌ی مسدود در ثانیه", df_adv_cookies: "SYN cookie در ثانیه", df_adv_pps: "بسته‌ی ورودی در ثانیه", df_adv_ct: "پر شدن جدول اتصال (درصد)", df_adv_calm: "زمان آرامش (ثانیه)",
+    df_adv_drops: "بسته‌ی مسدود در ثانیه", df_adv_cookies: "⁦SYN cookie⁩ در ثانیه", df_adv_pps: "بسته‌ی ورودی در ثانیه", df_adv_ct: "پر شدن جدول اتصال (درصد)", df_adv_calm: "زمان آرامش (ثانیه)",
     df_adv_deesc: "بازگشت به محدودیت عادی بعد از (دقیقه)", df_adv_bans: "مسدودی‌ها", df_adv_factor: "منبعی که چند برابر حد برود مسدود شود (۰ = هرگز مسدود نکن)",
     df_adv_ssh_rate: "اتصال جدید SSH در دقیقه قبل از مسدودی (۰ = بدون محدودیت)", df_adv_ssh_ban: "مدت مسدودی SSH (دقیقه)",
-    df_adv_custom: "قوانین دلخواه nftables", df_adv_custom_sub: "دستورهایی برای اتصال‌های جدید، هر خط یکی، قبل از قوانین حالت سخت‌گیر و فلاد. مثال: tcp dport 9000 ip saddr 203.0.113.0/24 accept",
+    df_adv_custom: "قوانین دلخواه nftables", df_adv_custom_sub: "دستورهایی برای اتصال‌های جدید، هر خط یکی، قبل از قوانین حالت سخت‌گیر و فلاد. مثال: ⁦tcp dport 9000 ip saddr 203.0.113.0/24 accept⁩",
     df_adv_sysctl: "تنظیمات دلخواه کرنل", df_adv_sysctl_sub: "هر تنظیم net.*، kernel.*، vm.* یا fs.*. همین الان و بعد از هر ری‌بوت اعمال می‌شود؛ حذفش مقدار اصلی را برمی‌گرداند.",
     df_adv_key: "تنظیم", df_adv_value: "مقدار", df_adv_set: "اعمال",
   });
@@ -5581,7 +5582,7 @@ __MONITORING_EOF__
     openDialog({
       title: create ? t("df_j_new") : `${jailTitle(name)} · ${t("df_j_edit")}`, submit: t("df_save"), wide: true,
       body: `${create ? field(t("df_j_name"), '<input name="name" dir="ltr" required pattern="[A-Za-z0-9_.\\-]{1,40}" autocomplete="off">', t("df_j_name_hint"))
-        : `<p class="muted">${esc(t("df_j_defined", { files: (d.defined || []).join("، ") || "—" }))}</p>`}
+        : `<p class="muted">${esc(t("df_j_defined", { files: (d.defined || []).map(ltr).join("، ") || "—" }))}</p>`}
         <label class="df-switch"><span class="switch"><input type="checkbox" name="enabled" ${enabled ? "checked" : ""}><span></span></span><span><b>${esc(t("df_j_enabled"))}</b></span></label>
         <div class="field-row">${field(t("df_j_filter"), `<input name="filter" dir="ltr" list="df-filters" value="${esc(cur("filter"))}" autocomplete="off" ${create ? "required" : ""}><datalist id="df-filters">${(d.filters || []).map((f) => `<option value="${esc(f)}">`).join("")}</datalist>`, t("df_j_filter_hint"))}
           ${sel("backend", t("df_j_backend"), BACKENDS)}</div>
@@ -5697,7 +5698,7 @@ __MONITORING_EOF__
         <div class="subcard"><div class="df-form-grid">${num_("autoban_factor", t("df_adv_factor"))}${num_("ssh_rate", t("df_adv_ssh_rate"))}${num_("ssh_ban_minutes", t("df_adv_ssh_ban"), 1)}</div></div></section>
       <section class="sec"><div class="sec-head"><h3>${icon("terminal")}${esc(t("df_adv_custom"))}</h3><p class="muted">${esc(t("df_adv_custom_sub"))}</p></div>
         <textarea name="custom_rules" class="df-code" dir="ltr" rows="7" spellcheck="false" placeholder="tcp dport 9000 ip saddr 203.0.113.0/24 accept&#10;udp dport 27015 limit rate over 200/second drop">${esc(a.custom_rules)}</textarea></section>
-      <div class="df-actions dirty"><span class="muted"></span><button type="button" class="btn" data-a="rules">${icon("eye")}<span>${esc(t("df_review"))}</span></button>
+      <div class="df-actions"><span class="muted"></span><button type="button" class="btn" data-a="rules">${icon("eye")}<span>${esc(t("df_review"))}</span></button>
         <button type="submit" class="btn primary">${icon("check")}<span>${esc(t("df_apply"))}</span></button></div></form>
       <section class="sec"><div class="sec-head"><h3>${icon("gear")}${esc(t("df_adv_sysctl"))}</h3><p class="muted">${esc(t("df_adv_sysctl_sub"))}</p></div>
         <div class="chips">${sysRows}</div>
@@ -5750,7 +5751,7 @@ __MONITORING_EOF__
     df_r_tpl_block: "مسدود کردن کشورها", df_r_tpl_only: "فقط چند کشور وصل شوند", df_r_tpl_strict: "محدودیت سخت برای کشورها", df_r_tpl_allow: "همیشه اجازه به یک آدرس", df_r_tpl_port: "بستن یک پورت برای بقیه",
     df_r_name: "نام قانون", df_r_when: "وقتی اتصال…", df_r_then: "آن‌وقت", df_r_country: "از کشور", df_r_addr: "از آدرس", df_r_proto: "با پروتکل", df_r_ports: "به پورت",
     df_r_any_country: "هر کشوری", df_r_in: "یکی از این‌ها", df_r_not_in: "هیچ‌کدام از این‌ها", df_r_any_addr: "هر آدرسی", df_r_any_proto: "هر پروتکلی", df_r_ping: "پینگ (ICMP)",
-    df_r_ports_hint: "مثلاً 22 یا 80,443 یا 8000-8100. خالی = همه‌ی پورت‌ها.", df_r_ips_hint: "هر خط یک آدرس یا شبکه (203.0.113.7، 203.0.113.0/24، 2001:db8::/32).",
+    df_r_ports_hint: "مثلاً 22 یا 80,443 یا 8000-8100. خالی = همه‌ی پورت‌ها.", df_r_ips_hint: "هر خط یک آدرس یا شبکه (203.0.113.7، ⁦203.0.113.0/24⁩، ⁦2001:db8::/32⁩).",
     df_r_search: "جستجوی کشور…", df_r_selected: "{n} انتخاب‌شده",
     df_r_a_allow: "اجازه", df_r_a_block: "مسدود", df_r_a_limit: "محدود", df_r_a_log: "فقط شمارش",
     df_r_a_allow_d: "همیشه رد شود، حتی از محدودیت‌های فلاد و حالت سخت‌گیر.", df_r_a_block_d: "دور ریخته شود. فرستنده هیچ جوابی نمی‌گیرد.",
@@ -5786,7 +5787,7 @@ __MONITORING_EOF__
     temp: () => blankRule({ name: t("df_r_tpl_temp"), action: "block", _a: true, expires: Math.floor(Date.now() / 1000) + 86400 }),
   };
 
-  const shortList = (items, f = (x) => x) => (items.length > 3 ? `${items.slice(0, 3).map(f).join("، ")} +${items.length - 3}` : items.map(f).join("، "));
+  const shortList = (items, f = (x) => x) => (items.length > 3 ? `${items.slice(0, 3).map((x) => ltr(f(x))).join("، ")} +${items.length - 3}` : items.map((x) => ltr(f(x))).join("، "));
   function summary(r) {
     const c = [];
     if (r.countries.length) c.push(t(r.country_mode === "not_in" ? "df_r_country_not" : "df_r_country_is", { list: shortList(r.countries, ccName) }));
@@ -5957,12 +5958,12 @@ __MONITORING_EOF__
     df_sv_ports: "پورت‌های SSH", df_sv_ports_hint: "هنگام جابه‌جایی هر دو پورت را نگه دارید: پورت جدید را اضافه کنید، بعد از ورود موفق با آن تغییر را نگه دارید، و بعد پورت قدیمی را حذف کنید.",
     df_sv_add_port: "افزودن پورت", df_sv_root: "ورود root", df_sv_root_yes: "مجاز (با رمز یا کلید)", df_sv_root_key: "فقط با کلید", df_sv_root_no: "ممنوع",
     df_sv_password: "ورود با رمز", df_sv_password_sub: "خاموش: فقط کلید SSH کار می‌کند. خیلی امن‌تر؛ اول کلیدتان را پایین اضافه کنید.", df_sv_tries: "رمز اشتباه در هر اتصال", df_sv_grace: "ثانیه برای ورود",
-    df_sv_idle: "قطع نشست بی‌کار بعد از", df_sv_idle_never: "هرگز", df_sv_x11: "X11 forwarding", df_sv_tcpfwd: "TCP forwarding (تانل)", df_sv_save: "اعمال روی SSH",
-    df_sv_confirm: "این تنظیمات روی SSH اعمال شود؟ SSH ری‌استارت می‌شود (این نشست باز می‌ماند). پورت‌ها: {ports}. اگر هاستینگ شما فایروال جدا دارد (مثل Hetzner Cloud Firewall)، پورت جدید را آن‌جا هم باز کنید.",
+    df_sv_idle: "قطع نشست بی‌کار بعد از", df_sv_idle_never: "هرگز", df_sv_x11: "X11 forwarding", df_sv_tcpfwd: "⁦TCP forwarding⁩ (تانل)", df_sv_save: "اعمال روی SSH",
+    df_sv_confirm: "این تنظیمات روی SSH اعمال شود؟ SSH ری‌استارت می‌شود (این نشست باز می‌ماند). پورت‌ها: {ports}. اگر هاستینگ شما فایروال جدا دارد (مثل ⁦Hetzner Cloud Firewall⁩)، پورت جدید را آن‌جا هم باز کنید.",
     df_sv_pending: "همین حالا با تنظیمات جدید دوباره وارد شوید، مثلاً: {cmd}. اگر کار کرد «نگه دار» را بزنید؛ وگرنه {left} دیگر خودش برمی‌گردد.", df_sv_kept: "تنظیمات SSH ماند", df_sv_undone: "تنظیمات SSH برگشت",
     df_sv_applied: "اعمال شد. SSH روی همه‌ی پورت‌ها جواب می‌دهد؛ حالا یک ورود جدید را امتحان کنید.", df_sv_socket: "systemd socket", df_sv_last_port: "SSH حداقل یک پورت لازم دارد",
-    df_sv_keys: "کلیدهای SSH کاربر root", df_sv_keys_sub: "کلیدهای عمومی که می‌توانند با root وارد شوند (/root/.ssh/authorized_keys).", df_sv_key_add: "افزودن کلید", df_sv_key_ph: "ssh-ed25519 AAAA… you@laptop",
-    df_sv_key_hint: "محتوای فایل id_ed25519.pub (یا id_rsa.pub) را بچسبانید. روی کامپیوترتان ssh-keygen -t ed25519 یکی می‌سازد.", df_sv_key_del: "کلید {name} حذف شود؟", df_sv_no_keys: "هنوز کلیدی نیست: فقط رمز کار می‌کند.",
+    df_sv_keys: "کلیدهای SSH کاربر root", df_sv_keys_sub: "کلیدهای عمومی که می‌توانند با root وارد شوند (⁦/root/.ssh/authorized_keys⁩).", df_sv_key_add: "افزودن کلید", df_sv_key_ph: "ssh-ed25519 AAAA… you@laptop",
+    df_sv_key_hint: "محتوای فایل ⁦id_ed25519.pub⁩ (یا ⁦id_rsa.pub⁩) را بچسبانید. روی کامپیوترتان ⁦ssh-keygen -t ed25519⁩ یکی می‌سازد.", df_sv_key_del: "کلید {name} حذف شود؟", df_sv_no_keys: "هنوز کلیدی نیست: فقط رمز کار می‌کند.",
     df_sv_type: "نوع", df_sv_comment: "نام", df_sv_fp: "اثر انگشت",
     df_tt_title: "بررسی یک آدرس", df_tt_sub: "با اتصالی از این آدرس چه می‌شود، قدم‌به‌قدم در همه‌ی لایه‌های فایروال.",
     df_tt_ip: "آدرس", df_tt_port: "پورت (اختیاری)", df_tt_check: "بررسی", df_tt_country: "کشور: {c}", df_tt_country_unknown: "کشور: نامعلوم (لیستی برایش دانلود نشده)",
@@ -6036,8 +6037,8 @@ __MONITORING_EOF__
       if (s.kind === "rule") return t(`df_tt_rule_${s.result}`, { name: s.name, rate: s.limit ? s.limit.rate : "" }) + (s.schedule ? t("df_tt_sched") : "");
       if (s.kind === "banned") return t("df_tt_banned", { left: s.left ? fmtLeft(s.left) : "–" });
       if (s.kind === "fail2ban") return t("df_tt_fail2ban", { jail: s.jail || "fail2ban" });
-      if (s.kind === "threat") return t("df_tt_threat", { feeds: s.feeds.join("، ") });
-      if (s.kind === "threat_log") return t("df_tt_threat_log", { feeds: s.feeds.join("، ") });
+      if (s.kind === "threat") return t("df_tt_threat", { feeds: s.feeds.map(ltr).join("، ") });
+      if (s.kind === "threat_log") return t("df_tt_threat_log", { feeds: s.feeds.map(ltr).join("، ") });
       if (s.kind === "limits") return t("df_tt_limits", { syn: s.limits.syn, conc: s.limits.conc });
       return t(`df_tt_${s.kind}`, s);
     };
@@ -6085,8 +6086,8 @@ __MONITORING_EOF__
     df_th_k_hijacked: "شبکه‌های ربوده‌شده", df_th_k_mixed: "ترکیبی", df_th_k_botnet: "سرورهای بات‌نت", df_th_k_compromised: "میزبان‌های آلوده", df_th_k_attackers: "مهاجم‌ها",
     df_th_k_anonymizer: "ناشناس‌ساز", df_th_k_custom: "لیست شما",
     df_th_spamhaus: "شبکه‌هایی که اسپمرها و مجرمان دزدیده‌اند. تقریباً هیچ‌وقت کاربر واقعی را نمی‌گیرد.", df_th_firehol: "ترکیب دقیق بدترین لیست‌ها (حمله، بدافزار، شبکه‌های ربوده‌شده و استفاده‌نشده).",
-    df_th_feodo: "سرورهای فرمان تروجان‌های بانکی و بات‌نت‌ها (abuse.ch). بهترین حالت همراه با مسدود کردن اتصال خروجی است.", df_th_et: "میزبان‌های آلوده‌ای که Emerging Threats رصد می‌کند.",
-    df_th_cins: "آدرس‌های بدنام از حسگرهای CINS Army.", df_th_blocklistde: "آدرس‌هایی که در ۴۸ ساعت اخیر به سرورها حمله کرده‌اند (SSH، ایمیل، وب). بزرگ است و ممکن است آدرس‌های مشترک خانگی در آن باشد.",
+    df_th_feodo: "سرورهای فرمان تروجان‌های بانکی و بات‌نت‌ها (abuse.ch). بهترین حالت همراه با مسدود کردن اتصال خروجی است.", df_th_et: "میزبان‌های آلوده‌ای که ⁦Emerging Threats⁩ رصد می‌کند.",
+    df_th_cins: "آدرس‌های بدنام از حسگرهای ⁦CINS Army⁩.", df_th_blocklistde: "آدرس‌هایی که در ۴۸ ساعت اخیر به سرورها حمله کرده‌اند (SSH، ایمیل، وب). بزرگ است و ممکن است آدرس‌های مشترک خانگی در آن باشد.",
     df_th_ipsum: "آدرس‌هایی که در روز گذشته دست‌کم در ۳ لیست سیاه مختلف گزارش شده‌اند.", df_th_greensnow: "آدرس‌هایی که حسگرهای GreenSnow حین اسکن و حدس رمز گرفته‌اند.",
     df_th_tor: "نودهای خروجی شبکه‌ی Tor. خودشان مهاجم نیستند: فقط اگر بازدیدکننده‌ی ناشناس نمی‌خواهید روشن کنید.", df_th_custom: "لیست خودتان از {site}.",
     df_th_add: "افزودن لیست خودتان", df_th_add_sub: "هر آدرس https یک لیست ساده (در هر خط یک آدرس، شبکه یا بازه؛ # و ; شروع توضیح). اول در حالت «فقط نظارت» شروع می‌شود.",
@@ -6101,15 +6102,15 @@ __MONITORING_EOF__
     const on = f.enabled;
     const desc = f.custom ? t("df_th_custom", { site: f.site }) : t(`df_th_${id}`);
     const stats = f.updated
-      ? [t("df_th_entries", { n: nf(f.v4 + f.v6, 0) }), f.addresses ? t("df_th_addrs", { n: nf(f.addresses, 0) }) : "", f.v6 ? t("df_th_v6", { n: nf(f.v6, 0) }) : "", ago(f.updated)].filter(Boolean).join(" · ")
-      : t("df_th_never");
+      ? [t("df_th_entries", { n: nf(f.v4 + f.v6, 0) }), f.addresses ? t("df_th_addrs", { n: nf(f.addresses, 0) }) : "", f.v6 ? t("df_th_v6", { n: nf(f.v6, 0) }) : "", ago(f.updated)].filter(Boolean).map((x) => `<bdi>${esc(x)}</bdi>`).join(" · ")
+      : esc(t("df_th_never"));
     const mode = on ? `<div class="df-seg th-mode" role="group" aria-label="${esc(t("df_th_mode_hint"))}">${["block", "log"].map((m) =>
       `<button type="button" class="${f.mode === m ? "on" : ""}" aria-pressed="${f.mode === m}" data-a="th-mode" data-id="${esc(id)}" data-mode="${m}">${esc(t(`df_th_mode_${m}`))}</button>`).join("")}</div>` : "";
     return `<article class="th-feed${on ? " on" : ""}${on && f.mode === "log" ? " watch" : ""}">
       <label class="th-top"><span class="switch"><input type="checkbox" data-feed="${esc(id)}" ${on ? "checked" : ""}><span></span></span>
         <span class="th-body"><b>${esc(f.name)}</b><span class="th-tags">${pill("", t(`df_th_k_${f.kind}`), false)}${f.safe ? pill("ok", t("df_th_rec"), false) : `<small class="muted">${esc(t("df_th_risky"))}</small>`}</span></span></label>
       <small class="th-desc">${esc(desc)}</small>
-      <small class="muted">${esc(stats)} · <span dir="ltr">${esc(f.site)}</span></small>
+      <small class="muted">${stats} · <span dir="ltr">${esc(f.site)}</span></small>
       ${f.error ? `<small class="th-err">${icon("alert")}<span>${esc(t("df_th_err", { e: f.error }))}</span></small>` : ""}
       <div class="th-foot">${mode}${on && f.hits ? `<span class="pill ${f.mode === "log" ? "warn" : "bad"}">${esc(t("df_th_hits", { n: nf(f.hits, 0) }))}</span>` : ""}
         <span class="th-btns">${on ? btnIcon("refresh", t("df_th_update"), `data-a="th-refresh" data-id="${esc(id)}"`) : ""}${f.custom ? btnIcon("trash", t("df_th_remove"), `data-a="th-del" data-id="${esc(id)}" data-name="${esc(f.name)}"`, "danger") : ""}</span></div>
@@ -6142,7 +6143,7 @@ __MONITORING_EOF__
     const recent = th.recent.length ? table([
       { h: "df_th_r_ip", cell: (r) => `<code dir="ltr">${esc(r.ip)}</code>` },
       { h: "df_th_r_kind", cell: (r) => pill(r.kind === "block" ? "bad" : "warn", t(`df_th_r_${r.kind}`)) },
-      { h: "df_th_r_lists", cell: (r) => esc(r.lists.map((x) => names[x] || x).join("، ") || "–") },
+      { h: "df_th_r_lists", cell: (r) => esc(r.lists.map((x) => ltr(names[x] || x)).join("، ") || "–") },
       { h: "df_th_r_when", cell: (r) => esc(ago(Date.now() / 1000 - r.ago)) },
       { h: "actions", cell: (r) => `<button type="button" class="btn small" data-a="th-allow" data-ip="${esc(r.ip)}">${icon("check")}<span>${esc(t("df_th_allow"))}</span></button>` },
     ], th.recent) : `<div class="empty">${esc(t("df_th_none_recent"))}</div>`;
@@ -6569,7 +6570,7 @@ __MONITORING_EOF__
     cx_in: "ورودی", cx_out: "خروجی", cx_all: "همه", cx_int: "داخلی",
     cx_live: "زنده · هر {s}", cx_paused: "متوقف", cx_pause: "توقف", cx_resume: "ادامه", cx_read: "خواندن جدول {s}",
     cx_search: "جستجوی آی‌پی، کشور، شبکه، پورت، سرویس...", cx_proto: "پروتکل", cx_state: "وضعیت", cx_any: "همه",
-    cx_half_state: "نیمه‌باز (نشانه‌ی SYN flood)", cx_clear: "پاک کردن فیلترها",
+    cx_half_state: "نیمه‌باز (نشانه‌ی ⁦SYN flood⁩)", cx_clear: "پاک کردن فیلترها",
     cx_f_cc: "کشور", cx_f_port: "پورت", cx_f_ip: "آدرس", cx_f_asn: "شبکه",
     cx_k_conns: "اتصال", cx_k_ips: "آی‌پی", cx_k_cc: "کشور", cx_k_asn: "شبکه", cx_k_half: "نیمه‌باز", cx_k_bytes: "حجم (همین اتصال‌ها)",
     cx_k_table: "جدول کرنل: {n} از {max}", cx_bytes_off: "شمارش حجم هر اتصال خاموش است", cx_bytes_on: "روشن کردن",
@@ -6583,7 +6584,7 @@ __MONITORING_EOF__
     cx_trend: "اتصال‌های ورودی در طول زمان", cx_trend_sub: "از وقتی این صفحه باز شده. پرتعدادترین کشورها جدا رسم شده‌اند.", cx_trend_total: "کل ورودی", cx_trend_half: "نیمه‌باز",
     cx_lan: "شبکه‌ی محلی", cx_unknown: "نامشخص",
     cx_ins_country: "{share} اتصال‌های ورودی از {cc} است ({ips} آی‌پی).",
-    cx_ins_half: "{share} اتصال‌های ورودی نیمه‌باز است ({n})؛ نشانه‌ی معمول حمله‌ی SYN flood.",
+    cx_ins_half: "{share} اتصال‌های ورودی نیمه‌باز است ({n})؛ نشانه‌ی معمول حمله‌ی ⁦SYN flood⁩.",
     cx_ins_subnet: "{share} اتصال‌های ورودی از یک زیرشبکه است: {net} ({ips} آی‌پی).",
     cx_ins_ip: "یک آی‌پی {share} اتصال‌های ورودی را گرفته: {ip} ({n}).",
     cx_ins_asn: "{share} اتصال‌های ورودی از یک شبکه است: {org}.",
@@ -6602,7 +6603,7 @@ __MONITORING_EOF__
     cx_report_peak: "در اوج: {n} اتصال ورودی، {half} نیمه‌باز، از {ips} آی‌پی.",
     cx_db_loading: "در حال دریافت پایگاه‌داده‌ی کشور و شبکه‌ی آی‌پی‌ها (حدود ۲۲ مگابایت، ماهی یک بار). تا آماده شود آی‌پی‌ها بدون کشور نشان داده می‌شوند.",
     cx_db_error: "پایگاه‌داده‌ی کشور و شبکه دریافت نشد: {e}", cx_db_retry: "تلاش دوباره",
-    cx_db_ok: "موقعیت‌ها: DB-IP Lite (CC BY 4.0) و iptoasn.com، به‌روزرسانی {date}. نقشه: svg-maps (CC BY 4.0).",
+    cx_db_ok: "موقعیت‌ها: ⁦DB-IP Lite⁩ (⁦CC BY 4.0⁩) و iptoasn.com، به‌روزرسانی {date}. نقشه: svg-maps (⁦CC BY 4.0⁩).",
     cx_acct: "شمارش حجم هر اتصال", cx_acct_sub: "از شمارش اتصال کرنل استفاده می‌کند (کمی CPU). اتصال‌هایی شمرده می‌شوند که بعد از روشن کردن شروع شوند.",
     cx_truncated: "جدول اتصال‌ها خیلی بزرگ است؛ فقط {n} مورد اول خوانده شد.",
     cx_loading: "در حال خواندن جدول اتصال‌ها...",
@@ -7336,9 +7337,9 @@ __MONITORING_EOF__
     sec_nav: "امنیت پنل", sec_desc: "چه کسی، از کجا وارد این پنل می‌شود و چه اتفاقی افتاده. برای قوی‌ترین محافظت ورود دومرحله‌ای را روشن کنید.",
     sec_score_good: "پنل خوب محافظت می‌شود", sec_score_warn: "پنل را می‌شود بهتر محافظت کرد",
     sec_2fa: "ورود دومرحله‌ای", sec_2fa_on: "روشن: در هر ورود کد گوشی لازم است.", sec_2fa_off: "خاموش: هر کس رمز را بداند می‌تواند وارد شود.",
-    sec_2fa_enable: "روشن کردن", sec_2fa_disable: "خاموش کردن", sec_2fa_step1: "برای شروع رمز عبور را وارد کنید.", sec_2fa_step2: "این کلید را در یک برنامه‌ی احراز هویت (Google Authenticator، Microsoft Authenticator، Authy، 2FAS …) اضافه کنید: گزینه‌ی «وارد کردن کلید» را بزنید، یا لینک را روی گوشی باز کنید.",
+    sec_2fa_enable: "روشن کردن", sec_2fa_disable: "خاموش کردن", sec_2fa_step1: "برای شروع رمز عبور را وارد کنید.", sec_2fa_step2: "این کلید را در یک برنامه‌ی احراز هویت (⁦Google Authenticator⁩، ⁦Microsoft Authenticator⁩، Authy، 2FAS …) اضافه کنید: گزینه‌ی «وارد کردن کلید» را بزنید، یا لینک را روی گوشی باز کنید.",
     sec_2fa_key: "کلید راه‌اندازی", sec_2fa_link: "باز کردن در برنامه‌ی احراز هویت", sec_2fa_code: "کد ۶ رقمی برنامه", sec_2fa_done: "ورود دومرحله‌ای روشن شد. دستگاه‌های دیگر خارج شدند.", sec_2fa_off_done: "ورود دومرحله‌ای خاموش شد",
-    sec_2fa_lost: "گوشی را گم کردید؟ روی سرور فایل data/panel/totp.json را پاک کنید تا خاموش شود.", sec_password: "رمز عبور", sec_next: "بعدی", sec_confirm_disable: "خاموش کردن ورود دومرحله‌ای",
+    sec_2fa_lost: "گوشی را گم کردید؟ روی سرور فایل ⁦data/panel/totp.json⁩ را پاک کنید تا خاموش شود.", sec_password: "رمز عبور", sec_next: "بعدی", sec_confirm_disable: "خاموش کردن ورود دومرحله‌ای",
     sec_sessions: "دستگاه‌های واردشده", sec_sessions_sub: "هر مرورگری که وارد شده. نشست بعد از یک روز بی‌استفاده یا بعد از دو هفته تمام می‌شود.", sec_device: "دستگاه", sec_address: "آدرس",
     sec_started: "ورود", sec_last: "آخرین فعالیت", sec_this: "همین دستگاه", sec_revoke: "خروج", sec_revoke_others: "خروج همه‌ی دستگاه‌های دیگر", sec_revoked: "خارج شد",
     sec_login: "محافظت ورود", sec_login_sub: "{n} تلاش اشتباه در ۱۵ دقیقه آدرس را قفل می‌کند (۱۵ دقیقه، هر بار دو برابر تا یک روز). بعد از {f} تلاش اشتباه، فایروال آن را یک ساعت مسدود می‌کند.",
@@ -13466,7 +13467,7 @@ __MONITORING_EOF__
       d_rules: "هشدار چه زمانی فعال شود. آستانه‌ها را عوض کنید، قانونی را خاموش کنید یا پیش‌فرض‌ها را برگردانید.",
       d_settings: "رمز پنل، دسترسی داکر و اطلاعات این نصب.",
       nx_nodata: "هنوز داده‌ی کارت شبکه نرسیده. نرخ‌ها حدود ۳۰ ثانیه داده می‌خواهند؛ اگر خالی ماند تب تارگت‌ها را ببینید.",
-      nx_nojob: "اکسپورتر node-net در Prometheus نیست. install.sh را دوباره اجرا کنید یا بزنید: docker compose up -d && docker compose restart panel prometheus",
+      nx_nojob: "اکسپورتر node-net در Prometheus نیست. install.sh را دوباره اجرا کنید یا بزنید: ⁦docker compose up -d⁩ && ⁦docker compose restart panel prometheus⁩",
       nx_down: "اکسپورتر node-net قطع است و کارت‌های شبکه خوانده نمی‌شوند. خطا:",
       d_targets: "همه‌ی چیزهایی که Prometheus از آن‌ها متریک می‌گیرد. تارگت قطع یعنی متریکش را نداریم.",
       d_alerts: "هشدارهایی که فعال هستند یا در شرف فعال شدن‌اند. زمان فعال شدنشان را در صفحه‌ی قوانین هشدار عوض کنید.",
@@ -13492,7 +13493,7 @@ __MONITORING_EOF__
       hint_dns: "پنل اصلاً نام «{service}» را پیدا نمی‌کند ({detail}). DNS داخلی داکر جواب نمی‌دهد.",
       hint_svc: "{service} در دسترس است ولی درست جواب نمی‌دهد: {detail}",
       hint_disk: "دیسک {detail} پر است. وقتی جای خالی نباشد Prometheus از کار می‌افتد.",
-      hint_dns_external: "DNS اینترنت هم کار نمی‌کند ({detail}). resolver سرور (/etc/resolv.conf) خراب است یا فایروال جلویش را گرفته و داکر از آن استفاده می‌کند.",
+      hint_dns_external: "DNS اینترنت هم کار نمی‌کند ({detail}). resolver سرور (⁦/etc/resolv.conf⁩) خراب است یا فایروال جلویش را گرفته و داکر از آن استفاده می‌کند.",
       lv_ok: "عادی", lv_warn: "بالا", lv_bad: "بحرانی", address: "آدرس", more: "بیشتر", tbl_view: "نمایش جدول", time: "زمان",
       err_api: "داده‌ها بارگذاری نشد", last_update: "آخرین بروزرسانی", auto: "بروزرسانی خودکار هر ۱۰ ثانیه", ago: "پیش",
       live_on: "زنده · بروزرسانی هر", live_every: "فاصله‌ی بروزرسانی عددهای زنده", live_sec: "{n} ثانیه", live_wait: "در حال اتصال به داده‌ی زنده…", live_waiting: "در انتظار داده‌ی زنده…", live_tag: "زنده",
@@ -13502,7 +13503,7 @@ __MONITORING_EOF__
       confirm: "لطفاً تأیید کنید", actions: "عملیات", minutes: "دقیقه", added: "اضافه شد", removed: "حذف شد", reset_defaults: "بازگشت به پیش‌فرض",
       a_restart: "ری‌استارت", c_done: "انجام شد",
       c_docker_off: "دسترسی داکر خاموش است، پس وضعیت کانتینرهای استک را نمی‌شود نشان داد. برای فعال‌سازی سوکت داکر را مونت کنید (تنظیمات را ببینید).",
-      add_site: "افزودن سایت یا پورت", type_http: "سایت (HTTP / HTTPS)", type_tcp: "پورت TCP", f_target: "آدرس", f_name_opt: "نام (اختیاری)",
+      add_site: "افزودن سایت یا پورت", type_http: "سایت (⁦HTTP / HTTPS⁩)", type_tcp: "پورت TCP", f_target: "آدرس", f_name_opt: "نام (اختیاری)",
       hint_http: "آدرس کامل، مثلاً https://example.com", hint_tcp: "host:port مثل 203.0.113.10:22 (SSH) یا db.internal:5432",
       probe: "آزمایش الان / چرا؟", probe_title: "نتیجه‌ی چک", probe_running: "در حال چک کردن…", probe_ok: "این چک همین الان از سرور موفق است.",
       probe_fail: "این چک از سرور ناموفق است.", probe_reason: "دلیل", probe_log: "جزئیات فنی", probe_status: "کد HTTP",
@@ -13514,7 +13515,7 @@ __MONITORING_EOF__
       probe_k_unreachable: "این سرور مسیر شبکه‌ای به این آدرس ندارد.",
       probe_k_status: "سایت پاسخ داد ولی با کد خطا (4xx یا 5xx)، پس سالم حساب نمی‌شود.",
       probe_k_other: "چک به دلیل دیگری ناموفق بود؛ جزئیات فنی پایین را ببینید.",
-      probe_k_handshake: "سایت اتصال امن را در مرحله‌ی TLS handshake رد کرد. علت‌های معمول: فقط نسخه‌ها یا رمزهای قدیمی TLS را می‌پذیرد، تنظیم گواهی/SNI خراب است، یا فایروالش IP این سرور را رد می‌کند. جدول پایین گزینه‌های جایگزین را برایتان امتحان می‌کند.",
+      probe_k_handshake: "سایت اتصال امن را در مرحله‌ی ⁦TLS handshake⁩ رد کرد. علت‌های معمول: فقط نسخه‌ها یا رمزهای قدیمی TLS را می‌پذیرد، تنظیم گواهی⁦/SNI⁩ خراب است، یا فایروالش IP این سرور را رد می‌کند. جدول پایین گزینه‌های جایگزین را برایتان امتحان می‌کند.",
       v_legacy_tls: "پذیرش TLS قدیمی (۱.۰ / ۱.۱)", v_no_verify: "نادیده گرفتن خطای گواهی", v_legacy_no_verify: "TLS قدیمی و نادیده گرفتن خطای گواهی",
       v_plain_http: "HTTP ساده (بدون رمزنگاری)", v_tcp: "فقط اتصال به پورت (TCP)",
       diag_title: "چه چیزی از سرور کار می‌کند", diag_works: "کار می‌کند", diag_fails: "ناموفق", diag_apply: "مانیتور سایت با این حالت",
@@ -13535,17 +13536,17 @@ __MONITORING_EOF__
       added_auto: "اضافه شد. پنل خودکار بهترین راه مانیتور آن را انتخاب می‌کند.", redirects_to: "ریدایرکت می‌شود به",
       probe_hint: "اگر آدرس در مرورگر شما باز می‌شود ولی اینجا ناموفق است، احتمالاً IP سرور توسط سایت یا شبکه‌اش مسدود است (برای سایت‌های میزبانی‌شده در ایران وقتی سرور مانیتورینگ خارج از ایران است رایج است) یا سرور مسیری به آن ندارد. مانیتورینگ همان چیزی را نشان می‌دهد که «سرور» می‌بیند، نه آنچه شما می‌بینید.",
       s_wait: "در انتظار", w_confirm_remove: "نظارت بر {n} متوقف شود؟", w_hint: "موارد جدید تا تکمیل اولین چک (حدود یک دقیقه) «در انتظار» نشان داده می‌شوند.",
-      add_server: "افزودن سرور", f_srv_addr: "آدرس سرور", f_srv_hint: "آی‌پی یا نام سرور همراه پورت node_exporter، مثل 203.0.113.10:9100",
+      add_server: "افزودن سرور", f_srv_addr: "آدرس سرور", f_srv_hint: "آی‌پی یا نام سرور همراه پورت ⁦node_exporter⁩، مثل 203.0.113.10:9100",
       srv_local: "همین سرور", srv_confirm_remove: "نظارت بر سرور {n} متوقف شود؟",
       srv_help_title: "چطور سرور دیگری را اضافه کنم",
-      srv_help_1: "۱. روی سرور دیگر node_exporter را اجرا کنید (داکر لازم است):",
+      srv_help_1: "۱. روی سرور دیگر ⁦node_exporter⁩ را اجرا کنید (داکر لازم است):",
       srv_help_2: "۲. پورت 9100 را فقط برای همین سرور مانیتورینگ در فایروال آن سرور باز کنید، مثلاً:",
       srv_help_3: "۳. روی «افزودن سرور» بزنید و آدرسش را به شکل IP:9100 وارد کنید.",
       tg_title: "تلگرام", tg_ok: "متصل", tg_no: "تنظیم نشده", tg_bot: "ربات",
-      tg_s1: "تلگرام را باز کنید، با @BotFather صحبت کنید، /newbot را بفرستید و توکنی که می‌دهد را کپی کنید.",
+      tg_s1: "تلگرام را باز کنید، با @BotFather صحبت کنید، ⁦/newbot⁩ را بفرستید و توکنی که می‌دهد را کپی کنید.",
       tg_s2: "ربات جدیدتان را باز کنید و Start بزنید (یا آن را به گروه اضافه کنید و یک پیام بنویسید).",
-      tg_s3: "توکن را پایین بچسبانید و «پیدا کردن Chat ID» را بزنید. چت را انتخاب کنید و ذخیره کنید.",
-      tg_token: "توکن ربات", tg_token_saved: "ذخیره‌شده: {h} (برای نگه داشتن خالی بگذارید)", tg_chat: "Chat ID", tg_find: "پیدا کردن Chat ID",
+      tg_s3: "توکن را پایین بچسبانید و «پیدا کردن ⁦Chat ID⁩» را بزنید. چت را انتخاب کنید و ذخیره کنید.",
+      tg_token: "توکن ربات", tg_token_saved: "ذخیره‌شده: {h} (برای نگه داشتن خالی بگذارید)", tg_chat: "Chat ID", tg_find: "پیدا کردن ⁦Chat ID⁩",
       tg_found: "برای انتخاب روی یک چت بزنید:", tg_none: "هنوز چتی پیدا نشد. در تلگرام به ربات پیام بدهید و دوباره تلاش کنید.",
       tg_test: "ارسال پیام آزمایشی", tg_test_ok: "پیام آزمایشی فرستاده شد. تلگرام را ببینید.", tg_saved: "تلگرام ذخیره شد. هشدارها به آنجا می‌روند.",
       tg_remove: "قطع اتصال", tg_confirm_remove: "ارسال هشدار به تلگرام متوقف شود؟", tg_removed: "اتصال تلگرام قطع شد",
@@ -13573,7 +13574,7 @@ __MONITORING_EOF__
       st_change: "تغییر اطلاعات ورود", st_mismatch: "دو رمز یکسان نیستند", st_pw_ok: "اطلاعات ورود عوض شد. دستگاه‌های دیگر خارج شدند.",
       st_docker_title: "دسترسی داکر", st_docker_on: "فعال", st_docker_off: "خاموش",
       st_docker_hint_on: "پنل از سوکت داکر فقط برای استک مانیتورینگ خودش استفاده می‌کند: نشان دادن دلیل متوقف شدن یک سرویس و ری‌استارت آن از صفحه‌ی «پیدا کردن دلیل». هر کسی به این سوکت برسد روی سرور root است؛ پس رمز قوی بگذارید و جلوی پنل HTTPS قرار دهید.",
-      st_docker_hint_off: "پنل وضعیت کانتینرهای استک خودش را نمی‌بیند. برای فعال‌سازی، مطمئن شوید مونت docker.sock در docker-compose.yml هست و PANEL_DOCKER_CONTROL برابر 0 نیست، سپس بزنید: docker compose up -d",
+      st_docker_hint_off: "پنل وضعیت کانتینرهای استک خودش را نمی‌بیند. برای فعال‌سازی، مطمئن شوید مونت docker.sock در docker-compose.yml هست و ⁦PANEL_DOCKER_CONTROL⁩ برابر 0 نیست، سپس بزنید: ⁦docker compose up -d⁩",
       st_docker_unavail: "در تنظیمات فعال است ولی سوکت داکر در دسترس نیست.",
       st_about: "درباره", st_version: "نسخه‌ی پنل",
     },
@@ -14258,7 +14259,7 @@ __MONITORING_EOF__
           { h: "target", cls: "strong", cell: (r) => `${num(esc(r.target))}${r.locked ? `<span class="tag">${esc(t("srv_local"))}</span>` : ""}` },
           { h: "name", cell: (r) => esc(r.name || "–") },
           { h: "status", cell: (r) => { const m = byInst.get(r.target); return statusPill(m && m.up, !!m); } },
-          { h: "actions", cell: (r) => (r.locked ? "–" : `<div class="row-actions">${btnIcon("trash", t("remove"), `data-act="del" data-target="${esc(r.target)}"`, "danger")}</div>`) },
+          { h: "actions", cell: (r) => (r.locked ? "" : `<div class="row-actions">${btnIcon("trash", t("remove"), `data-act="del" data-target="${esc(r.target)}"`, "danger")}</div>`) },
         ];
         const cmd = "docker run -d --name node-exporter --restart unless-stopped \\\n  --net host --pid host -v /:/host:ro,rslave \\\n  prom/node-exporter:v1.8.2 --path.rootfs=/host";
         const fw = "ufw allow from <MONITORING-SERVER-IP> to any port 9100 proto tcp";
@@ -14340,8 +14341,8 @@ __MONITORING_EOF__
         const { rules } = await api("/api/rules");
         const sev = { critical: "bad", warning: "warn", info: "info" };
         const cols = [
-          { h: "rl_enabled", cell: (r) => `<label class="switch"><input type="checkbox" data-f="enabled" ${r.enabled ? "checked" : ""} aria-label="${esc(r.name)}"><span></span></label>` },
           { h: "rl_rule", cls: "strong", cell: (r) => `${esc(T[state.lang]["rn_" + r.name] ? t("rn_" + r.name) : r.name)} <code class="rule-code" dir="ltr">${esc(r.name)}</code><div class="sub-line">${esc(t("rd_" + r.name))}</div>` },
+          { h: "rl_enabled", cell: (r) => `<label class="switch"><input type="checkbox" data-f="enabled" ${r.enabled ? "checked" : ""} aria-label="${esc(r.name)}"><span></span></label>` },
           { h: "severity", cell: (r) => pill(sev[r.severity] || "", T[state.lang]["sev_" + r.severity] ? t("sev_" + r.severity) : r.severity, false) },
           { h: "rl_threshold", cell: (r) => (r.has_threshold ? `<span class="inline-field"><input type="number" data-f="value" step="any" min="${r.min}" max="${r.max}" value="${esc(r.value)}" aria-label="${esc(t("rl_threshold"))}"><small>${esc(r.unit)}</small></span>` : "–") },
           { h: "rl_for", cell: (r) => `<span class="inline-field"><input type="number" data-f="for" step="1" min="0" max="1440" value="${esc(r.for)}" aria-label="${esc(t("rl_for"))}"><small>${esc(t("minutes"))}</small></span>` },
@@ -14906,7 +14907,7 @@ __MONITORING_EOF__
         { h: "status", cell: (r) => pill(CONTAINER_STATE[r.state] || "", stateLabel(r.state)) },
         { h: "diag_exit", cell: (r) => num(r.state === "running" ? "–" : String(r.exit_code ?? "–")) + (r.oom ? ` <span class="tag">OOM</span>` : "") },
         { h: "diag_restarts", cell: (r) => num(String(r.restarts)) },
-        { h: "actions", cell: (r) => (r.state === "running" ? "–" : `<div class="row-actions">${btnIcon("refresh", t("a_restart"), `data-diag-restart="${esc(r.id)}"`)}</div>`) },
+        { h: "actions", cell: (r) => (r.state === "running" ? "" : `<div class="row-actions">${btnIcon("refresh", t("a_restart"), `data-diag-restart="${esc(r.id)}"`)}</div>`) },
       ], d.containers) : `<div class="notice">${icon("bell")}<span>${esc(t("c_docker_off"))}</span></div>`;
       const logs = Object.entries(d.logs).map(([name, text]) => `<h4>${esc(t("diag_logs", { s: name }))}</h4><pre class="logs short">${esc(text || "–")}</pre>`).join("");
       const extra = [d.disk ? `<span class="chip">${icon("disk")}${esc(t("disk"))} <b>${num(`${nf(d.disk.pct, 0)}%`)}</b></span>` : "", `<span class="chip">${icon("globe")}DNS <b>${esc(d.dns_external.ok ? t("diag_ok") : t("diag_fail"))}</b></span>`].join("");
@@ -15507,7 +15508,7 @@ select {
 .notice.warn .ico { color: var(--s-warn); }
 
 /* ---------- tables */
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface-2) 40%, transparent); }
+.table-wrap { overflow-x: auto; contain: inline-size; min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface-2) 40%, transparent); }
 table { width: 100%; border-collapse: collapse; min-width: 640px; }
 th, td { text-align: start; padding: 14px 16px; white-space: nowrap; }
 th { font-size: 12px; letter-spacing: .03em; color: var(--muted); font-weight: 700; background: color-mix(in srgb, var(--surface-2) 80%, transparent); border-bottom: 1px solid var(--line); }
@@ -15721,18 +15722,20 @@ dialog.sheet::backdrop { background: rgba(3, 7, 12, .6); backdrop-filter: blur(4
   thead { display: none; }
   tbody tr { border: 1px solid var(--line); border-radius: 16px; background: var(--surface-2); padding: 12px 14px; margin-bottom: 10px; }
   tbody tr:hover td { background: none; }
-  td { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 7px 0; border: 0; white-space: normal; text-align: end; min-width: 0; }
-  td::before { content: attr(data-label); color: var(--muted); font-size: 12px; font-weight: 600; text-align: start; flex: none; }
+  td { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px 12px; padding: 7px 0; border: 0; white-space: normal; text-align: start; min-width: 0; overflow-wrap: anywhere; }
+  td:empty, td.act:empty { display: none; }
+  td > * { min-width: 0; max-width: 100%; }
+  td::before { content: attr(data-label); color: var(--muted); font-size: 12px; font-weight: 600; text-align: start; flex: 0 0 min(36%, 132px); }
   td:first-child { display: block; text-align: start; padding-top: 0; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); font-size: 15px; }
   td:first-child::before { display: none; }
   td.wrap-cell { min-width: 0; }
   td .sub-line { max-width: none; }
-  td .chips { justify-content: flex-end; }
+  td .chips { justify-content: flex-start; }
   td .mini-bar { min-width: 0; width: 100%; max-width: 190px; }
   td[data-label=""]::before, td:not([data-label])::before { display: none; }
-  td.act { justify-content: flex-end; padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--line); }
+  td.act { justify-content: flex-start; padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--line); }
   td.act::before { display: none; }
-  .row-actions { gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .row-actions { gap: 8px; flex-wrap: wrap; justify-content: flex-start; }
   .row-actions .btn.small.icon { width: 42px; height: 42px; }
   .btn.small { height: 40px; }
   .tools .btn.small { height: 40px; }
@@ -15779,7 +15782,7 @@ button.chip:disabled { cursor: default; opacity: .6; }
 .chip .ipl { font-size: 10.5px; letter-spacing: .08em; color: var(--accent); background: var(--accent-soft); padding: 0 6px; border-radius: 6px; line-height: 1.7; }
 
 /* ================================================================== network page: traffic usage */
-.sec { display: grid; gap: 14px; }
+.sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .sec + .sec { margin-top: 26px; }
 .sec-head { display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; }
 .sec-head h3 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; }
@@ -15882,7 +15885,7 @@ pre.logs.short { height: auto; max-height: 220px; }
 .df-tab:hover { color: var(--ink); background: var(--surface); }
 .df-tab.on { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
 .df-tab:focus-visible, .df-opt:focus-visible, .df-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.df-body { display: grid; gap: 22px; }
+.df-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
 .df-hero .hero-text .hero-meta { margin-top: 12px; }
 .df-hero-act { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; position: relative; z-index: 1; margin-inline-start: auto; }
 .df-cta { padding: 12px 22px; font-size: 15px; }
@@ -15927,9 +15930,9 @@ pre.logs.short { height: auto; max-height: 220px; }
 .chip-x:hover { color: var(--s-bad); background: color-mix(in srgb, var(--s-bad) 12%, transparent); }
 .chip-x .ico { width: 14px; height: 14px; }
 .df-inline { margin-top: 10px; flex-wrap: wrap; }
-.df-actions { position: sticky; bottom: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); }
+.df-actions { position: static; bottom: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); }
 .df-actions > .muted { margin-inline-end: auto; }
-.df-actions.dirty { border-color: color-mix(in srgb, var(--s-warn) 45%, var(--line)); }
+.df-actions.dirty { position: sticky; border-color: color-mix(in srgb, var(--s-warn) 45%, var(--line)); }
 .df-actions.dirty > .muted { color: var(--s-warn); font-weight: 650; }
 .df-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0 14px; }
 .df-switch { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; cursor: pointer; }
@@ -16410,6 +16413,48 @@ tr.cx-picked td { background: color-mix(in srgb, var(--s-bad) 7%, transparent); 
 @media (min-width: 700px) and (max-width: 980px) {
   .cx .cx-ipt tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .cx .cx-ipt tbody tr { margin: 0; }
+}
+
+/* ---- phones: firewall tiles two per row; small tables marked keep-table stay tables */
+@media (max-width: 699px) {
+  .tiles.df-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .keep-table .table-wrap { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: none; }
+  .keep-table table { display: table; width: 100%; min-width: 0; }
+  .keep-table thead { display: table-header-group; }
+  .keep-table tbody { display: table-row-group; }
+  .keep-table tbody tr, .keep-table tr { display: table-row; border: 0; padding: 0; margin: 0; background: none; border-radius: 0; }
+  .keep-table th, .keep-table td, .keep-table td:first-child { display: table-cell; padding: 8px 10px; margin: 0; font-size: 13px; border: 0; border-bottom: 1px solid var(--line); text-align: start; vertical-align: middle; white-space: normal; }
+  .keep-table tbody tr:last-child td { border-bottom: 0; }
+  .keep-table td::before { display: none; }
+  .keep-table td.act { width: 1%; padding-top: 4px; padding-bottom: 4px; border-top: 0; margin: 0; }
+  .keep-table td.act:empty { display: table-cell; }
+  .keep-table .row-actions { flex-wrap: nowrap; gap: 4px; }
+  .keep-table .row-actions .btn.small.icon { width: 38px; height: 38px; }
+}
+
+/* ---- tablets: tables fit their card (cells wrap) instead of hiding columns behind a sideways scroll */
+@media (min-width: 700px) and (max-width: 1099px) {
+  table { min-width: 0; }
+  th, td { padding: 11px 12px; white-space: normal; }
+  td .num, td .pill, td .btn { white-space: nowrap; }
+  .cx-rows table { min-width: 0; }
+}
+@media (min-width: 700px) and (max-width: 1099px) {
+  th, td { padding: 10px; overflow-wrap: anywhere; }
+  .inline-field { flex-wrap: wrap; }
+  .inline-field input { width: 74px; }
+  .rule-code { display: block; margin: 2px 0 0; }
+}
+
+/* ---- very small phones (320-420 px) */
+@media (max-width: 420px) {
+  .seg { display: flex; max-width: 100%; }
+  .tr-chart header .seg, .cx-trend-card > header .seg { width: 100%; }
+  .seg button { flex: 1 1 0; min-width: 0; padding-inline: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cx .cx-compact td, .cx .cx-compact th { padding: 7px 6px; overflow-wrap: anywhere; }
+  .cx .cx-compact .num { display: inline; }
+  .keep-table th, .keep-table td { padding: 7px 6px; overflow-wrap: anywhere; }
+  .keep-table .num { display: inline; }
 }
 __MONITORING_EOF__
   write_file panel/static/fonts.css 644 <<'__MONITORING_EOF__'
