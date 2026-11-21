@@ -22,7 +22,7 @@ POST_PATHS = {"config", "confirm", "revert", "block", "unblock", "allow", "unall
               "f2b/service", "f2b/install", "f2b/uninstall", "f2b/jail", "f2b/jail/delete", "f2b/defaults", "f2b/ban", "f2b/unban",
               "f2b/file", "f2b/file/delete", "import", "sshd/apply", "sshd/confirm", "sshd/revert", "sshd/key/add",
               "sshd/key/remove", "test", "threat/refresh", "threat/custom/add", "threat/custom/remove", "port/open", "port/close", "sysfw/ufw",
-              "conns/acct", "conns/geo", "conns/ban", "conns/history"}
+              "conns/acct", "conns/geo", "conns/ban", "conns/history", "conns/activity"}
 NOT_RUNNING = ("The firewall service (defender) is not running. On the server run: "
                "cd /opt/server-monitoring && docker compose up -d --build defender")
 JAIL_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
@@ -65,7 +65,7 @@ CONN_PARAMS = {
     "dir": re.compile(r"^(in|out|int|all)$"), "proto": re.compile(r"^[a-z0-9-]{1,12}$"), "state": re.compile(r"^[A-Z_]{1,16}$"),
     "port": re.compile(r"^\d{1,5}$"), "cc": re.compile(r"^([A-Z]{2}|LAN|\?)$"), "asn": re.compile(r"^\d{1,10}$"),
     "ip": re.compile(r"^[0-9a-fA-F:.]{2,45}(/\d{1,3})?$"), "limit": re.compile(r"^\d{1,4}$"), "id": re.compile(r"^\d{1,12}$"),
-    "q": re.compile(r"^[^\x00-\x1f]{1,80}$"), "hist": re.compile(r"^1$"), "qcc": re.compile(r"^[A-Z]{2}(,[A-Z]{2}){0,249}$"),
+    "q": re.compile(r"^[^\x00-\x1f]{1,80}$"), "hist": re.compile(r"^1$"), "win": re.compile(r"^(now|1h|24h)$"), "qcc": re.compile(r"^[A-Z]{2}(,[A-Z]{2}){0,249}$"),
 }
 
 

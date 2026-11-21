@@ -1895,6 +1895,7 @@ POST = {
     "/conns/ban": api_conn_ban,
     "/conns/history": lambda b: (conns.set_history(bool(b.get("on"))), {"history_on": conns.history_on()})[1],
     "/conns/geo": lambda b: (ipdb.ensure(DATA, force=True), ipdb.status(DATA))[1],
+    "/conns/activity": lambda b: (conns.activity.set_on(bool(b.get("on"))), conns.activity.status())[1],
 }
 
 

@@ -45,6 +45,7 @@ FILES=(
   defender/sources.py:644
   defender/ipdb.py:644
   defender/conns.py:644
+  defender/activity.py:644
   panel/static/index.html:644
   panel/static/login.html:644
   panel/static/app.js:644

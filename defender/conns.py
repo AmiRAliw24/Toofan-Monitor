@@ -21,6 +21,7 @@ import subprocess
 import threading
 import time
 
+import activity
 import hostinfo
 import ipdb
 
@@ -33,6 +34,7 @@ WELL_KNOWN = {20: "ftp-data", 21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp", 53
               3389: "rdp", 5060: "sip", 5432: "postgres", 5900: "vnc", 6379: "redis", 8080: "http-alt", 8443: "https-alt",
               9090: "prometheus", 9100: "node-exporter", 11211: "memcached", 27017: "mongodb", 51820: "wireguard"}
 ACCT = "/proc/sys/net/netfilter/nf_conntrack_acct"
+WINDOWS = {"1h": 3600, "24h": 86400}   # the periods the page counts requests over
 
 _lock = threading.Lock()
 _snap = None                   # the last snapshot
@@ -56,6 +58,7 @@ def configure(data, ip_status, on_report=None):
     global _data, _ip_status, _on_report
     _data, _ip_status, _on_report = data, ip_status, on_report
     _load_history()
+    activity.configure(data, _locals)
     threading.Thread(target=_housekeeping, daemon=True).start()
     threading.Thread(target=_history_loop, daemon=True).start()
 
@@ -409,8 +412,94 @@ def _query(params):
         limit = 300
     return {"dir": d, "proto": s("proto").lower(), "state": s("state").upper(), "port": s("port"), "cc": s("cc").upper(),
             "asn": s("asn"), "ip": s("ip"), "text": s("q", 80).lower(), "limit": limit, "hist": s("hist") == "1",
+            "win": s("win") if s("win") in WINDOWS else "now",
             # countries whose name in the viewer's language matches the search text (the page sends their codes)
             "qcc": {c for c in s("qcc", 900).upper().split(",") if len(c) == 2 and c.isalpha()}}
+
+
+def _eff(q, e):
+    """An address's requests in a window, counting only the port / protocol the view is filtered to."""
+    if not (q["port"] or q["proto"]):
+        return e[0]
+    n = 0
+    for label, k in e[4].items():
+        port, _, proto = label.partition("/") if "/" in label else ("", "", label)
+        if label and (not q["port"] or port == q["port"]) and (not q["proto"] or proto == q["proto"]):
+            n += k
+    return n
+
+
+def _act_match(q, ip, e, cc, asn, org):
+    if q["cc"] and (cc or "?") != q["cc"]:
+        return False
+    if q["asn"] and str(asn or "") != q["asn"]:
+        return False
+    if q["ip"] and ip != q["ip"] and _subnet(ip) != q["ip"]:
+        return False
+    if (q["port"] or q["proto"]) and not _eff(q, e):
+        return False
+    if q["state"] == "HALF" and not e[3]:
+        return False
+    if q["text"]:
+        hay = f"{ip} {' '.join(e[4])} {cc or ''} {asn or ''} {org or ''}".lower()
+        if q["text"] not in hay and (cc or "") not in q["qcc"]:
+            return False
+    return True
+
+
+def _activity(q, bks, orgs):
+    """The requests of a window (activity.py) added up the way view() adds up open connections."""
+    tot = activity.total(bks)
+    filtered = bool(q["cc"] or q["asn"] or q["ip"] or q["port"] or q["proto"] or q["state"] == "HALF" or q["text"])
+    countries, ports, ips, asns, subnets = {}, {}, {}, {}, {}
+    req = failed = bin_t = bout_t = other = 0
+    svc_map = _svc_cache["map"]
+    for ip, e in tot.items():
+        if ip == activity.OTHER:
+            if not filtered:
+                req += e[0]; failed += e[3]; bin_t += e[1]; bout_t += e[2]; other = e[0]
+            continue
+        cc, asn, org = geo(ip)
+        if not _act_match(q, ip, e, cc, asn, org):
+            continue
+        n, bi, bo, fl, pts = _eff(q, e), e[1], e[2], e[3], e[4]
+        req += n; failed += fl; bin_t += bi; bout_t += bo
+        if asn:
+            orgs[asn] = org
+        c = countries.setdefault(cc or "?", [0, 0, set()])
+        c[0] += n; c[1] += fl; c[2].add(ip)
+        for label, k in pts.items():
+            if not label:
+                continue
+            port, _, proto = label.partition("/") if "/" in label else ("", "", label)
+            if (q["port"] and port != q["port"]) or (q["proto"] and proto != q["proto"]):
+                continue
+            svc = None
+            if port.isdigit():
+                svc = (svc_map.get((proto, int(port))) if q["dir"] != "out" else None) or WELL_KNOWN.get(int(port))
+            pr = ports.setdefault((proto, port), [0, 0, set(), collections.Counter(), svc, set()])
+            pr[0] += k; pr[2].add(ip); pr[3][cc or "?"] += k
+        ips[ip] = [n, fl, pts, None, bi, bo, cc, asn]
+        if asn:
+            ar = asns.setdefault(asn, [0, set(), cc])
+            ar[0] += n; ar[1].add(ip)
+        sr = subnets.setdefault(_subnet(ip), [0, set(), cc])
+        sr[0] += n; sr[1].add(ip)
+    # requests over time: one point per bucket, for the same addresses
+    series = []
+    for start, length, b in bks:
+        n = fl = 0
+        per = collections.Counter()
+        for ip, e in b.items():
+            if ip in ips:
+                k = _eff(q, e)
+                n += k; fl += e[3]
+                per[ips[ip][6] or "?"] += k
+            elif ip == activity.OTHER and not filtered:
+                n += e[0]; fl += e[3]
+        series.append({"t": start, "span": round(length), "in": n, "half": fl, "cc": dict(per.most_common(12))})
+    return {"countries": countries, "ports": ports, "ips": ips, "asns": asns, "subnets": subnets, "series": series,
+            "req": req, "failed": failed, "bytes_in": bin_t, "bytes_out": bout_t, "other": other}
 
 
 def view(params):
@@ -458,14 +547,39 @@ def view(params):
         sr[0] += n; sr[1].add(remote)
         rows.append((key, g, cc, asn))
 
+    # requests (connections opened) per address: over the chosen window, or the last hour next to the open ones
+    ast = activity.status()
+    win = q["win"]
+    secs = WINDOWS.get(win, 3600)
+    counting = ast["on"] and q["dir"] in ("in", "out", "all")
+    A = _activity(q, activity.buckets(secs, q["dir"]) if counting else [], orgs)
+    windowed = win != "now" and counting
+
     def top(dct, n, fn, keyf=lambda kv: -kv[1][0]):
         return [fn(k, v) for k, v in sorted(dct.items(), key=keyf)[:n]]
 
     st_of = _ip_status or (lambda ip: {})
-    ip_rows = top(ips, 150, lambda ip, v: {
-        "ip": ip, "cc": v[6], "asn": v[7], "conns": v[0], "half": v[1], "ports": [p for p, _ in v[2].most_common(4)],
-        "nports": len(v[2]), "states": dict(v[3].most_common(4)), "bytes_in": v[4], "bytes_out": v[5],
-        "first": _first_seen.get(ip), "subnet": _subnet(ip), **st_of(ip)})
+    aips = A["ips"]
+
+    def ip_row(ip):
+        live, act = ips.get(ip), aips.get(ip)
+        base = live or act
+        if windowed and act:
+            plist = sorted(((k, n) for k, n in act[2].items() if k), key=lambda x: -x[1])
+        else:
+            plist = live[2].most_common() if live else sorted(((k, n) for k, n in act[2].items() if k), key=lambda x: -x[1])
+        bi = (live[4] if live else 0) + (act[4] if act and windowed else 0)
+        bo = (live[5] if live else 0) + (act[5] if act and windowed else 0)
+        return {"ip": ip, "cc": base[6], "asn": base[7], "conns": live[0] if live else 0, "half": live[1] if live else 0,
+                "req": act[0] if act else 0, "failed": act[1] if act else 0,
+                "ports": [p for p, _ in plist[:4]], "nports": len(plist), "states": dict(live[3].most_common(4)) if live else {},
+                "bytes_in": bi, "bytes_out": bo, "first": _first_seen.get(ip), "subnet": _subnet(ip), **st_of(ip)}
+
+    if windowed:
+        order = sorted(set(ips) | set(aips), key=lambda ip: (-(aips[ip][0] if ip in aips else 0), -(ips[ip][0] if ip in ips else 0)))
+    else:
+        order = sorted(ips, key=lambda ip: (-ips[ip][0], -(aips[ip][0] if ip in aips else 0)))
+    ip_rows = [ip_row(ip) for ip in order[:200]]
     # the busiest remote addresses first, then their rows
     rank = {ip: -v[0] for ip, v in ips.items()}
     rows.sort(key=lambda r: (rank[r[0][2]], -r[1][0]))
@@ -473,24 +587,31 @@ def view(params):
                  "n": g[0], "half": g[1], "bytes_in": g[2], "bytes_out": g[3], "ttl": g[4], "cc": cc, "asn": asn}
                 for k, g, cc, asn in rows[:q["limit"]]]
 
+    # what the country / port / network lists and the findings count: requests in the window, or open connections
+    M = A if windowed else {"countries": countries, "ports": ports, "ips": ips, "asns": asns, "subnets": subnets}
+    m_total, m_bad = (A["req"], A["failed"]) if windowed else (conns, half)
     nips = len(ips)
     result = {
         "at": snap["at"], "took": snap["took"], "interval": snap["interval"], "entries": snap["entries"], "max": snap["max"],
         "truncated": snap["truncated"], "acct": acct_on(), "db": db, "query": {**q, "qcc": sorted(q["qcc"])},
-        "dirs": dict(dirs),
+        "dirs": dict(dirs), "win": win if windowed else "now",
         "summary": {"conns": conns, "ips": nips, "countries": len([c for c in countries if c not in ("?", "LAN")]), "asns": len(asns),
                     "half": half, "bytes_in": bin_t, "bytes_out": bout_t, "proto": dict(by_proto), "states": dict(by_state.most_common(12))},
-        "countries": top(countries, 60, lambda cc, v: {"cc": cc, "conns": v[0], "half": v[1], "ips": len(v[2])}),
-        "ports": top(ports, 40, lambda k, v: {"proto": k[0], "port": k[1], "svc": v[4], "conns": v[0], "half": v[1], "ips": len(v[2]),
-                                             "ccs": [c for c, _ in v[3].most_common(4)], "targets": sorted(v[5])[:3]}),
-        "ips": ip_rows,
-        "asns": top(asns, 40, lambda a, v: {"asn": a, "org": orgs.get(a), "cc": v[2], "conns": v[0], "ips": len(v[1])}),
-        "subnets": top(subnets, 40, lambda net, v: {"net": net, "cc": v[2], "conns": v[0], "ips": len(v[1])}),
+        "act": {**ast, "counting": counting, "win": win if windowed else "1h", "secs": secs, "req": A["req"], "failed": A["failed"],
+                "ips": len(aips), "countries": len([c for c in A["countries"] if c not in ("?", "LAN")]), "asns": len(A["asns"]),
+                "bytes_in": A["bytes_in"], "bytes_out": A["bytes_out"], "other": A["other"], "series": A["series"]},
+        "countries": top(M["countries"], 60, lambda cc, v: {"cc": cc, "conns": v[0], "half": v[1], "ips": len(v[2])}),
+        "ports": top(M["ports"], 40, lambda k, v: {"proto": k[0], "port": k[1], "svc": v[4], "conns": v[0], "half": v[1], "ips": len(v[2]),
+                                                  "ccs": [c for c, _ in v[3].most_common(4)], "targets": sorted(v[5])[:3]}),
+        "ips": ip_rows, "ips_total": len(order),
+        "asns": top(M["asns"], 40, lambda a, v: {"asn": a, "org": orgs.get(a), "cc": v[2], "conns": v[0], "ips": len(v[1])}),
+        "subnets": top(M["subnets"], 40, lambda net, v: {"net": net, "cc": v[2], "conns": v[0], "ips": len(v[1])}),
         "rows": out_rows, "rows_total": len(rows),
-        "orgs": {a: orgs[a] for a in {r["asn"] for r in out_rows if r["asn"]} | {r["asn"] for r in ip_rows if r["asn"]} if a in orgs},
+        "orgs": {a: orgs[a] for a in {r["asn"] for r in out_rows if r["asn"]} | {r["asn"] for r in ip_rows if r["asn"]}
+                 | {x["asn"] for x in top(M["asns"], 40, lambda a, v: {"asn": a})} if a in orgs},
         "timeline": list(_timeline),
         "history": list(_history) if q["hist"] else None, "history_on": history_on(),
-        "insights": insights(conns, half, countries, subnets, ips, asns, q["dir"]),
+        "insights": insights(m_total, m_bad, M["countries"], M["subnets"], M["ips"], M["asns"], q["dir"]),
         "reports": [{k: r[k] for k in ("id", "since", "ended", "reason", "conns", "top_cc", "top_port")} for r in reports()][::-1],
     }
     return result
@@ -622,4 +743,5 @@ def detail(params):
     cc, asn, org = geo(ip)
     v = view({"ip": ip, "dir": "all", "limit": 500})
     return {"ip": ip, "cc": cc, "asn": asn, "org": org, "subnet": _subnet(ip), "first": _first_seen.get(ip), "ptr": _ptr(ip),
-            "summary": v["summary"], "ports": v["ports"], "rows": v["rows"], **((_ip_status or (lambda i: {}))(ip))}
+            "summary": v["summary"], "ports": v["ports"], "rows": v["rows"], "acct": v["acct"],
+            "activity": activity.ip_detail(ip) if activity.on() else None, **((_ip_status or (lambda i: {}))(ip))}
