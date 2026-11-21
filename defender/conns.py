@@ -41,6 +41,7 @@ _timeline = collections.deque()
 _first_seen = {}
 _local = {"at": 0, "set": frozenset()}
 _geo_cache = {}
+_geo_gen = [0]                 # the ipdb tables the cache was filled from
 _subnets = {}
 _data = "/data"
 _ip_status = None              # agent callback: ip -> {"banned": ..., "blocked": ..., "allowed": ..., "threat": [names]}
@@ -81,16 +82,23 @@ def _locals():
 
 
 def geo(ip):
+    if _geo_gen[0] != ipdb.generation:
+        # new tables (also the very first ones: everything looked up while they were downloading was unknown)
+        _geo_cache.clear()
+        _geo_gen[0] = ipdb.generation
     hit = _geo_cache.get(ip)
     if hit is None:
         if len(_geo_cache) > 300_000:
             _geo_cache.clear()
         try:
             a = ipaddress.ip_address(ip)
-            if a.is_private or a.is_loopback or a.is_link_local:
+            if a.version == 6 and (a.ipv4_mapped or a.teredo):
+                a = a.ipv4_mapped or a.teredo[1]        # an IPv4 client seen through IPv6
+            # not reachable from the internet (private, carrier-grade NAT 100.64/10, link-local, reserved, ...)
+            if not a.is_global or a.is_multicast:
                 hit = ("LAN", None, None)
             else:
-                g = ipdb.lookup(_data, ip)
+                g = ipdb.lookup(_data, str(a))
                 hit = (g["cc"], g["asn"], g["org"])
         except ValueError:
             hit = (None, None, None)

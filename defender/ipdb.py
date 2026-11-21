@@ -1,10 +1,11 @@
 """Country and network (ASN / provider) of any IP address, offline.
 
-Two free databases, downloaded only once the connections view is used, refreshed monthly:
+Free databases, downloaded only once the connections view is used, refreshed monthly:
   * DB-IP "IP to Country Lite" (CC BY 4.0, https://db-ip.com): the country of every IPv4 range;
-  * iptoasn.com (public domain): the AS number, its name and its registered country, IPv4 and IPv6
-    (the country for IPv6 addresses comes from here).
-Every source has mirrors (jsDelivr, GitHub, ...); the first that works is used. They are turned once into
+  * geo-whois-asn-country (CC0, sapics/ip-location-db): the country of every IPv6 range;
+  * iptoasn.com (public domain): the AS number, its name and its registered country, IPv4 and IPv6.
+Every source has mirrors and alternatives of the same format (jsDelivr's CDNs first: they are reachable
+from most networks, also where a single site is blocked); the first that works is used. They are turned once into
 compact binary tables in DATA/ipdb (sorted range starts for a binary search), which load in a few
 milliseconds and take about 15 MB of memory; they are dropped from memory again after 20 idle minutes.
 """
@@ -19,13 +20,20 @@ import time
 
 import sources
 
-COUNTRY4 = [f"https://{h}/npm/@ip-location-db/dbip-country/dbip-country-ipv4.csv"
-            for h in ("cdn.jsdelivr.net", "fastly.jsdelivr.net", "gcore.jsdelivr.net", "testingcf.jsdelivr.net")] + \
-    ["https://raw.githubusercontent.com/sapics/ip-location-db/main/dbip-country/dbip-country-ipv4.csv"]
+CDN = ("cdn.jsdelivr.net", "fastly.jsdelivr.net", "gcore.jsdelivr.net", "testingcf.jsdelivr.net")
+
+
+def _npm(pkg, v):
+    return [f"https://{h}/npm/@ip-location-db/{pkg}/{pkg}-ipv{v}.csv" for h in CDN]
+
+
+# start,end,CC per line: the first source that works is used, the others are alternatives of the same format
+COUNTRY = {4: _npm("dbip-country", 4) + _npm("geo-whois-asn-country", 4) + _npm("iptoasn-country", 4),
+           6: _npm("geo-whois-asn-country", 6) + _npm("iptoasn-country", 6) + _npm("dbip-country", 6)}
 ASN = ["https://iptoasn.com/data/ip2asn-combined.tsv.gz"]
 # fallback for the AS data when iptoasn.com cannot be reached: the same kind of data as two CSV files
-ASN_CSV = {v: [f"https://{h}/npm/@ip-location-db/asn/asn-ipv{v}.csv"
-               for h in ("cdn.jsdelivr.net", "fastly.jsdelivr.net", "gcore.jsdelivr.net", "testingcf.jsdelivr.net")] for v in (4, 6)}
+ASN_CSV = {v: [f"https://{h}/npm/@ip-location-db/asn/asn-ipv{v}.csv" for h in CDN] for v in (4, 6)}
+VERSION = 2          # tables built by an older version are rebuilt (version 2 added the IPv6 countries)
 MAX_AGE = 30 * 86400
 IDLE_UNLOAD = 20 * 60
 
@@ -33,6 +41,7 @@ _lock = threading.Lock()
 _db = None            # the loaded tables
 _used = 0.0           # last lookup
 _job = {"state": "idle", "error": "", "at": 0}
+generation = 0        # +1 every time new tables are ready: callers drop what they looked up before
 
 
 def _dir(data):
@@ -71,21 +80,44 @@ def _build(data):
     os.makedirs(tmp, exist_ok=True)
     used = {}
 
-    # countries (IPv4)
-    path = os.path.join(tmp, "country4.csv")
-    used["country"] = sources.fetch_file(COUNTRY4, path, check=lambda p: os.path.getsize(p) > 1_000_000 and open(p).readline().count(",") == 2)
     ccs, cidx = [], {}
+
+    def cc_index(cc):
+        if cc not in cidx:
+            cidx[cc] = len(ccs)
+            ccs.append(cc)
+        return cidx[cc]
+
+    def csv_ok(p):
+        with open(p, encoding="utf-8", errors="replace") as f:
+            return os.path.getsize(p) > 200_000 and f.readline().count(",") == 2
+
+    # countries: IPv4 (needed) and IPv6 (without it an IPv6 address only gets its network's country)
     c_start, c_end, c_cc = array.array("L"), array.array("L"), array.array("H")
-    with open(path) as f:
-        for line in f:
-            a, b, cc = line.rstrip("\n").split(",")
-            if ":" in a or not cc:
-                continue
-            if cc not in cidx:
-                cidx[cc] = len(ccs)
-                ccs.append(cc)
-            c_start.append(_v4(a)); c_end.append(_v4(b)); c_cc.append(cidx[cc])
-    os.unlink(path)
+    c6_start, c6_end, c6_cc = bytearray(), bytearray(), array.array("H")
+    for v in (4, 6):
+        path = os.path.join(tmp, f"country{v}.csv")
+        try:
+            used[f"country{v}"] = sources.fetch_file(COUNTRY[v], path, check=csv_ok)
+        except ValueError as e:
+            if v == 4:
+                raise ValueError(f"country data: {e}")
+            continue
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                p = line.rstrip("\r\n").split(",")
+                if len(p) != 3 or not p[2] or (":" in p[0]) != (v == 6):
+                    continue
+                try:
+                    if v == 4:
+                        c_start.append(_v4(p[0])); c_end.append(_v4(p[1])); c_cc.append(cc_index(p[2]))
+                    else:
+                        a, b = _v6(p[0]), _v6(p[1])
+                        c6_start.extend(a); c6_end.extend(b); c6_cc.append(cc_index(p[2]))
+                except (OSError, ValueError):
+                    del c_start[len(c_cc):], c_end[len(c_cc):]      # a broken line: nothing half added
+                    continue
+        os.unlink(path)
 
     # networks (AS number, name, country), IPv4 and IPv6
     names, nidx = [], {}
@@ -96,17 +128,14 @@ def _build(data):
     def add(start, end, asn, cc, name):
         if not asn or asn == "0":
             return
+        name = name.strip().strip('"').strip()      # some sources quote a name twice
         key = f"{asn}\t{cc}\t{name}"
         if key not in nidx:
             nidx[key] = len(names)
             names.append(key)
         if ":" in start:
             a6_start.extend(_v6(start)); a6_end.extend(_v6(end))
-            a6_asn.append(int(asn)); a6_name.append(nidx[key])
-            if cc not in cidx:
-                cidx[cc] = len(ccs)
-                ccs.append(cc)
-            a6_cc.append(cidx[cc])
+            a6_asn.append(int(asn)); a6_name.append(nidx[key]); a6_cc.append(cc_index(cc))
         else:
             a4_start.append(_v4(start)); a4_end.append(_v4(end)); a4_asn.append(int(asn)); a4_name.append(nidx[key])
 
@@ -143,7 +172,7 @@ def _build(data):
                 f.write(arr)
             else:
                 arr.tofile(f)
-    for name, arr in (("c4s", c_start), ("c4e", c_end), ("c4c", c_cc), ("a4s", a4_start), ("a4e", a4_end), ("a4a", a4_asn), ("a4n", a4_name),
+    for name, arr in (("c4s", c_start), ("c4e", c_end), ("c4c", c_cc), ("c6s", c6_start), ("c6e", c6_end), ("c6c", c6_cc), ("a4s", a4_start), ("a4e", a4_end), ("a4a", a4_asn), ("a4n", a4_name),
                       ("a6s", a6_start), ("a6e", a6_end), ("a6a", a6_asn), ("a6n", a6_name), ("a6c", a6_cc)):
         save(name, arr)
     # newline="\n": the reader splits on \n, also when this runs on Windows (tests)
@@ -151,10 +180,10 @@ def _build(data):
         f.write("\n".join(names))
     with open(os.path.join(d, "ccs.tmp"), "w", newline="\n") as f:
         f.write("\n".join(ccs))
-    for name in ("c4s", "c4e", "c4c", "a4s", "a4e", "a4a", "a4n", "a6s", "a6e", "a6a", "a6n", "a6c", "names", "ccs"):
+    for name in ("c4s", "c4e", "c4c", "c6s", "c6e", "c6c", "a4s", "a4e", "a4a", "a4n", "a6s", "a6e", "a6a", "a6n", "a6c", "names", "ccs"):
         os.replace(os.path.join(d, name + ".tmp"), os.path.join(d, name))
-    m = {"built": int(time.time()), "sources": used,
-         "rows": {"country4": len(c_start), "asn4": len(a4_start), "asn6": len(a6_asn), "networks": len(names)}}
+    m = {"built": int(time.time()), "v": VERSION, "sources": used,
+         "rows": {"country4": len(c_start), "country6": len(c6_cc), "asn4": len(a4_start), "asn6": len(a6_asn), "networks": len(names)}}
     with open(os.path.join(d, "meta.json.tmp"), "w") as f:
         json.dump(m, f)
     os.replace(os.path.join(d, "meta.json.tmp"), os.path.join(d, "meta.json"))
@@ -167,18 +196,19 @@ def _build(data):
 def ensure(data, force=False):
     """Download / refresh in the background when missing or a month old. Returns at once."""
     m = meta(data)
-    if not force and m.get("built") and time.time() - m["built"] < MAX_AGE:
-        return
+    if not force and m.get("built") and m.get("v") == VERSION and time.time() - m["built"] < MAX_AGE:
+        return      # (an older build stays in use until the new one is ready)
     if _job["state"] == "running" or (not force and _job["state"] == "error" and time.time() - _job["at"] < 900):
         return      # a failed download is retried after 15 minutes, not on every request
 
     def run():
-        global _db
+        global _db, generation
         _job.update(state="running", error="", at=time.time())
         try:
             _build(data)
             with _lock:
                 _db = None          # the next lookup loads the new tables
+                generation += 1
             _job.update(state="done", at=time.time())
         except Exception as e:
             _job.update(state="error", error=str(e)[:300], at=time.time())
@@ -206,12 +236,19 @@ def _load(data):
     names = (blob, offs)
     with open(os.path.join(d, "ccs")) as f:
         ccs = f.read().split("\n")
-    with open(os.path.join(d, "a6s"), "rb") as f:
-        a6s = f.read()
-    with open(os.path.join(d, "a6e"), "rb") as f:
-        a6e = f.read()
-    return {"c4s": arr("c4s", "L"), "c4e": arr("c4e", "L"), "c4c": arr("c4c", "H"), "a4s": arr("a4s", "L"), "a4e": arr("a4e", "L"),
-            "a4a": arr("a4a", "L"), "a4n": arr("a4n", "L"), "a6s": a6s, "a6e": a6e, "a6a": arr("a6a", "L"), "a6n": arr("a6n", "L"),
+    def raw(name, optional=False):
+        try:
+            with open(os.path.join(d, name), "rb") as f:
+                return f.read()
+        except FileNotFoundError:
+            if optional:            # built by version 1: no IPv6 countries yet
+                return b""
+            raise
+    c6c = array.array("H")
+    c6c.frombytes(raw("c6c", True))
+    return {"c4s": arr("c4s", "L"), "c4e": arr("c4e", "L"), "c4c": arr("c4c", "H"), "c6s": raw("c6s", True), "c6e": raw("c6e", True), "c6c": c6c,
+            "a6s": raw("a6s"), "a6e": raw("a6e"), "a4s": arr("a4s", "L"), "a4e": arr("a4e", "L"),
+            "a4a": arr("a4a", "L"), "a4n": arr("a4n", "L"), "a6a": arr("a6a", "L"), "a6n": arr("a6n", "L"),
             "a6c": arr("a6c", "H"), "names": names, "ccs": ccs}
 
 
@@ -252,6 +289,16 @@ def _find6(blob, n, key):
     return lo - 1
 
 
+def embedded_v4(key):
+    """The IPv4 address inside an IPv4-mapped (::ffff:a.b.c.d), NAT64 (64:ff9b::/96) or 6to4 (2002::/16)
+    IPv6 address (16 bytes), as a number; None for a plain IPv6 address."""
+    if key[:12] in (bytes(10) + b"\xff\xff", b"\x00\x64\xff\x9b" + bytes(8)):
+        return int.from_bytes(key[12:], "big")
+    if key[:2] == b"\x20\x02":
+        return int.from_bytes(key[2:6], "big")
+    return None
+
+
 def lookup(data, ip):
     """{"cc": "DE", "asn": 24940, "org": "HETZNER-AS"} (None where not known)."""
     db = _get(data)
@@ -261,13 +308,18 @@ def lookup(data, ip):
     try:
         if ":" in ip:
             key = _v6(ip)
-            n = len(db["a6a"])
-            i = _find6(db["a6s"], n, key)
-            if i >= 0 and db["a6e"][i * 16:i * 16 + 16] >= key:
-                asn, cc, name = _name(db, db["a6n"][i]).split("\t", 2)
-                out.update(asn=int(asn), org=name, cc=(db["ccs"][db["a6c"][i]] or cc or None))
-            return out
-        n = _v4(ip)
+            n = embedded_v4(key)
+            if n is None:
+                i = _find6(db["c6s"], len(db["c6c"]), key)
+                if i >= 0 and db["c6e"][i * 16:i * 16 + 16] >= key:
+                    out["cc"] = db["ccs"][db["c6c"][i]] or None
+                i = _find6(db["a6s"], len(db["a6a"]), key)
+                if i >= 0 and db["a6e"][i * 16:i * 16 + 16] >= key:
+                    asn, cc, name = _name(db, db["a6n"][i]).split("\t", 2)
+                    out.update(asn=int(asn), org=name, cc=(out["cc"] or db["ccs"][db["a6c"][i]] or cc or None))
+                return out
+        else:
+            n = _v4(ip)
     except (OSError, ValueError):
         return out
     i = bisect.bisect_right(db["c4s"], n) - 1

@@ -79,6 +79,7 @@ PRIVATE_FILES = {
     "/defender.js": ("defender.js", "text/javascript; charset=utf-8"),
     "/conns.js": ("conns.js", "text/javascript; charset=utf-8"),
     "/world.json": ("world.json", "application/json"),   # the map of the connections page (svg-maps, CC BY 4.0)
+    "/flags.json": ("flags.json", "application/json"),   # country flags as small SVGs (country-flag-icons, MIT)
     "/security.js": ("security.js", "text/javascript; charset=utf-8"),
 }
 # Generated icons, served without a login so a browser tab can always show them.
@@ -89,7 +90,7 @@ ICONS = {
 }
 
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-       "img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+       "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 WRITE_HINT = ("The panel cannot write its configuration files (permission denied). On the server run: "
               "chown -R 65534:65534 /opt/server-monitoring/data /opt/server-monitoring/prometheus/targets "
               "/opt/server-monitoring/prometheus/rules /opt/server-monitoring/alertmanager")

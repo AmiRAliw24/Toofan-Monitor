@@ -1058,6 +1058,13 @@ label.btn input[type="file"] { display: none; }
 .cx-place { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
 .cx-place > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cx-flag { font-size: 16px; line-height: 1; flex: none; }
+/* country flags (3:2 images): the size follows the text, a hairline keeps white flags visible on white */
+.flag-img { display: inline-block; width: 1.35em; height: .9em; flex: none; vertical-align: -.12em; border-radius: .16em; object-fit: cover;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 14%, transparent); background: var(--surface-3); user-select: none; }
+.flag-img { margin-inline-end: .32em; }
+.chip > .flag-img, .cx-link > .flag-img, .cx-place > .flag-img, .cx-flags .flag-img, .geo-flag > .flag-img, .cx-ipd-ip > .flag-img, .cx-alert-t .flag-img { margin-inline-end: 0; }
+.cx-flag.flag-img { font-size: 16px; }
+.df-flag.flag-img { font-size: 15px; }
 .cx-code { display: inline-grid; place-items: center; min-width: 24px; height: 17px; padding: 0 3px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: .04em; color: var(--ink); background: var(--surface-3); border: 1px solid var(--line-2); font-family: var(--mono); }
 .cx-code.lan .ico { width: 11px; height: 11px; }
 .cx-flags { display: inline-flex; gap: 4px; flex-wrap: wrap; }

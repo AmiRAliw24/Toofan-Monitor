@@ -63,9 +63,9 @@
     cx_reports: "Attack reports", cx_reports_sub: "When an attack is detected, the busiest moment of its incoming connections is saved here: where it came from and what it hit.",
     cx_reports_none: "No attacks recorded yet.", cx_report_title: "Attack of {date}", cx_report_ongoing: "ongoing", cx_report_lasted: "lasted {d}",
     cx_report_peak: "At its peak: {n} incoming connections, {half} half-open, from {ips} addresses.",
-    cx_db_loading: "Downloading the country and network database (about 22 MB, once a month). Addresses show without their country until it is ready.",
+    cx_db_loading: "Downloading the country and network database (about 40 MB, once a month). Addresses show without their country until it is ready.",
     cx_db_error: "The country and network database could not be downloaded: {e}", cx_db_retry: "Try again",
-    cx_db_ok: "Locations: DB-IP Lite (CC BY 4.0) and iptoasn.com, updated {date}. Map: svg-maps (CC BY 4.0).",
+    cx_db_ok: "Locations: DB-IP Lite (CC BY 4.0), ip-location-db (CC0) and iptoasn.com, updated {date}. Map: svg-maps (CC BY 4.0). Flags: country-flag-icons (MIT).",
     cx_acct: "Count traffic per connection", cx_acct_sub: "Uses the kernel's connection accounting (a little CPU). Counts connections that start after it is turned on.",
     cx_truncated: "The connection table is very large; only the first {n} entries were read.",
     cx_loading: "Reading the connection table...",
@@ -116,9 +116,9 @@
     cx_reports: "گزارش حمله‌ها", cx_reports_sub: "وقتی حمله‌ای تشخیص داده شود، شلوغ‌ترین لحظه‌ی اتصال‌های ورودی‌اش اینجا ذخیره می‌شود: از کجا آمده و به چه چیزی زده.",
     cx_reports_none: "هنوز حمله‌ای ثبت نشده.", cx_report_title: "حمله‌ی {date}", cx_report_ongoing: "در جریان", cx_report_lasted: "{d} طول کشید",
     cx_report_peak: "در اوج: {n} اتصال ورودی، {half} نیمه‌باز، از {ips} آی‌پی.",
-    cx_db_loading: "در حال دریافت پایگاه‌داده‌ی کشور و شبکه‌ی آی‌پی‌ها (حدود ۲۲ مگابایت، ماهی یک بار). تا آماده شود آی‌پی‌ها بدون کشور نشان داده می‌شوند.",
+    cx_db_loading: "در حال دریافت پایگاه‌داده‌ی کشور و شبکه‌ی آی‌پی‌ها (حدود ۴۰ مگابایت، ماهی یک بار). تا آماده شود آی‌پی‌ها بدون کشور نشان داده می‌شوند.",
     cx_db_error: "پایگاه‌داده‌ی کشور و شبکه دریافت نشد: {e}", cx_db_retry: "تلاش دوباره",
-    cx_db_ok: "موقعیت‌ها: ⁦DB-IP Lite⁩ (⁦CC BY 4.0⁩) و iptoasn.com، به‌روزرسانی {date}. نقشه: svg-maps (⁦CC BY 4.0⁩).",
+    cx_db_ok: "موقعیت‌ها: ⁦DB-IP Lite⁩ (⁦CC BY 4.0⁩)، ip-location-db (⁦CC0⁩) و iptoasn.com، به‌روزرسانی {date}. نقشه: svg-maps (⁦CC BY 4.0⁩). پرچم‌ها: country-flag-icons (⁦MIT⁩).",
     cx_acct: "شمارش حجم هر اتصال", cx_acct_sub: "از شمارش اتصال کرنل استفاده می‌کند (کمی CPU). اتصال‌هایی شمرده می‌شوند که بعد از روشن کردن شروع شوند.",
     cx_truncated: "جدول اتصال‌ها خیلی بزرگ است؛ فقط {n} مورد اول خوانده شد.",
     cx_loading: "در حال خواندن جدول اتصال‌ها...",
@@ -139,7 +139,7 @@
       return names.dn.of(cc) || cc;
     } catch (e) { return cc; }
   };
-  // Windows has no colour flag emoji (it shows two letters): draw a code badge there instead
+  // the panel's flag images; before they are loaded a colour emoji, or a code badge where there is none (Windows)
   const flagEmoji = (() => {
     try {
       const c = document.createElement("canvas"); c.width = c.height = 20;
@@ -152,6 +152,8 @@
   const flag = (cc) => {
     if (cc === "LAN") return `<span class="cx-flag cx-code lan" aria-hidden="true">${icon("server")}</span>`;
     if (!cc || cc === "?" || !/^[A-Z]{2}$/.test(cc)) return `<span class="cx-flag cx-code" aria-hidden="true">?</span>`;
+    const img = P.flagImg(cc, "cx-flag");
+    if (img) return img;
     if (flagEmoji) return `<span class="cx-flag" aria-hidden="true">${String.fromCodePoint(...[...cc].map((ch) => 0x1f1a5 + ch.charCodeAt(0)))}</span>`;
     return `<span class="cx-flag cx-code" aria-hidden="true">${cc}</span>`;
   };
@@ -182,6 +184,12 @@
   }
   let enNames = null;
   const enName = (cc) => { try { enNames = enNames || new Intl.DisplayNames(["en"], { type: "region" }); return enNames.of(cc) || cc; } catch (e) { return cc; } };
+
+  window.addEventListener("panel:flags", () => {
+    paint();
+    const tip = $("cx-tip");
+    if (tip) tip.hidden = true;
+  });
 
   async function load(force = false) {
     if (C.busy || (!force && C.paused)) return;

@@ -27,6 +27,7 @@ FILES=(
   panel/defender.py:644
   panel/static/defender.js:644
   panel/static/world.json:644
+  panel/static/flags.json:644
   panel/static/conns.js:644
   panel/static/security.js:644
   panel/static/boot.js:644

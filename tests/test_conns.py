@@ -234,5 +234,40 @@ class Detail(Base):
             conns.detail({"ip": "1.2.3.4; rm -rf /"})
 
 
+class Geo(unittest.TestCase):
+    """Which addresses are looked up and which are this side of the internet."""
+    def setUp(self):
+        conns._geo_cache.clear()
+        self.orig = ipdb.lookup
+        self.asked = []
+        ipdb.lookup = lambda data, ip: (self.asked.append(ip), {"cc": "IR", "asn": 1, "org": "X"})[1]
+
+    def tearDown(self):
+        ipdb.lookup = self.orig
+        conns._geo_cache.clear()
+
+    def test_special(self):
+        for ip in ("10.1.2.3", "100.64.0.1", "100.127.255.254", "169.254.1.1", "192.0.2.5", "198.18.0.1",
+                   "fd00::1", "fe80::1", "::1", "224.0.0.1", "ff02::1", "::ffff:10.0.0.1"):
+            self.assertEqual(conns.geo(ip)[0], "LAN", ip)
+        self.assertEqual(self.asked, [])
+
+    def test_public(self):
+        self.assertEqual(conns.geo("5.160.10.20")[0], "IR")
+        self.assertEqual(conns.geo("2a03:ef40::1")[0], "IR")
+        self.assertEqual(conns.geo("::ffff:5.160.10.21")[0], "IR")
+        self.assertEqual(self.asked, ["5.160.10.20", "2a03:ef40::1", "5.160.10.21"])     # the mapped one as IPv4
+        self.assertEqual(conns.geo("nonsense"), (None, None, None))
+
+    def test_new_tables(self):
+        # looked up while the database was still downloading: unknown, until the tables are ready
+        ipdb.lookup = lambda data, ip: {"cc": None, "asn": None, "org": None}
+        self.assertEqual(conns.geo("5.160.10.20")[0], None)
+        ipdb.lookup = lambda data, ip: {"cc": "IR", "asn": 1, "org": "X"}
+        self.assertEqual(conns.geo("5.160.10.20")[0], None)        # cached
+        ipdb.generation += 1
+        self.assertEqual(conns.geo("5.160.10.20")[0], "IR")
+
+
 if __name__ == "__main__":
     unittest.main()

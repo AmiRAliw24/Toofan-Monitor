@@ -1754,10 +1754,36 @@
   let resizeTimer;
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (state.view === "overview" || state.view === "network") renderView(false); }, 300); });
 
+  // ---------------------------------------------------------------- country flags
+  // One file of small SVG flags (country-flag-icons, MIT), fetched the first time a page shows a country;
+  // each flag becomes an image of its own (a blob: URL), so a long list stays light. Until the file is
+  // there flagImg() returns "" and the page shows its own fallback; "panel:flags" tells it to repaint.
+  const FLAGS = { urls: null, at: 0 };
+  function loadFlags() {
+    if (FLAGS.urls || Date.now() - FLAGS.at < 60000) return;      // loaded, loading, or failed a minute ago
+    FLAGS.at = Date.now();
+    fetch("/flags.json", { credentials: "same-origin" })            // the browser keeps it (ETag)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((m) => {
+        const urls = {};
+        for (const [cc, svg] of Object.entries(m)) {
+          if (/^[A-Z]{2}$/.test(cc) && typeof svg === "string" && svg.startsWith("<svg")) urls[cc] = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+        }
+        FLAGS.urls = urls;
+        window.dispatchEvent(new Event("panel:flags"));
+      })
+      .catch(() => { /* the pages keep their fallback; tried again later */ });
+  }
+  function flagImg(cc, cls = "") {
+    const u = FLAGS.urls && FLAGS.urls[String(cc || "").toUpperCase()];
+    if (!FLAGS.urls) loadFlags();
+    return u ? `<img class="flag-img${cls ? ` ${cls}` : ""}" src="${u}" alt="" aria-hidden="true" decoding="async" draggable="false">` : "";
+  }
+
   // ---------------------------------------------------------------- extension point (defender.js and future pages)
   window.Panel = {
     t, esc, nf, num, fmtBytes, fmtRate, fmtDur, ago, level, icon, api, post, act, toast, openDialog, confirmBox,
-    table, pill, field, btnIcon, addButton, drawChart, sparkline, tween, setHTML, renderView, state,
+    table, pill, field, btnIcon, addButton, drawChart, sparkline, tween, setHTML, renderView, state, flagImg, loadFlags,
     registerView(view, impl, after) {
       const i = VIEWS.findIndex((v) => v.id === after);
       VIEWS.splice(i < 0 ? VIEWS.length : i + 1, 0, view);

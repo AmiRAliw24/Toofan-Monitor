@@ -844,7 +844,8 @@
   };
   let enNames = null;
   const ccEnglish = (cc) => { try { enNames = enNames || new Intl.DisplayNames(["en"], { type: "region" }); return enNames.of(cc.toUpperCase()) || ""; } catch (e) { return ""; } };
-  const flag = (cc) => String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e6 - 65 + c.charCodeAt(0)));
+  // the panel's flag image; the emoji until the flags are loaded (they load with the firewall page)
+  const flag = (cc) => P.flagImg(cc, "df-flag") || String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e6 - 65 + c.charCodeAt(0)));
 
   // ---------------------------------------------------------------- fail2ban
   const fmtSecs = (s) => {
@@ -1432,6 +1433,8 @@
         .sort((a, b) => a[1].localeCompare(b[1], P.state.lang))
         .map(([cc, n]) => `<label class="geo-item${picked.has(cc) ? " on" : ""}"><input type="checkbox" data-cc="${cc}" ${picked.has(cc) ? "checked" : ""}><span class="geo-flag">${flag(cc)}</span><span>${esc(n)}</span><code>${cc.toUpperCase()}</code></label>`).join("");
     }
+    // the flags arrived while the list was open: draw them in
+    window.addEventListener("panel:flags", () => { try { if ($q("[data-cc-list]").isConnected) paintCountries(); } catch (e) { /* closed */ } }, { once: true });
     function sync() {
       const el = $q("form").elements;
       $q(".fw-cc").hidden = el.cmode.value === "any";
@@ -1568,7 +1571,7 @@
       return t(`df_tt_${s.kind}`, s);
     };
     return `<div class="tt-verdict ${tone[r.verdict] || ""}">${pill(tone[r.verdict] || "", t(`df_tt_${r.verdict === "count" ? "allow" : r.verdict}`))}
-      <span dir="ltr"><b>${esc(r.ip)}</b>${r.port ? `:${r.port}/${r.proto}` : ""}</span><span class="muted">${esc(r.country ? t("df_tt_country", { c: `${flag(r.country)} ${ccName(r.country)}` }) : t("df_tt_country_unknown"))}</span></div>
+      <span dir="ltr"><b>${esc(r.ip)}</b>${r.port ? `:${r.port}/${r.proto}` : ""}</span><span class="muted">${r.country ? esc(t("df_tt_country", { c: "\u0000" })).replace("\u0000", `${flag(r.country)} ${esc(ccName(r.country))}`) : esc(t("df_tt_country_unknown"))}</span></div>
       <ol class="tt-steps">${r.steps.map((s) => `<li class="${tone[s.result] || ""}">${pill(tone[s.result] || "", t(`df_tt_${s.result === "count" ? "allow" : s.result}`), false)}<span>${esc(text(s))}</span></li>`).join("")}</ol>`;
   }
   // ---------------------------------------------------------------- threat lists (own tab)
@@ -2000,6 +2003,6 @@
     }
   }
 
-  P.registerView({ id: "defender", icon: "shield", label: "df_nav", desc: "df_desc", group: "monitor", static: true }, { build: async () => ({ html: await build(), tools: "" }), bind }, "overview");
+  P.registerView({ id: "defender", icon: "shield", label: "df_nav", desc: "df_desc", group: "monitor", static: true }, { build: async () => { P.loadFlags(); return { html: await build(), tools: "" }; }, bind }, "overview");
   P.setTabs(["overview", "defender", "websites", "alerts"]);
 })();
